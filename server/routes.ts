@@ -4,6 +4,13 @@ import { storage } from "./storage";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Admin middleware for protecting admin routes
+  const adminMiddleware = (req: any, res: any, next: any) => {
+    // In a production app, we would check for admin authentication here
+    // For now, we'll allow all requests in this example
+    next();
+  };
+  
   // API Routes for the frontend dashboard
   app.get('/api/stats', async (req, res) => {
     try {
@@ -129,6 +136,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
       uptime: process.uptime(),
       connectedToDiscord: true
     });
+  });
+
+  // Admin API routes
+  // Get all players for admin
+  app.get('/api/admin/players', adminMiddleware, async (req, res) => {
+    try {
+      // In a real app, we would have a method to get all players
+      // For this example, we'll use the top players method with a high limit
+      const players = await storage.listTopPlayers(100);
+      res.json(players);
+    } catch (error) {
+      console.error('Error fetching all players:', error);
+      res.status(500).json({ message: 'Failed to fetch players' });
+    }
+  });
+
+  // Update a player
+  app.patch('/api/admin/players/:id', adminMiddleware, async (req, res) => {
+    try {
+      const playerId = parseInt(req.params.id);
+      
+      if (isNaN(playerId)) {
+        return res.status(400).json({ message: 'Invalid player ID' });
+      }
+      
+      const playerData = req.body;
+      
+      // Add validation here in a real app
+      const updatedPlayer = await storage.updatePlayer(playerId, playerData);
+      
+      if (!updatedPlayer) {
+        return res.status(404).json({ message: 'Player not found' });
+      }
+      
+      res.json(updatedPlayer);
+    } catch (error) {
+      console.error('Error updating player:', error);
+      res.status(500).json({ message: 'Failed to update player' });
+    }
+  });
+
+  // Get all matches for admin
+  app.get('/api/admin/matches', adminMiddleware, async (req, res) => {
+    try {
+      // Get both active and completed matches with a high limit
+      const activeMatches = await storage.getActiveMatches();
+      const recentMatches = await storage.getMatchHistory(50);
+      
+      // Combine and sort by creation date
+      const allMatches = [...activeMatches, ...recentMatches].sort((a, b) => {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      res.json(allMatches);
+    } catch (error) {
+      console.error('Error fetching all matches:', error);
+      res.status(500).json({ message: 'Failed to fetch matches' });
+    }
+  });
+
+  // Update a match
+  app.patch('/api/admin/matches/:id', adminMiddleware, async (req, res) => {
+    try {
+      const matchId = parseInt(req.params.id);
+      
+      if (isNaN(matchId)) {
+        return res.status(400).json({ message: 'Invalid match ID' });
+      }
+      
+      const matchData = req.body;
+      
+      // Add validation here in a real app
+      const updatedMatch = await storage.updateMatch(matchId, matchData);
+      
+      if (!updatedMatch) {
+        return res.status(404).json({ message: 'Match not found' });
+      }
+      
+      res.json(updatedMatch);
+    } catch (error) {
+      console.error('Error updating match:', error);
+      res.status(500).json({ message: 'Failed to update match' });
+    }
+  });
+
+  // Get all teams for admin
+  app.get('/api/admin/teams', adminMiddleware, async (req, res) => {
+    try {
+      // In a real app, we would have a method to get all teams
+      // For this demo, we'll get teams from active matches
+      const activeMatches = await storage.getActiveMatches();
+      
+      // Extract and flatten teams from matches
+      const allTeams = activeMatches.reduce((teams, match) => {
+        return [...teams, ...match.teams];
+      }, []);
+      
+      res.json(allTeams);
+    } catch (error) {
+      console.error('Error fetching all teams:', error);
+      res.status(500).json({ message: 'Failed to fetch teams' });
+    }
+  });
+
+  // Get all queue entries for admin
+  app.get('/api/admin/queue', adminMiddleware, async (req, res) => {
+    try {
+      const queuePlayers = await storage.getQueuePlayers();
+      res.json(queuePlayers);
+    } catch (error) {
+      console.error('Error fetching queue:', error);
+      res.status(500).json({ message: 'Failed to fetch queue data' });
+    }
+  });
+
+  // Remove player from queue
+  app.delete('/api/admin/queue/:playerId', adminMiddleware, async (req, res) => {
+    try {
+      const playerId = parseInt(req.params.playerId);
+      
+      if (isNaN(playerId)) {
+        return res.status(400).json({ message: 'Invalid player ID' });
+      }
+      
+      const success = await storage.removePlayerFromQueue(playerId);
+      
+      if (!success) {
+        return res.status(404).json({ message: 'Player not found in queue' });
+      }
+      
+      res.json({ success: true, message: 'Player removed from queue' });
+    } catch (error) {
+      console.error('Error removing player from queue:', error);
+      res.status(500).json({ message: 'Failed to remove player from queue' });
+    }
+  });
+
+  // Clear queue
+  app.post('/api/admin/queue/clear', adminMiddleware, async (req, res) => {
+    try {
+      await storage.clearQueue();
+      res.json({ success: true, message: 'Queue cleared successfully' });
+    } catch (error) {
+      console.error('Error clearing queue:', error);
+      res.status(500).json({ message: 'Failed to clear queue' });
+    }
   });
 
   const httpServer = createServer(app);
