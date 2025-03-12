@@ -53,10 +53,16 @@ interface PlayerMatch {
 
 export default function PlayersPage() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [activeTab, setActiveTab] = useState("all");
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editPlayerData, setEditPlayerData] = useState<{
+    mmr: number;
+    isActive: boolean;
+  }>({ mmr: 0, isActive: true });
   const playersPerPage = 12;
 
   // Get all players
@@ -167,6 +173,60 @@ export default function PlayersPage() {
       default:
         return <Badge variant="secondary">{result}</Badge>;
     }
+  };
+
+  // Initialize edit form when a player is selected
+  useEffect(() => {
+    if (selectedPlayer) {
+      setEditPlayerData({
+        mmr: selectedPlayer.mmr,
+        isActive: selectedPlayer.isActive
+      });
+    }
+  }, [selectedPlayer]);
+
+  // Update player mutation
+  const updatePlayerMutation = useMutation({
+    mutationFn: async (data: { id: number, data: Partial<Player> }) => {
+      return await apiRequest(
+        `/api/admin/players/${data.id}`,
+        'PATCH',
+        data.data
+      );
+    },
+    onSuccess: () => {
+      toast({
+        title: "Player Updated",
+        description: "Player information has been successfully updated.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/players'] });
+      // Also invalidate the player matches if they were fetched
+      if (selectedPlayer) {
+        queryClient.invalidateQueries({ queryKey: ['/api/players', selectedPlayer.id, 'matches'] });
+      }
+      setIsEditDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed",
+        description: "There was a problem updating the player.",
+        variant: "destructive",
+      });
+      console.error("Error updating player:", error);
+    }
+  });
+
+  const handleEditPlayer = () => {
+    if (!selectedPlayer) return;
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSavePlayer = () => {
+    if (!selectedPlayer) return;
+    updatePlayerMutation.mutate({ 
+      id: selectedPlayer.id, 
+      data: editPlayerData 
+    });
   };
 
   return (
@@ -363,37 +423,48 @@ export default function PlayersPage() {
               <div className="space-y-4">
                 <Card className="bg-[#2F3136] border-black/10">
                   <CardHeader className="pb-3">
-                    <div className="flex items-center">
-                      <Avatar className="h-16 w-16 mr-4">
-                        <AvatarImage 
-                          src={selectedPlayer.avatar 
-                            ? `https://cdn.discordapp.com/avatars/${selectedPlayer.discordId}/${selectedPlayer.avatar}.png` 
-                            : undefined
-                          } 
-                          alt={selectedPlayer.username} 
-                        />
-                        <AvatarFallback className="bg-[#5865F2] text-white text-xl">
-                          {getInitials(selectedPlayer.username)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="flex items-center">
-                          <CardTitle className="text-white text-xl">
-                            {selectedPlayer.username}#{selectedPlayer.discriminator}
-                          </CardTitle>
-                          {selectedPlayer.isActive ? (
-                            <Badge className="ml-2 bg-[#3BA55C]/20 text-[#3BA55C]">Active</Badge>
-                          ) : (
-                            <Badge className="ml-2 bg-[#ED4245]/20 text-[#ED4245]">Inactive</Badge>
-                          )}
-                        </div>
-                        <CardDescription className="text-[#B9BBBE]">
-                          <div className="flex items-center mt-1">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Joined {formatDate(selectedPlayer.createdAt)}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <Avatar className="h-16 w-16 mr-4">
+                          <AvatarImage 
+                            src={selectedPlayer.avatar 
+                              ? `https://cdn.discordapp.com/avatars/${selectedPlayer.discordId}/${selectedPlayer.avatar}.png` 
+                              : undefined
+                            } 
+                            alt={selectedPlayer.username} 
+                          />
+                          <AvatarFallback className="bg-[#5865F2] text-white text-xl">
+                            {getInitials(selectedPlayer.username)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="flex items-center">
+                            <CardTitle className="text-white text-xl">
+                              {selectedPlayer.username}#{selectedPlayer.discriminator}
+                            </CardTitle>
+                            {selectedPlayer.isActive ? (
+                              <Badge className="ml-2 bg-[#3BA55C]/20 text-[#3BA55C]">Active</Badge>
+                            ) : (
+                              <Badge className="ml-2 bg-[#ED4245]/20 text-[#ED4245]">Inactive</Badge>
+                            )}
                           </div>
-                        </CardDescription>
+                          <CardDescription className="text-[#B9BBBE]">
+                            <div className="flex items-center mt-1">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Joined {formatDate(selectedPlayer.createdAt)}
+                            </div>
+                          </CardDescription>
+                        </div>
                       </div>
+                      <Button 
+                        onClick={handleEditPlayer} 
+                        variant="outline" 
+                        size="sm"
+                        className="h-8 px-2"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -499,7 +570,11 @@ export default function PlayersPage() {
                   >
                     Back to List
                   </Button>
-                  <Button className="flex-1 bg-[#5865F2] hover:bg-[#4752C4]">
+                  <Button 
+                    className="flex-1 bg-[#5865F2] hover:bg-[#4752C4]"
+                    onClick={handleEditPlayer}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
                     Edit Player
                   </Button>
                 </div>
@@ -527,6 +602,92 @@ export default function PlayersPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Player Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="bg-[#36393F] text-white border-none shadow-lg sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white text-xl">Edit Player</DialogTitle>
+            <DialogDescription className="text-[#B9BBBE]">
+              Update player settings and statistics.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-3">
+            <div className="flex items-center gap-3 mb-6">
+              <Avatar className="h-16 w-16">
+                <AvatarImage 
+                  src={selectedPlayer?.avatar 
+                    ? `https://cdn.discordapp.com/avatars/${selectedPlayer.discordId}/${selectedPlayer.avatar}.png` 
+                    : undefined
+                  } 
+                  alt={selectedPlayer?.username} 
+                />
+                <AvatarFallback className="bg-[#5865F2] text-white text-xl">
+                  {selectedPlayer ? getInitials(selectedPlayer.username) : '??'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h3 className="text-white text-lg font-medium">
+                  {selectedPlayer?.username}#{selectedPlayer?.discriminator}
+                </h3>
+                <p className="text-[#B9BBBE] text-sm">ID: {selectedPlayer?.id}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="mmr" className="text-[#DCDDDE] text-sm">MMR</Label>
+              <Input 
+                id="mmr" 
+                type="number" 
+                min="0"
+                className="bg-[#40444B] border-none text-white"
+                value={editPlayerData.mmr}
+                onChange={(e) => setEditPlayerData(prev => ({
+                  ...prev,
+                  mmr: parseInt(e.target.value) || 0
+                }))}
+              />
+            </div>
+
+            <div className="flex items-center space-x-2 my-6">
+              <Switch 
+                id="isActive"
+                checked={editPlayerData.isActive}
+                onCheckedChange={(checked) => setEditPlayerData(prev => ({
+                  ...prev,
+                  isActive: checked
+                }))}
+                className="data-[state=checked]:bg-[#5865F2]"
+              />
+              <Label htmlFor="isActive" className="text-[#DCDDDE]">Player is active</Label>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsEditDialogOpen(false)}
+              className="bg-[#36393F] hover:bg-[#2F3136] border-[#202225] text-white"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSavePlayer}
+              disabled={updatePlayerMutation.isPending}
+              className="bg-[#5865F2] hover:bg-[#4752C4] text-white"
+            >
+              {updatePlayerMutation.isPending ? (
+                <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
