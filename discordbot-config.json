@@ -10,8 +10,8 @@
   },
   "matchmaking": {
     "queueSizeLimits": {
-      "min": 2,
-      "max": 10
+      "min": 8,
+      "max": 50
     },
     "autoMatchCreation": true,
     "matchCreationIntervalSeconds": 30,
