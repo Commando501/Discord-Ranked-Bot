@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, primaryKey, varchar } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -118,6 +119,93 @@ export const insertVoteKickVoteSchema = createInsertSchema(voteKickVotes).omit({
   id: true,
   createdAt: true,
 });
+
+// Relations
+export const playersRelations = relations(players, ({ many }) => ({
+  queueEntries: many(queue),
+  teamPlayers: many(teamPlayers),
+  matchVotes: many(matchVotes),
+  voteKicks: many(voteKicks, { relationName: "targetPlayer" }),
+  initiatedVoteKicks: many(voteKicks, { relationName: "initiatorPlayer" }),
+  voteKickVotes: many(voteKickVotes),
+}));
+
+export const queueRelations = relations(queue, ({ one }) => ({
+  player: one(players, {
+    fields: [queue.playerId],
+    references: [players.id],
+  }),
+}));
+
+export const matchesRelations = relations(matches, ({ many, one }) => ({
+  teams: many(teams),
+  matchVotes: many(matchVotes),
+  voteKicks: many(voteKicks),
+}));
+
+export const teamsRelations = relations(teams, ({ one, many }) => ({
+  match: one(matches, {
+    fields: [teams.matchId],
+    references: [matches.id],
+  }),
+  teamPlayers: many(teamPlayers),
+  matchVotes: many(matchVotes),
+}));
+
+export const teamPlayersRelations = relations(teamPlayers, ({ one }) => ({
+  team: one(teams, {
+    fields: [teamPlayers.teamId],
+    references: [teams.id],
+  }),
+  player: one(players, {
+    fields: [teamPlayers.playerId],
+    references: [players.id],
+  }),
+}));
+
+export const matchVotesRelations = relations(matchVotes, ({ one }) => ({
+  match: one(matches, {
+    fields: [matchVotes.matchId],
+    references: [matches.id],
+  }),
+  player: one(players, {
+    fields: [matchVotes.playerId],
+    references: [players.id],
+  }),
+  votedTeam: one(teams, {
+    fields: [matchVotes.votedTeamId],
+    references: [teams.id],
+  }),
+}));
+
+export const voteKicksRelations = relations(voteKicks, ({ one, many }) => ({
+  match: one(matches, {
+    fields: [voteKicks.matchId],
+    references: [matches.id],
+  }),
+  targetPlayer: one(players, {
+    fields: [voteKicks.targetPlayerId],
+    references: [players.id],
+    relationName: "targetPlayer",
+  }),
+  initiatorPlayer: one(players, {
+    fields: [voteKicks.initiatorPlayerId],
+    references: [players.id],
+    relationName: "initiatorPlayer",
+  }),
+  votes: many(voteKickVotes),
+}));
+
+export const voteKickVotesRelations = relations(voteKickVotes, ({ one }) => ({
+  voteKick: one(voteKicks, {
+    fields: [voteKickVotes.voteKickId],
+    references: [voteKicks.id],
+  }),
+  player: one(players, {
+    fields: [voteKickVotes.playerId],
+    references: [players.id],
+  }),
+}));
 
 // Export types
 export type Player = typeof players.$inferSelect;

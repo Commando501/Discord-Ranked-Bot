@@ -199,10 +199,22 @@ export class DatabaseStorage implements IStorage {
 
   async removePlayerFromQueue(playerId: number): Promise<boolean> {
     try {
-      const result = await db
+      // First check if the player is in the queue
+      const [entry] = await db
+        .select()
+        .from(queue)
+        .where(eq(queue.playerId, playerId));
+      
+      if (!entry) {
+        return false;
+      }
+      
+      // Delete the entry
+      await db
         .delete(queue)
         .where(eq(queue.playerId, playerId));
-      return result.rowCount > 0;
+      
+      return true;
     } catch (error) {
       console.error('Error in removePlayerFromQueue:', error);
       return false;
