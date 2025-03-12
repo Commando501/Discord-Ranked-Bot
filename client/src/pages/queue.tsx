@@ -28,7 +28,11 @@ export default function QueuePage() {
     queryKey: ['/api/queue'],
   });
 
-  const { data: botConfig } = useQuery({
+  const { data: botConfig } = useQuery<{
+    matchmaking?: {
+      minimumQueueSize?: number
+    }
+  }>({
     queryKey: ['/api/config'],
   });
   

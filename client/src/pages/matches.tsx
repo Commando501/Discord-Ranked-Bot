@@ -108,9 +108,7 @@ export default function MatchesPage() {
 
   const handleCancelMatch = async (matchId: number) => {
     try {
-      await apiRequest(`/api/matches/${matchId}/cancel`, {
-        method: 'POST',
-      });
+      await apiRequest(`/api/matches/${matchId}/cancel`, 'POST');
       toast({
         title: "Match cancelled",
         description: "The match has been cancelled and players returned to queue.",
