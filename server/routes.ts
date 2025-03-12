@@ -74,7 +74,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/players/top', async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+      
+      // Get the top players from storage
       const topPlayers = await storage.listTopPlayers(limit);
+      
+      // Log the number of players found for debugging
+      console.log(`Fetched ${topPlayers.length} top players`);
+      
       res.json(topPlayers);
     } catch (error) {
       console.error('Error fetching top players:', error);
@@ -82,7 +88,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/players/:discordId', async (req, res) => {
+  // Get player by Discord ID
+  app.get('/api/players/discord/:discordId', async (req, res) => {
     try {
       const { discordId } = req.params;
       const player = await storage.getPlayerByDiscordId(discordId);
@@ -93,7 +100,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(player);
     } catch (error) {
-      console.error('Error fetching player:', error);
+      console.error('Error fetching player by Discord ID:', error);
+      res.status(500).json({ message: 'Failed to fetch player data' });
+    }
+  });
+
+  // Get player by player ID
+  app.get('/api/players/:id', async (req, res) => {
+    try {
+      const playerId = parseInt(req.params.id);
+      
+      if (isNaN(playerId)) {
+        return res.status(400).json({ message: 'Invalid player ID' });
+      }
+      
+      const player = await storage.getPlayer(playerId);
+      
+      if (!player) {
+        return res.status(404).json({ message: 'Player not found' });
+      }
+      
+      res.json(player);
+    } catch (error) {
+      console.error('Error fetching player by ID:', error);
       res.status(500).json({ message: 'Failed to fetch player data' });
     }
   });
