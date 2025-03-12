@@ -9,6 +9,7 @@ import {
   VoteKickVote, InsertVoteKickVote,
   DiscordUser
 } from "@shared/schema";
+import { defaultBotConfig, BotConfig } from "@shared/botConfig";
 
 // Storage interface
 export interface IStorage {
@@ -52,6 +53,10 @@ export interface IStorage {
   addVoteKickVote(vote: InsertVoteKickVote): Promise<VoteKickVote>;
   getVoteKickVotes(voteKickId: number): Promise<VoteKickVote[]>;
   updateVoteKick(id: number, data: Partial<VoteKick>): Promise<VoteKick | undefined>;
+  
+  // Bot configuration operations
+  getBotConfig(): Promise<BotConfig>;
+  updateBotConfig(config: BotConfig): Promise<BotConfig>;
 }
 
 export class MemStorage implements IStorage {
@@ -63,6 +68,7 @@ export class MemStorage implements IStorage {
   private matchVotes: Map<number, MatchVote>;
   private voteKicks: Map<number, VoteKick>;
   private voteKickVotes: Map<number, VoteKickVote>;
+  private botConfig: BotConfig;
   
   private playerIdCounter: number;
   private queueIdCounter: number;
@@ -89,6 +95,9 @@ export class MemStorage implements IStorage {
     this.matchVoteIdCounter = 1;
     this.voteKickIdCounter = 1;
     this.voteKickVoteIdCounter = 1;
+    
+    // Initialize bot config with default values
+    this.botConfig = defaultBotConfig;
   }
 
   // Player operations
@@ -385,6 +394,16 @@ export class MemStorage implements IStorage {
     const updatedVoteKick = { ...voteKick, ...data };
     this.voteKicks.set(id, updatedVoteKick);
     return updatedVoteKick;
+  }
+  
+  // Bot configuration operations
+  async getBotConfig(): Promise<BotConfig> {
+    return this.botConfig;
+  }
+  
+  async updateBotConfig(config: BotConfig): Promise<BotConfig> {
+    this.botConfig = config;
+    return this.botConfig;
   }
 }
 

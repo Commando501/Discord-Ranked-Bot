@@ -2,6 +2,17 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
+import { 
+  botConfigSchema, 
+  generalConfigSchema,
+  matchmakingConfigSchema,
+  mmrConfigSchema,
+  seasonConfigSchema,
+  matchRulesConfigSchema,
+  notificationConfigSchema,
+  integrationConfigSchema,
+  dataManagementConfigSchema
+} from "@shared/botConfig";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Admin middleware for protecting admin routes
@@ -136,6 +147,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
       uptime: process.uptime(),
       connectedToDiscord: true
     });
+  });
+
+  // Bot Configuration Routes
+  
+  // Get bot configuration
+  app.get('/api/config', adminMiddleware, async (req, res) => {
+    try {
+      const config = await storage.getBotConfig();
+      res.json(config);
+    } catch (error) {
+      console.error('Error fetching bot configuration:', error);
+      res.status(500).json({ message: 'Failed to fetch bot configuration' });
+    }
+  });
+  
+  // Update bot configuration
+  app.put('/api/config', adminMiddleware, async (req, res) => {
+    try {
+      const configData = req.body;
+      
+      // Validate the configuration data
+      try {
+        const validatedConfig = botConfigSchema.parse(configData);
+        const updatedConfig = await storage.updateBotConfig(validatedConfig);
+        res.json(updatedConfig);
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          return res.status(400).json({ 
+            message: 'Invalid configuration data', 
+            errors: validationError.errors 
+          });
+        }
+        throw validationError;
+      }
+    } catch (error) {
+      console.error('Error updating bot configuration:', error);
+      res.status(500).json({ message: 'Failed to update bot configuration' });
+    }
+  });
+  
+  // Update specific configuration section
+  app.patch('/api/config/:section', adminMiddleware, async (req, res) => {
+    try {
+      const { section } = req.params;
+      const sectionData = req.body;
+      
+      // Validate the section exists
+      const validSections = [
+        'general', 'matchmaking', 'mmrSystem', 'seasonManagement',
+        'matchRules', 'notifications', 'integrations', 'dataManagement'
+      ];
+      
+      if (!validSections.includes(section)) {
+        return res.status(400).json({ message: `Invalid section: ${section}` });
+      }
+      
+      // Get current config
+      const currentConfig = await storage.getBotConfig();
+      
+      // Validate the section data
+      try {
+        let validatedSectionData;
+        
+        switch (section) {
+          case 'general':
+            validatedSectionData = generalConfigSchema.parse(sectionData);
+            break;
+          case 'matchmaking':
+            validatedSectionData = matchmakingConfigSchema.parse(sectionData);
+            break;
+          case 'mmrSystem':
+            validatedSectionData = mmrConfigSchema.parse(sectionData);
+            break;
+          case 'seasonManagement':
+            validatedSectionData = seasonConfigSchema.parse(sectionData);
+            break;
+          case 'matchRules':
+            validatedSectionData = matchRulesConfigSchema.parse(sectionData);
+            break;
+          case 'notifications':
+            validatedSectionData = notificationConfigSchema.parse(sectionData);
+            break;
+          case 'integrations':
+            validatedSectionData = integrationConfigSchema.parse(sectionData);
+            break;
+          case 'dataManagement':
+            validatedSectionData = dataManagementConfigSchema.parse(sectionData);
+            break;
+          default:
+            throw new Error('Invalid section');
+        }
+        
+        // Update the section in the config
+        const updatedConfig = {
+          ...currentConfig,
+          [section]: validatedSectionData
+        };
+        
+        // Update the full config
+        const savedConfig = await storage.updateBotConfig(updatedConfig);
+        res.json({ [section]: savedConfig[section as keyof typeof savedConfig] });
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          return res.status(400).json({ 
+            message: 'Invalid configuration data for section', 
+            errors: validationError.errors 
+          });
+        }
+        throw validationError;
+      }
+    } catch (error) {
+      console.error('Error updating configuration section:', error);
+      res.status(500).json({ message: 'Failed to update configuration section' });
+    }
   });
 
   // Admin API routes
