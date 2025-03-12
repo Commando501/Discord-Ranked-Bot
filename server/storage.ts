@@ -169,15 +169,19 @@ export class MemStorage implements IStorage {
   async createPlayer(playerData: InsertPlayer): Promise<Player> {
     const id = this.playerIdCounter++;
     const player: Player = {
-      ...playerData,
       id,
-      mmr: 1000,
-      wins: 0,
-      losses: 0,
-      winStreak: 0,
-      lossStreak: 0,
-      isActive: true,
-      createdAt: new Date()
+      mmr: playerData.mmr || 1000,
+      wins: playerData.wins || 0,
+      losses: playerData.losses || 0,
+      winStreak: playerData.winStreak || 0,
+      lossStreak: playerData.lossStreak || 0,
+      isActive: playerData.isActive !== undefined ? playerData.isActive : true,
+      createdAt: new Date(),
+      // Required fields from playerData
+      discordId: playerData.discordId,
+      username: playerData.username,
+      discriminator: playerData.discriminator,
+      avatar: playerData.avatar
     };
     this.players.set(id, player);
     return player;

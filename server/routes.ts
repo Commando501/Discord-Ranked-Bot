@@ -276,6 +276,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch players' });
     }
   });
+  
+  // Create sample players (for development/testing only)
+  app.post('/api/dev/sample-data', adminMiddleware, async (req, res) => {
+    try {
+      // Create sample players
+      const samplePlayers = [
+        {
+          username: "GamerPro",
+          discriminator: "1234",
+          discordId: "123456789012345678",
+          avatar: null,
+          mmr: 1850,
+          wins: 25,
+          losses: 12,
+          winStreak: 3,
+          lossStreak: 0,
+          isActive: true
+        },
+        {
+          username: "ProGamer",
+          discriminator: "5678",
+          discordId: "234567890123456789",
+          avatar: null,
+          mmr: 2100,
+          wins: 32,
+          losses: 8,
+          winStreak: 6,
+          lossStreak: 0,
+          isActive: true
+        },
+        {
+          username: "NoviceGamer",
+          discriminator: "9012",
+          discordId: "345678901234567890",
+          avatar: null,
+          mmr: 1200,
+          wins: 5,
+          losses: 15,
+          winStreak: 0,
+          lossStreak: 2,
+          isActive: true
+        },
+        {
+          username: "GamingLegend",
+          discriminator: "3456",
+          discordId: "456789012345678901",
+          avatar: null,
+          mmr: 2350,
+          wins: 48,
+          losses: 14,
+          winStreak: 0,
+          lossStreak: 1,
+          isActive: true
+        },
+        {
+          username: "CasualPlayer",
+          discriminator: "7890",
+          discordId: "567890123456789012",
+          avatar: null,
+          mmr: 1550,
+          wins: 18,
+          losses: 19,
+          winStreak: 2,
+          lossStreak: 0,
+          isActive: true
+        }
+      ];
+      
+      for (const playerData of samplePlayers) {
+        await storage.createPlayer(playerData);
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Sample data created successfully',
+        playerCount: samplePlayers.length
+      });
+    } catch (error) {
+      console.error('Error creating sample data:', error);
+      res.status(500).json({ message: 'Failed to create sample data' });
+    }
+  });
 
   // Update a player
   app.patch('/api/admin/players/:id', adminMiddleware, async (req, res) => {

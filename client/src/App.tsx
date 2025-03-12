@@ -9,6 +9,8 @@ import ConfigPage from "@/pages/config";
 import QueuePage from "@/pages/queue";
 import MatchesPage from "@/pages/matches";
 import HistoryPage from "@/pages/history";
+import PlayersPage from "@/pages/players";
+import LeaderboardsPage from "@/pages/leaderboards";
 
 function Router() {
   return (
@@ -21,6 +23,10 @@ function Router() {
       <Route path="/queue" component={QueuePage} />
       <Route path="/matches" component={MatchesPage} />
       <Route path="/history" component={HistoryPage} />
+      
+      {/* Players routes */}
+      <Route path="/players" component={PlayersPage} />
+      <Route path="/leaderboards" component={LeaderboardsPage} />
       
       <Route component={NotFound} />
     </Switch>
