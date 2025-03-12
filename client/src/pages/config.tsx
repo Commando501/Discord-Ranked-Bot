@@ -34,10 +34,11 @@ export default function ConfigPage() {
     mutationFn: async (section: string) => {
       if (!editedConfig || !editedConfig[section]) return null;
       
-      return apiRequest(`/api/config/${section}`, {
-        method: 'PATCH',
-        body: JSON.stringify(editedConfig[section]),
-      });
+      return apiRequest(
+        `/api/config/${section}`,
+        'PATCH',
+        editedConfig[section]
+      );
     },
     onSuccess: () => {
       toast({
