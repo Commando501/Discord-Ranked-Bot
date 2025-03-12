@@ -10,14 +10,14 @@ import { Loader2, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 // Import configuration components
-import GeneralConfigPanel from "@/components/config/general-config";
-import MatchmakingConfigPanel from "@/components/config/matchmaking-config";
-import MmrConfigPanel from "@/components/config/mmr-config";
-import SeasonConfigPanel from "@/components/config/season-config";
-import MatchRulesConfigPanel from "@/components/config/match-rules-config";
-import NotificationConfigPanel from "@/components/config/notification-config";
-import IntegrationConfigPanel from "@/components/config/integration-config";
-import DataManagementConfigPanel from "@/components/config/data-management-config";
+import GeneralConfigPanel from "../components/config/general-config";
+import MatchmakingConfigPanel from "../components/config/matchmaking-config";
+import MmrConfigPanel from "../components/config/mmr-config";
+import SeasonConfigPanel from "../components/config/season-config";
+import MatchRulesConfigPanel from "../components/config/match-rules-config";
+import NotificationConfigPanel from "../components/config/notification-config";
+import IntegrationConfigPanel from "../components/config/integration-config";
+import DataManagementConfigPanel from "../components/config/data-management-config";
 
 export default function ConfigPage() {
   const [activeTab, setActiveTab] = useState("general");
