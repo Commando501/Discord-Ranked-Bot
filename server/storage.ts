@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import {
   Player, InsertPlayer,
   Queue, InsertQueue,
@@ -10,6 +12,9 @@ import {
   DiscordUser
 } from "@shared/schema";
 import { defaultBotConfig, BotConfig } from "@shared/botConfig";
+
+// Path to the configuration file
+const CONFIG_FILE_PATH = path.join(process.cwd(), 'discordbot-config.json');
 
 // Storage interface
 export interface IStorage {
@@ -59,6 +64,56 @@ export interface IStorage {
   updateBotConfig(config: BotConfig): Promise<BotConfig>;
 }
 
+/**
+ * Helper functions for file-based configuration
+ */
+
+// Load configuration from file, or create it if it doesn't exist
+function loadConfigFromFile(): BotConfig {
+  try {
+    // Check if file exists
+    if (fs.existsSync(CONFIG_FILE_PATH)) {
+      // Read and parse the file
+      const fileContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf8');
+      const config = JSON.parse(fileContent);
+      console.log('[CONFIG] Loaded configuration from file');
+      return config;
+    } else {
+      // Create file with default config
+      saveConfigToFile(defaultBotConfig);
+      console.log('[CONFIG] Created new configuration file with defaults');
+      return defaultBotConfig;
+    }
+  } catch (error) {
+    console.error('[CONFIG] Error loading configuration file:', error);
+    return defaultBotConfig;
+  }
+}
+
+// Save configuration to file
+function saveConfigToFile(config: BotConfig): void {
+  try {
+    const configJson = JSON.stringify(config, null, 2); // Pretty print with 2 spaces
+    fs.writeFileSync(CONFIG_FILE_PATH, configJson, 'utf8');
+    console.log('[CONFIG] Saved configuration to file');
+  } catch (error) {
+    console.error('[CONFIG] Error saving configuration to file:', error);
+  }
+}
+
+// Update specific section of configuration
+function updateConfigSection(currentConfig: BotConfig, section: string, sectionConfig: any): BotConfig {
+  if (!Object.keys(currentConfig).includes(section)) {
+    console.error(`[CONFIG] Unknown section: ${section}`);
+    return currentConfig;
+  }
+  
+  return {
+    ...currentConfig,
+    [section]: sectionConfig
+  };
+}
+
 export class MemStorage implements IStorage {
   private players: Map<number, Player>;
   private queue: Map<number, Queue>;
@@ -96,8 +151,8 @@ export class MemStorage implements IStorage {
     this.voteKickIdCounter = 1;
     this.voteKickVoteIdCounter = 1;
     
-    // Initialize bot config with default values
-    this.botConfig = defaultBotConfig;
+    // Load bot config from file or initialize with defaults
+    this.botConfig = loadConfigFromFile();
   }
 
   // Player operations
@@ -403,6 +458,10 @@ export class MemStorage implements IStorage {
   
   async updateBotConfig(config: BotConfig): Promise<BotConfig> {
     this.botConfig = config;
+    
+    // Save to file
+    saveConfigToFile(config);
+    
     return this.botConfig;
   }
 }

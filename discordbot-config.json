@@ -1,0 +1,80 @@
+{
+  "general": {
+    "botStatus": {
+      "activity": "PLAYING",
+      "statusMessage": "Matchmaking"
+    },
+    "commandPrefix": "!",
+    "adminRoleIds": [],
+    "loggingLevel": "info"
+  },
+  "matchmaking": {
+    "queueSizeLimits": {
+      "min": 2,
+      "max": 10
+    },
+    "autoMatchCreation": true,
+    "matchCreationIntervalSeconds": 30,
+    "queueTimeoutMinutes": 60,
+    "minPlayersPerTeam": 5,
+    "teamBalanceMethod": "mmr",
+    "matchAnnouncementFormat": "Match #{matchId} has been created! Teams: Team {team1} vs Team {team2}",
+    "postMatchResultsFormat": "Match #{matchId} has ended! Winner: {winnerTeam}",
+    "autoEndMatchHours": 24
+  },
+  "mmrSystem": {
+    "startingMmr": 1000,
+    "kFactor": 32,
+    "mmrCalculationMethod": "elo",
+    "placementMatches": 5,
+    "mmrRangeRestrictions": true,
+    "maxMmrDifference": 300
+  },
+  "seasonManagement": {
+    "currentSeason": 1,
+    "mmrResetType": "soft",
+    "placementMatchRequirements": 10,
+    "rewardTiers": [],
+    "enableEndOfSeasonAnnouncements": true
+  },
+  "matchRules": {
+    "voteSystemSettings": {
+      "majorityPercent": 75,
+      "minVotesNeeded": 3
+    },
+    "matchTimeLimitHours": 2,
+    "enableForfeit": true,
+    "noShowTimeoutMinutes": 10,
+    "minPlayersToStart": 4,
+    "allowSubstitutes": true
+  },
+  "notifications": {
+    "matchReminders": true,
+    "reminderMinutesBefore": 5,
+    "dmNotifications": {
+      "matchCreated": true,
+      "matchReminder": true,
+      "matchEnded": true,
+      "queueTimeout": true
+    },
+    "channelNotifications": {
+      "matchCreated": true,
+      "matchEnded": true,
+      "queueStatus": true
+    },
+    "enableRoleMentions": true
+  },
+  "integrations": {
+    "apiKeys": {},
+    "webhookUrls": {},
+    "enableOAuth2": false,
+    "oauth2Settings": {},
+    "externalPlatformIntegrations": []
+  },
+  "dataManagement": {
+    "enableDataExports": true,
+    "dataRetentionDays": 365,
+    "backupSchedule": "weekly",
+    "enableDataImport": false
+  }
+}
