@@ -1,0 +1,99 @@
+import { Link, useLocation } from "wouter";
+
+export default function Sidebar() {
+  const [location] = useLocation();
+  
+  const isActive = (path: string) => location === path;
+  
+  const getNavItemClasses = (path: string) => {
+    return `flex items-center px-2 py-1.5 rounded hover:bg-[#40444B] transition-colors ${
+      isActive(path) 
+        ? 'bg-[#5865F2]/10 text-[#5865F2]' 
+        : 'text-[#DCDDDE]'
+    }`;
+  };
+
+  return (
+    <div className="w-60 bg-[#2F3136] flex-shrink-0 border-r border-black/20">
+      <div className="p-3">
+        <div className="text-[#B9BBBE] uppercase text-xs font-semibold mb-2 mt-2 px-2">
+          Bot Management
+        </div>
+        <div className="space-y-1">
+          <Link href="/">
+            <a className={getNavItemClasses("/")}>
+              <i className="ri-dashboard-line mr-2"></i>
+              <span>Dashboard</span>
+            </a>
+          </Link>
+          <Link href="/admin">
+            <a className={getNavItemClasses("/admin")}>
+              <i className="ri-user-settings-line mr-2"></i>
+              <span>Admin Settings</span>
+            </a>
+          </Link>
+          <Link href="/config">
+            <a className={getNavItemClasses("/config")}>
+              <i className="ri-settings-3-line mr-2"></i>
+              <span>Bot Configuration</span>
+            </a>
+          </Link>
+        </div>
+
+        <div className="text-[#B9BBBE] uppercase text-xs font-semibold mb-2 mt-5 px-2">
+          Matchmaking
+        </div>
+        <div className="space-y-1">
+          <Link href="/queue">
+            <a className={getNavItemClasses("/queue")}>
+              <i className="ri-team-line mr-2"></i>
+              <span>Current Queue</span>
+            </a>
+          </Link>
+          <Link href="/matches">
+            <a className={getNavItemClasses("/matches")}>
+              <i className="ri-sword-line mr-2"></i>
+              <span>Active Matches</span>
+            </a>
+          </Link>
+          <Link href="/history">
+            <a className={getNavItemClasses("/history")}>
+              <i className="ri-history-line mr-2"></i>
+              <span>Match History</span>
+            </a>
+          </Link>
+        </div>
+
+        <div className="text-[#B9BBBE] uppercase text-xs font-semibold mb-2 mt-5 px-2">
+          Players
+        </div>
+        <div className="space-y-1">
+          <Link href="/players">
+            <a className={getNavItemClasses("/players")}>
+              <i className="ri-user-line mr-2"></i>
+              <span>Player Profiles</span>
+            </a>
+          </Link>
+          <Link href="/leaderboards">
+            <a className={getNavItemClasses("/leaderboards")}>
+              <i className="ri-trophy-line mr-2"></i>
+              <span>Leaderboards</span>
+            </a>
+          </Link>
+        </div>
+
+        <div className="text-[#B9BBBE] uppercase text-xs font-semibold mb-2 mt-5 px-2">
+          Seasons
+        </div>
+        <div className="space-y-1">
+          <Link href="/seasons">
+            <a className={getNavItemClasses("/seasons")}>
+              <i className="ri-calendar-line mr-2"></i>
+              <span>Manage Seasons</span>
+            </a>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}

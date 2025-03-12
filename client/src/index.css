@@ -3,11 +3,84 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 223 7% 21%;
+    --foreground: 0 0% 98%;
+    
+    --card: 225 6% 18%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 225 6% 18%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 235 85.6% 64.7%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 220 5.3% 20%;
+    --secondary-foreground: 210 3.4% 70.6%;
+    
+    --muted: 220 4.5% 24.3%;
+    --muted-foreground: 210 3.4% 70.6%;
+    
+    --accent: 220 5.3% 20%;
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 359 60.6% 59.4%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 0% / 0.2;
+    --input: 220 5.3% 25.3%;
+    --ring: 235 85.6% 64.7%;
+    
+    /* Discord colors */
+    --discord-primary: 235 85.6% 64.7%;
+    --discord-green: 130 47.4% 45.1%;
+    --discord-red: 359 60.6% 59.4%;
+    --discord-pink: 330 81.5% 60.4%;
+    --discord-yellow: 35 90.9% 54.1%;
+    --discord-background: 220 7.8% 23.1%;
+    --discord-darker: 225 6% 18%;
+    --discord-lighter: 220 5.3% 27.3%;
+    --discord-lightest: 219 5.4% 33.3%;
+    
+    /* Chart colors */
+    --chart-1: 235 85.6% 64.7%;
+    --chart-2: 130 47.4% 45.1%;
+    --chart-3: 359 60.6% 59.4%;
+    --chart-4: 330 81.5% 60.4%;
+    --chart-5: 35 90.9% 54.1%;
+  }
+  
   * {
     @apply border-border;
   }
-
+  
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-[#36393F] text-[#DCDDDE];
   }
 }
+
+@layer components {
+  .discord-card {
+    @apply bg-[#2F3136] rounded-lg shadow-sm;
+  }
+  
+  .discord-card-header {
+    @apply border-b border-black/20 p-4 flex justify-between items-center;
+  }
+  
+  .discord-card-title {
+    @apply text-white font-semibold;
+  }
+  
+  .discord-card-content {
+    @apply p-4;
+  }
+  
+  .discord-list-item {
+    @apply flex items-center p-3 bg-[#40444B] rounded-md;
+  }
+}
+
+/* Add Remix Icon font */
+@import url('https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css');

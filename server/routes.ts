@@ -1,158 +1,136 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { initializeBot } from "./discord/bot";
-import { logger } from "./utils/logger";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Create HTTP server
-  const httpServer = createServer(app);
-
-  // API routes
-  app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  // API Routes for the frontend dashboard
+  app.get('/api/stats', async (req, res) => {
+    try {
+      const queuePlayers = await storage.getQueuePlayers();
+      const activeMatches = await storage.getActiveMatches();
+      const topPlayers = await storage.listTopPlayers(5);
+      
+      res.json({
+        queueCount: queuePlayers.length,
+        activeMatchesCount: activeMatches.length,
+        topPlayers
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      res.status(500).json({ message: 'Failed to fetch statistics' });
+    }
   });
 
-  // Player endpoints
-  app.get('/api/players', async (_req, res) => {
+  app.get('/api/queue', async (req, res) => {
     try {
-      const players = await storage.getAllPlayers();
-      res.json(players);
+      const queuePlayers = await storage.getQueuePlayers();
+      res.json(queuePlayers);
     } catch (error) {
-      logger.error('Error fetching players', { error });
-      res.status(500).json({ message: 'Error fetching players' });
+      console.error('Error fetching queue:', error);
+      res.status(500).json({ message: 'Failed to fetch queue data' });
+    }
+  });
+
+  app.get('/api/matches/active', async (req, res) => {
+    try {
+      const activeMatches = await storage.getActiveMatches();
+      res.json(activeMatches);
+    } catch (error) {
+      console.error('Error fetching active matches:', error);
+      res.status(500).json({ message: 'Failed to fetch active matches' });
+    }
+  });
+
+  app.get('/api/matches/history', async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const matchHistory = await storage.getMatchHistory(limit);
+      res.json(matchHistory);
+    } catch (error) {
+      console.error('Error fetching match history:', error);
+      res.status(500).json({ message: 'Failed to fetch match history' });
+    }
+  });
+
+  app.get('/api/players/top', async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+      const topPlayers = await storage.listTopPlayers(limit);
+      res.json(topPlayers);
+    } catch (error) {
+      console.error('Error fetching top players:', error);
+      res.status(500).json({ message: 'Failed to fetch top players' });
     }
   });
 
   app.get('/api/players/:discordId', async (req, res) => {
     try {
-      const player = await storage.getPlayerByDiscordId(req.params.discordId);
+      const { discordId } = req.params;
+      const player = await storage.getPlayerByDiscordId(discordId);
+      
       if (!player) {
         return res.status(404).json({ message: 'Player not found' });
       }
+      
       res.json(player);
     } catch (error) {
-      logger.error('Error fetching player', { error, discordId: req.params.discordId });
-      res.status(500).json({ message: 'Error fetching player' });
+      console.error('Error fetching player:', error);
+      res.status(500).json({ message: 'Failed to fetch player data' });
     }
   });
 
-  // Queue endpoints
-  app.get('/api/queue', async (_req, res) => {
+  app.get('/api/players/:id/matches', async (req, res) => {
     try {
-      const queue = await storage.getAllQueueEntries();
+      const playerId = parseInt(req.params.id);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       
-      // Get player details for each queue entry
-      const queueWithPlayerDetails = await Promise.all(
-        queue.map(async (entry) => {
-          const player = await storage.getPlayer(entry.playerId);
-          return {
-            ...entry,
-            player: player || { discordUsername: 'Unknown' }
-          };
-        })
-      );
+      if (isNaN(playerId)) {
+        return res.status(400).json({ message: 'Invalid player ID' });
+      }
       
-      res.json(queueWithPlayerDetails);
-    } catch (error) {
-      logger.error('Error fetching queue', { error });
-      res.status(500).json({ message: 'Error fetching queue' });
-    }
-  });
-
-  // Matches endpoints
-  app.get('/api/matches/active', async (_req, res) => {
-    try {
-      const matches = await storage.getActiveMatches();
-      
-      // Get details for each match
-      const matchesWithDetails = await Promise.all(
-        matches.map(async (match) => {
-          const teams = await storage.getTeamsByMatchId(match.id);
-          
-          const teamsWithPlayers = await Promise.all(
-            teams.map(async (team) => {
-              const teamPlayers = await storage.getTeamPlayers(team.id);
-              
-              const players = await Promise.all(
-                teamPlayers.map(async (tp) => {
-                  return await storage.getPlayer(tp.playerId);
-                })
-              );
-              
-              return {
-                ...team,
-                players: players.filter(p => p !== undefined)
-              };
-            })
-          );
-          
-          return {
-            ...match,
-            teams: teamsWithPlayers
-          };
-        })
-      );
-      
-      res.json(matchesWithDetails);
-    } catch (error) {
-      logger.error('Error fetching active matches', { error });
-      res.status(500).json({ message: 'Error fetching active matches' });
-    }
-  });
-
-  app.get('/api/matches/player/:discordId', async (req, res) => {
-    try {
-      const player = await storage.getPlayerByDiscordId(req.params.discordId);
-      
+      const player = await storage.getPlayer(playerId);
       if (!player) {
         return res.status(404).json({ message: 'Player not found' });
       }
       
-      const matches = await storage.getMatchesForPlayer(player.id, 10); // Get last 10 matches
-      
+      const matches = await storage.getPlayerMatches(playerId, limit);
       res.json(matches);
     } catch (error) {
-      logger.error('Error fetching player matches', { error, discordId: req.params.discordId });
-      res.status(500).json({ message: 'Error fetching player matches' });
+      console.error('Error fetching player matches:', error);
+      res.status(500).json({ message: 'Failed to fetch player matches' });
     }
   });
 
-  // Stats endpoints
-  app.get('/api/stats', async (_req, res) => {
-    try {
-      const players = await storage.getAllPlayers();
-      const queueEntries = await storage.getAllQueueEntries();
-      const activeMatches = await storage.getActiveMatches();
-      
-      // Count matches played today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const allMatches = Array.from((await storage.getActiveMatches()).values());
-      const matchesToday = allMatches.filter(match => 
-        match.createdAt >= today
-      ).length;
-      
-      res.json({
-        activePlayers: players.length,
-        playersInQueue: queueEntries.length,
-        activeMatches: activeMatches.length,
-        matchesToday
-      });
-    } catch (error) {
-      logger.error('Error fetching stats', { error });
-      res.status(500).json({ message: 'Error fetching stats' });
-    }
+  app.get('/api/bot/commands', async (req, res) => {
+    // This is a static list of available commands
+    const commands = [
+      { name: '/queue', description: 'Join the matchmaking queue', usage: '/queue' },
+      { name: '/leave', description: 'Leave the matchmaking queue', usage: '/leave' },
+      { name: '/list', description: 'View current queue and matches', usage: '/list' },
+      { name: '/profile', description: 'View player statistics', usage: '/profile [user]' },
+      { name: '/history', description: 'View match history', usage: '/history [user] [count]' },
+      { name: '/streak', description: 'View win/loss streak', usage: '/streak [user]' },
+      { name: '/votekick', description: 'Vote to kick a player from a match', usage: '/votekick @user' },
+      { name: '/forcematch', description: 'Admin: Force create a match', usage: '/forcematch @user1 @user2...' },
+      { name: '/endmatch', description: 'Admin: End a match and record results', usage: '/endmatch <match_id> <winning_team>' },
+      { name: '/resetqueue', description: 'Admin: Reset the queue', usage: '/resetqueue' }
+    ];
+    
+    res.json(commands);
   });
 
-  // Initialize Discord bot
-  try {
-    await initializeBot();
-    logger.info('Discord bot initialized');
-  } catch (error) {
-    logger.error('Failed to initialize Discord bot', { error });
-  }
+  app.get('/api/bot/status', async (req, res) => {
+    // In a real implementation, this would come from the bot instance
+    // For now, we'll return mock data about the bot status
+    res.json({
+      version: '1.0.0',
+      status: 'online',
+      uptime: process.uptime(),
+      connectedToDiscord: true
+    });
+  });
 
+  const httpServer = createServer(app);
   return httpServer;
 }

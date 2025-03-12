@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { initializeBot } from "./index.bot";
 
 const app = express();
 app.use(express.json());
@@ -47,7 +48,7 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
+  // Only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
@@ -65,5 +66,14 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Initialize the Discord bot after the server is started
+    if (process.env.DISCORD_TOKEN) {
+      initializeBot().catch(err => {
+        log(`Failed to initialize Discord bot: ${err.message}`);
+      });
+    } else {
+      log("DISCORD_TOKEN not found in environment variables, bot will not start");
+    }
   });
 })();

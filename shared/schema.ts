@@ -1,163 +1,125 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, unique, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, primaryKey, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// User table for authentication (existing table)
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-});
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
-
-// Discord Players table
+// Player model
 export const players = pgTable("players", {
   id: serial("id").primaryKey(),
   discordId: text("discord_id").notNull().unique(),
-  discordUsername: text("discord_username").notNull(),
+  username: text("username").notNull(),
+  discriminator: text("discriminator").notNull(),
+  avatar: text("avatar"),
   mmr: integer("mmr").notNull().default(1000),
   wins: integer("wins").notNull().default(0),
   losses: integer("losses").notNull().default(0),
   winStreak: integer("win_streak").notNull().default(0),
   lossStreak: integer("loss_streak").notNull().default(0),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertPlayerSchema = createInsertSchema(players).pick({
-  discordId: true,
-  discordUsername: true,
-  mmr: true,
+export const insertPlayerSchema = createInsertSchema(players).omit({
+  id: true,
+  createdAt: true,
 });
 
-// Queue table
+// Queue model
 export const queue = pgTable("queue", {
   id: serial("id").primaryKey(),
   playerId: integer("player_id").notNull().references(() => players.id),
-  joinedAt: timestamp("joined_at").defaultNow(),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
   priority: integer("priority").notNull().default(0),
 });
 
-export const insertQueueSchema = createInsertSchema(queue).pick({
-  playerId: true,
-  priority: true,
+export const insertQueueSchema = createInsertSchema(queue).omit({
+  id: true,
+  joinedAt: true,
 });
 
-// Match table
+// Match model
 export const matches = pgTable("matches", {
   id: serial("id").primaryKey(),
-  status: text("status").notNull().default("PENDING"), // PENDING, ACTIVE, COMPLETED
-  winningTeam: integer("winning_team"),
-  createdAt: timestamp("created_at").defaultNow(),
-  completedAt: timestamp("completed_at"),
-  averageMmr: integer("average_mmr"),
+  status: text("status").notNull(), // WAITING, ACTIVE, COMPLETED, CANCELLED
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
+  winningTeamId: integer("winning_team_id"),
 });
 
-export const insertMatchSchema = createInsertSchema(matches).pick({
-  status: true,
-  winningTeam: true,
-  averageMmr: true,
+export const insertMatchSchema = createInsertSchema(matches).omit({
+  id: true,
+  createdAt: true,
+  finishedAt: true,
+  winningTeamId: true,
 });
 
-// Team table
+// Team model
 export const teams = pgTable("teams", {
   id: serial("id").primaryKey(),
   matchId: integer("match_id").notNull().references(() => matches.id),
-  teamNumber: integer("team_number").notNull(),
-  averageMmr: integer("average_mmr"),
+  name: text("name").notNull(),
+  avgMMR: integer("avg_mmr").notNull(),
 });
 
-export const insertTeamSchema = createInsertSchema(teams).pick({
-  matchId: true,
-  teamNumber: true,
-  averageMmr: true,
+export const insertTeamSchema = createInsertSchema(teams).omit({
+  id: true,
 });
 
-// Team Players join table
+// TeamPlayer model (join table for teams and players)
 export const teamPlayers = pgTable("team_players", {
-  id: serial("id").primaryKey(),
   teamId: integer("team_id").notNull().references(() => teams.id),
   playerId: integer("player_id").notNull().references(() => players.id),
-}, (table) => {
-  return {
-    teamPlayerUnique: unique().on(table.teamId, table.playerId),
-  };
-});
+}, (t) => ({
+  pk: primaryKey(t.teamId, t.playerId),
+}));
 
-export const insertTeamPlayerSchema = createInsertSchema(teamPlayers).pick({
-  teamId: true,
-  playerId: true,
-});
+export const insertTeamPlayerSchema = createInsertSchema(teamPlayers);
 
-// Match results table for player MMR changes
-export const matchResults = pgTable("match_results", {
+// MatchVotes model
+export const matchVotes = pgTable("match_votes", {
   id: serial("id").primaryKey(),
   matchId: integer("match_id").notNull().references(() => matches.id),
   playerId: integer("player_id").notNull().references(() => players.id),
-  mmrBefore: integer("mmr_before").notNull(),
-  mmrAfter: integer("mmr_after").notNull(),
-  mmrChange: integer("mmr_change").notNull(),
-  team: integer("team").notNull(),
-  won: boolean("won").notNull(),
+  votedTeamId: integer("voted_team_id").notNull().references(() => teams.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertMatchResultSchema = createInsertSchema(matchResults).pick({
-  matchId: true,
-  playerId: true,
-  mmrBefore: true,
-  mmrAfter: true,
-  mmrChange: true,
-  team: true,
-  won: true,
+export const insertMatchVoteSchema = createInsertSchema(matchVotes).omit({
+  id: true,
+  createdAt: true,
 });
 
-// VoteKick table
+// VoteKick model
 export const voteKicks = pgTable("vote_kicks", {
   id: serial("id").primaryKey(),
   matchId: integer("match_id").notNull().references(() => matches.id),
   targetPlayerId: integer("target_player_id").notNull().references(() => players.id),
   initiatorPlayerId: integer("initiator_player_id").notNull().references(() => players.id),
-  teamId: integer("team_id").notNull().references(() => teams.id),
-  status: text("status").notNull().default("PENDING"), // PENDING, PASSED, FAILED
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  status: text("status").notNull(), // PENDING, APPROVED, REJECTED
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
 });
 
-export const insertVoteKickSchema = createInsertSchema(voteKicks).pick({
-  matchId: true,
-  targetPlayerId: true,
-  initiatorPlayerId: true,
-  teamId: true,
-  status: true,
+export const insertVoteKickSchema = createInsertSchema(voteKicks).omit({
+  id: true,
+  createdAt: true,
+  finishedAt: true,
 });
 
-// VoteKick votes table
+// VoteKickVote model
 export const voteKickVotes = pgTable("vote_kick_votes", {
   id: serial("id").primaryKey(),
   voteKickId: integer("vote_kick_id").notNull().references(() => voteKicks.id),
-  voterId: integer("voter_id").notNull().references(() => players.id),
-  vote: boolean("vote").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => {
-  return {
-    voteKickVoteUnique: unique().on(table.voteKickId, table.voterId),
-  };
+  playerId: integer("player_id").notNull().references(() => players.id),
+  approve: boolean("approve").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertVoteKickVoteSchema = createInsertSchema(voteKickVotes).pick({
-  voteKickId: true,
-  voterId: true,
-  vote: true,
+export const insertVoteKickVoteSchema = createInsertSchema(voteKickVotes).omit({
+  id: true,
+  createdAt: true,
 });
 
 // Export types
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-
 export type Player = typeof players.$inferSelect;
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 
@@ -173,11 +135,19 @@ export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type TeamPlayer = typeof teamPlayers.$inferSelect;
 export type InsertTeamPlayer = z.infer<typeof insertTeamPlayerSchema>;
 
-export type MatchResult = typeof matchResults.$inferSelect;
-export type InsertMatchResult = z.infer<typeof insertMatchResultSchema>;
+export type MatchVote = typeof matchVotes.$inferSelect;
+export type InsertMatchVote = z.infer<typeof insertMatchVoteSchema>;
 
 export type VoteKick = typeof voteKicks.$inferSelect;
 export type InsertVoteKick = z.infer<typeof insertVoteKickSchema>;
 
 export type VoteKickVote = typeof voteKickVotes.$inferSelect;
 export type InsertVoteKickVote = z.infer<typeof insertVoteKickVoteSchema>;
+
+// Type definitions for Discord users
+export type DiscordUser = {
+  id: string;
+  username: string;
+  discriminator: string;
+  avatar?: string | null;
+};

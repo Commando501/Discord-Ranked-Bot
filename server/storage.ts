@@ -1,390 +1,368 @@
-import { 
-  Player, InsertPlayer, 
-  Queue, InsertQueue, 
-  Match, InsertMatch, 
-  Team, InsertTeam, 
+import {
+  Player, InsertPlayer,
+  Queue, InsertQueue,
+  Match, InsertMatch,
+  Team, InsertTeam,
   TeamPlayer, InsertTeamPlayer,
-  MatchResult, InsertMatchResult,
+  MatchVote, InsertMatchVote,
   VoteKick, InsertVoteKick,
   VoteKickVote, InsertVoteKickVote,
-  User, InsertUser
+  DiscordUser
 } from "@shared/schema";
 
-// Define the extended storage interface
+// Storage interface
 export interface IStorage {
-  // User methods (existing)
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  
-  // Player methods
-  getPlayer(id: number): Promise<Player | undefined>;
+  // Player operations
   getPlayerByDiscordId(discordId: string): Promise<Player | undefined>;
+  getPlayer(id: number): Promise<Player | undefined>;
   createPlayer(player: InsertPlayer): Promise<Player>;
-  updatePlayer(id: number, updates: Partial<Player>): Promise<Player | undefined>;
-  getAllPlayers(): Promise<Player[]>;
-  
-  // Queue methods
-  getQueueEntry(id: number): Promise<Queue | undefined>;
-  getQueueEntryByPlayerId(playerId: number): Promise<Queue | undefined>;
-  createQueueEntry(entry: InsertQueue): Promise<Queue>;
-  removeQueueEntry(id: number): Promise<boolean>;
-  getAllQueueEntries(): Promise<Queue[]>;
-  
-  // Match methods
-  getMatch(id: number): Promise<Match | undefined>;
+  updatePlayer(id: number, data: Partial<Player>): Promise<Player | undefined>;
+  listTopPlayers(limit: number): Promise<Player[]>;
+
+  // Queue operations
+  addPlayerToQueue(queueEntry: InsertQueue): Promise<Queue>;
+  removePlayerFromQueue(playerId: number): Promise<boolean>;
+  getQueuePlayers(): Promise<Array<Queue & { player: Player }>>;
+  isPlayerInQueue(playerId: number): Promise<boolean>;
+  clearQueue(): Promise<void>;
+
+  // Match operations
   createMatch(match: InsertMatch): Promise<Match>;
-  updateMatch(id: number, updates: Partial<Match>): Promise<Match | undefined>;
-  getActiveMatches(): Promise<Match[]>;
-  getMatchesForPlayer(playerId: number, limit?: number): Promise<Match[]>;
-  
-  // Team methods
-  getTeam(id: number): Promise<Team | undefined>;
-  getTeamsByMatchId(matchId: number): Promise<Team[]>;
+  getMatch(id: number): Promise<Match | undefined>;
+  getActiveMatches(): Promise<Array<Match & { teams: Array<Team & { players: Player[] }> }>>;
+  updateMatch(id: number, data: Partial<Match>): Promise<Match | undefined>;
+  getPlayerMatches(playerId: number, limit: number): Promise<Match[]>;
+  getMatchHistory(limit: number): Promise<Array<Match & { teams: Team[] }>>;
+
+  // Team operations
   createTeam(team: InsertTeam): Promise<Team>;
+  getTeam(id: number): Promise<Team | undefined>;
+  addPlayerToTeam(teamPlayer: InsertTeamPlayer): Promise<void>;
+  getTeamPlayers(teamId: number): Promise<Player[]>;
+  getMatchTeams(matchId: number): Promise<Array<Team & { players: Player[] }>>;
+
+  // Vote operations
+  addMatchVote(vote: InsertMatchVote): Promise<MatchVote>;
+  getMatchVotes(matchId: number): Promise<MatchVote[]>;
   
-  // TeamPlayer methods
-  addPlayerToTeam(teamPlayer: InsertTeamPlayer): Promise<TeamPlayer>;
-  getTeamPlayers(teamId: number): Promise<TeamPlayer[]>;
-  getTeamForPlayer(matchId: number, playerId: number): Promise<Team | undefined>;
-  
-  // MatchResult methods
-  createMatchResult(result: InsertMatchResult): Promise<MatchResult>;
-  getMatchResultsForMatch(matchId: number): Promise<MatchResult[]>;
-  getMatchResultsForPlayer(playerId: number, limit?: number): Promise<MatchResult[]>;
-  
-  // VoteKick methods
+  // Vote kick operations
   createVoteKick(voteKick: InsertVoteKick): Promise<VoteKick>;
   getVoteKick(id: number): Promise<VoteKick | undefined>;
-  getActiveVoteKicksForMatch(matchId: number): Promise<VoteKick[]>;
-  updateVoteKick(id: number, updates: Partial<VoteKick>): Promise<VoteKick | undefined>;
-  
-  // VoteKickVote methods
-  createVoteKickVote(vote: InsertVoteKickVote): Promise<VoteKickVote>;
+  getActiveVoteKick(matchId: number, targetPlayerId: number): Promise<VoteKick | undefined>;
+  addVoteKickVote(vote: InsertVoteKickVote): Promise<VoteKickVote>;
   getVoteKickVotes(voteKickId: number): Promise<VoteKickVote[]>;
-  getVoteKickVoteByVoter(voteKickId: number, voterId: number): Promise<VoteKickVote | undefined>;
+  updateVoteKick(id: number, data: Partial<VoteKick>): Promise<VoteKick | undefined>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<number, User>;
   private players: Map<number, Player>;
   private queue: Map<number, Queue>;
   private matches: Map<number, Match>;
   private teams: Map<number, Team>;
-  private teamPlayers: Map<number, TeamPlayer>;
-  private matchResults: Map<number, MatchResult>;
+  private teamPlayers: Array<TeamPlayer>;
+  private matchVotes: Map<number, MatchVote>;
   private voteKicks: Map<number, VoteKick>;
   private voteKickVotes: Map<number, VoteKickVote>;
   
-  private userIdCounter: number;
   private playerIdCounter: number;
   private queueIdCounter: number;
   private matchIdCounter: number;
   private teamIdCounter: number;
-  private teamPlayerIdCounter: number;
-  private matchResultIdCounter: number;
+  private matchVoteIdCounter: number;
   private voteKickIdCounter: number;
   private voteKickVoteIdCounter: number;
 
   constructor() {
-    this.users = new Map();
     this.players = new Map();
     this.queue = new Map();
     this.matches = new Map();
     this.teams = new Map();
-    this.teamPlayers = new Map();
-    this.matchResults = new Map();
+    this.teamPlayers = [];
+    this.matchVotes = new Map();
     this.voteKicks = new Map();
     this.voteKickVotes = new Map();
     
-    this.userIdCounter = 1;
     this.playerIdCounter = 1;
     this.queueIdCounter = 1;
     this.matchIdCounter = 1;
     this.teamIdCounter = 1;
-    this.teamPlayerIdCounter = 1;
-    this.matchResultIdCounter = 1;
+    this.matchVoteIdCounter = 1;
     this.voteKickIdCounter = 1;
     this.voteKickVoteIdCounter = 1;
   }
 
-  // User methods (existing)
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userIdCounter++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
-  }
-  
-  // Player methods
-  async getPlayer(id: number): Promise<Player | undefined> {
-    return this.players.get(id);
-  }
-  
+  // Player operations
   async getPlayerByDiscordId(discordId: string): Promise<Player | undefined> {
     return Array.from(this.players.values()).find(
       (player) => player.discordId === discordId
     );
   }
-  
-  async createPlayer(insertPlayer: InsertPlayer): Promise<Player> {
+
+  async getPlayer(id: number): Promise<Player | undefined> {
+    return this.players.get(id);
+  }
+
+  async createPlayer(playerData: InsertPlayer): Promise<Player> {
     const id = this.playerIdCounter++;
-    const now = new Date();
-    const player: Player = { 
-      ...insertPlayer, 
-      id, 
+    const player: Player = {
+      ...playerData,
+      id,
+      mmr: 1000,
       wins: 0,
       losses: 0,
       winStreak: 0,
       lossStreak: 0,
-      createdAt: now,
-      updatedAt: now
+      isActive: true,
+      createdAt: new Date()
     };
     this.players.set(id, player);
     return player;
   }
-  
-  async updatePlayer(id: number, updates: Partial<Player>): Promise<Player | undefined> {
-    const player = await this.getPlayer(id);
+
+  async updatePlayer(id: number, data: Partial<Player>): Promise<Player | undefined> {
+    const player = this.players.get(id);
     if (!player) return undefined;
     
-    const updatedPlayer = { 
-      ...player, 
-      ...updates,
-      updatedAt: new Date()
-    };
+    const updatedPlayer = { ...player, ...data };
     this.players.set(id, updatedPlayer);
     return updatedPlayer;
   }
-  
-  async getAllPlayers(): Promise<Player[]> {
-    return Array.from(this.players.values());
+
+  async listTopPlayers(limit: number): Promise<Player[]> {
+    return Array.from(this.players.values())
+      .sort((a, b) => b.mmr - a.mmr)
+      .slice(0, limit);
   }
-  
-  // Queue methods
-  async getQueueEntry(id: number): Promise<Queue | undefined> {
-    return this.queue.get(id);
-  }
-  
-  async getQueueEntryByPlayerId(playerId: number): Promise<Queue | undefined> {
-    return Array.from(this.queue.values()).find(
-      (entry) => entry.playerId === playerId
-    );
-  }
-  
-  async createQueueEntry(entry: InsertQueue): Promise<Queue> {
+
+  // Queue operations
+  async addPlayerToQueue(queueEntry: InsertQueue): Promise<Queue> {
     const id = this.queueIdCounter++;
-    const queueEntry: Queue = {
-      ...entry,
+    const entry: Queue = {
+      ...queueEntry,
       id,
       joinedAt: new Date()
     };
-    this.queue.set(id, queueEntry);
-    return queueEntry;
+    this.queue.set(id, entry);
+    return entry;
   }
-  
-  async removeQueueEntry(id: number): Promise<boolean> {
-    return this.queue.delete(id);
+
+  async removePlayerFromQueue(playerId: number): Promise<boolean> {
+    for (const [id, entry] of this.queue.entries()) {
+      if (entry.playerId === playerId) {
+        this.queue.delete(id);
+        return true;
+      }
+    }
+    return false;
   }
-  
-  async getAllQueueEntries(): Promise<Queue[]> {
-    return Array.from(this.queue.values());
+
+  async getQueuePlayers(): Promise<Array<Queue & { player: Player }>> {
+    const result: Array<Queue & { player: Player }> = [];
+    
+    for (const queueEntry of this.queue.values()) {
+      const player = this.players.get(queueEntry.playerId);
+      if (player) {
+        result.push({
+          ...queueEntry,
+          player
+        });
+      }
+    }
+    
+    return result.sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime());
   }
-  
-  // Match methods
-  async getMatch(id: number): Promise<Match | undefined> {
-    return this.matches.get(id);
+
+  async isPlayerInQueue(playerId: number): Promise<boolean> {
+    for (const entry of this.queue.values()) {
+      if (entry.playerId === playerId) {
+        return true;
+      }
+    }
+    return false;
   }
-  
+
+  async clearQueue(): Promise<void> {
+    this.queue.clear();
+  }
+
+  // Match operations
   async createMatch(match: InsertMatch): Promise<Match> {
     const id = this.matchIdCounter++;
-    const now = new Date();
     const newMatch: Match = {
       ...match,
       id,
-      createdAt: now,
-      completedAt: null
+      createdAt: new Date(),
+      finishedAt: null,
+      winningTeamId: null
     };
     this.matches.set(id, newMatch);
     return newMatch;
   }
-  
-  async updateMatch(id: number, updates: Partial<Match>): Promise<Match | undefined> {
-    const match = await this.getMatch(id);
+
+  async getMatch(id: number): Promise<Match | undefined> {
+    return this.matches.get(id);
+  }
+
+  async getActiveMatches(): Promise<Array<Match & { teams: Array<Team & { players: Player[] }> }>> {
+    const activeMatches = Array.from(this.matches.values())
+      .filter(match => match.status === 'WAITING' || match.status === 'ACTIVE');
+    
+    const result: Array<Match & { teams: Array<Team & { players: Player[] }> }> = [];
+    
+    for (const match of activeMatches) {
+      const matchTeams = await this.getMatchTeams(match.id);
+      result.push({
+        ...match,
+        teams: matchTeams
+      });
+    }
+    
+    return result;
+  }
+
+  async updateMatch(id: number, data: Partial<Match>): Promise<Match | undefined> {
+    const match = this.matches.get(id);
     if (!match) return undefined;
     
-    const updatedMatch: Match = { ...match, ...updates };
+    const updatedMatch = { ...match, ...data };
     this.matches.set(id, updatedMatch);
     return updatedMatch;
   }
-  
-  async getActiveMatches(): Promise<Match[]> {
-    return Array.from(this.matches.values()).filter(
-      (match) => match.status === "ACTIVE" || match.status === "PENDING"
-    );
-  }
-  
-  async getMatchesForPlayer(playerId: number, limit?: number): Promise<Match[]> {
-    // Find all team players entries for this player
-    const playerTeams = Array.from(this.teamPlayers.values()).filter(
-      (tp) => tp.playerId === playerId
-    );
+
+  async getPlayerMatches(playerId: number, limit: number): Promise<Match[]> {
+    // Find all teams the player is in
+    const playerTeams = this.teamPlayers
+      .filter(tp => tp.playerId === playerId)
+      .map(tp => tp.teamId);
     
-    // Get team IDs
-    const teamIds = playerTeams.map(tp => tp.teamId);
-    
-    // Find all teams with those IDs
-    const teams = Array.from(this.teams.values()).filter(
-      (team) => teamIds.includes(team.id)
-    );
-    
-    // Get match IDs
-    const matchIds = teams.map(team => team.matchId);
-    
-    // Get matches with those IDs
-    let matches = Array.from(this.matches.values()).filter(
-      (match) => matchIds.includes(match.id)
-    );
-    
-    // Sort by created date (most recent first)
-    matches.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    
-    // Apply limit if specified
-    if (limit && limit > 0) {
-      matches = matches.slice(0, limit);
-    }
-    
-    return matches;
-  }
-  
-  // Team methods
-  async getTeam(id: number): Promise<Team | undefined> {
-    return this.teams.get(id);
-  }
-  
-  async getTeamsByMatchId(matchId: number): Promise<Team[]> {
-    return Array.from(this.teams.values()).filter(
-      (team) => team.matchId === matchId
-    );
-  }
-  
-  async createTeam(team: InsertTeam): Promise<Team> {
-    const id = this.teamIdCounter++;
-    const newTeam: Team = { ...team, id };
-    this.teams.set(id, newTeam);
-    return newTeam;
-  }
-  
-  // TeamPlayer methods
-  async addPlayerToTeam(teamPlayer: InsertTeamPlayer): Promise<TeamPlayer> {
-    const id = this.teamPlayerIdCounter++;
-    const newTeamPlayer: TeamPlayer = { ...teamPlayer, id };
-    this.teamPlayers.set(id, newTeamPlayer);
-    return newTeamPlayer;
-  }
-  
-  async getTeamPlayers(teamId: number): Promise<TeamPlayer[]> {
-    return Array.from(this.teamPlayers.values()).filter(
-      (tp) => tp.teamId === teamId
-    );
-  }
-  
-  async getTeamForPlayer(matchId: number, playerId: number): Promise<Team | undefined> {
-    // Get all teams for this match
-    const teams = await this.getTeamsByMatchId(matchId);
-    
-    // For each team, check if the player is in it
-    for (const team of teams) {
-      const teamPlayers = await this.getTeamPlayers(team.id);
-      const playerIds = teamPlayers.map(tp => tp.playerId);
-      
-      if (playerIds.includes(playerId)) {
-        return team;
+    // Find matches where the player's teams participated
+    const matchIds = new Set<number>();
+    for (const team of this.teams.values()) {
+      if (playerTeams.includes(team.id)) {
+        matchIds.add(team.matchId);
       }
     }
     
-    return undefined;
-  }
-  
-  // MatchResult methods
-  async createMatchResult(result: InsertMatchResult): Promise<MatchResult> {
-    const id = this.matchResultIdCounter++;
-    const newResult: MatchResult = { ...result, id };
-    this.matchResults.set(id, newResult);
-    return newResult;
-  }
-  
-  async getMatchResultsForMatch(matchId: number): Promise<MatchResult[]> {
-    return Array.from(this.matchResults.values()).filter(
-      (result) => result.matchId === matchId
-    );
-  }
-  
-  async getMatchResultsForPlayer(playerId: number, limit?: number): Promise<MatchResult[]> {
-    let results = Array.from(this.matchResults.values()).filter(
-      (result) => result.playerId === playerId
-    );
+    // Get the actual match objects
+    const playerMatches = Array.from(matchIds)
+      .map(id => this.matches.get(id)!)
+      .filter(Boolean)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     
-    // Sort by match ID (descending, assuming higher match IDs are more recent)
-    results.sort((a, b) => b.matchId - a.matchId);
+    return playerMatches.slice(0, limit);
+  }
+
+  async getMatchHistory(limit: number): Promise<Array<Match & { teams: Team[] }>> {
+    const completedMatches = Array.from(this.matches.values())
+      .filter(match => match.status === 'COMPLETED')
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
     
-    // Apply limit if specified
-    if (limit && limit > 0) {
-      results = results.slice(0, limit);
+    const result: Array<Match & { teams: Team[] }> = [];
+    
+    for (const match of completedMatches) {
+      const matchTeams = Array.from(this.teams.values())
+        .filter(team => team.matchId === match.id);
+      
+      result.push({
+        ...match,
+        teams: matchTeams
+      });
     }
     
-    return results;
+    return result;
+  }
+
+  // Team operations
+  async createTeam(team: InsertTeam): Promise<Team> {
+    const id = this.teamIdCounter++;
+    const newTeam: Team = {
+      ...team,
+      id
+    };
+    this.teams.set(id, newTeam);
+    return newTeam;
+  }
+
+  async getTeam(id: number): Promise<Team | undefined> {
+    return this.teams.get(id);
+  }
+
+  async addPlayerToTeam(teamPlayer: InsertTeamPlayer): Promise<void> {
+    this.teamPlayers.push(teamPlayer);
+  }
+
+  async getTeamPlayers(teamId: number): Promise<Player[]> {
+    const playerIds = this.teamPlayers
+      .filter(tp => tp.teamId === teamId)
+      .map(tp => tp.playerId);
+    
+    return playerIds
+      .map(id => this.players.get(id)!)
+      .filter(Boolean);
+  }
+
+  async getMatchTeams(matchId: number): Promise<Array<Team & { players: Player[] }>> {
+    const teams = Array.from(this.teams.values())
+      .filter(team => team.matchId === matchId);
+    
+    const result: Array<Team & { players: Player[] }> = [];
+    
+    for (const team of teams) {
+      const players = await this.getTeamPlayers(team.id);
+      result.push({
+        ...team,
+        players
+      });
+    }
+    
+    return result;
+  }
+
+  // Vote operations
+  async addMatchVote(vote: InsertMatchVote): Promise<MatchVote> {
+    const id = this.matchVoteIdCounter++;
+    const newVote: MatchVote = {
+      ...vote,
+      id,
+      createdAt: new Date()
+    };
+    this.matchVotes.set(id, newVote);
+    return newVote;
+  }
+
+  async getMatchVotes(matchId: number): Promise<MatchVote[]> {
+    return Array.from(this.matchVotes.values())
+      .filter(vote => vote.matchId === matchId);
   }
   
-  // VoteKick methods
+  // Vote kick operations
   async createVoteKick(voteKick: InsertVoteKick): Promise<VoteKick> {
     const id = this.voteKickIdCounter++;
-    const now = new Date();
     const newVoteKick: VoteKick = {
       ...voteKick,
       id,
-      createdAt: now,
-      updatedAt: now
+      createdAt: new Date(),
+      finishedAt: null
     };
     this.voteKicks.set(id, newVoteKick);
     return newVoteKick;
   }
-  
+
   async getVoteKick(id: number): Promise<VoteKick | undefined> {
     return this.voteKicks.get(id);
   }
-  
-  async getActiveVoteKicksForMatch(matchId: number): Promise<VoteKick[]> {
-    return Array.from(this.voteKicks.values()).filter(
-      (vk) => vk.matchId === matchId && vk.status === "PENDING"
-    );
+
+  async getActiveVoteKick(matchId: number, targetPlayerId: number): Promise<VoteKick | undefined> {
+    return Array.from(this.voteKicks.values())
+      .find(vk => 
+        vk.matchId === matchId && 
+        vk.targetPlayerId === targetPlayerId && 
+        vk.status === 'PENDING'
+      );
   }
-  
-  async updateVoteKick(id: number, updates: Partial<VoteKick>): Promise<VoteKick | undefined> {
-    const voteKick = await this.getVoteKick(id);
-    if (!voteKick) return undefined;
-    
-    const updatedVoteKick: VoteKick = { 
-      ...voteKick, 
-      ...updates,
-      updatedAt: new Date()
-    };
-    this.voteKicks.set(id, updatedVoteKick);
-    return updatedVoteKick;
-  }
-  
-  // VoteKickVote methods
-  async createVoteKickVote(vote: InsertVoteKickVote): Promise<VoteKickVote> {
+
+  async addVoteKickVote(vote: InsertVoteKickVote): Promise<VoteKickVote> {
     const id = this.voteKickVoteIdCounter++;
     const newVote: VoteKickVote = {
       ...vote,
@@ -394,17 +372,19 @@ export class MemStorage implements IStorage {
     this.voteKickVotes.set(id, newVote);
     return newVote;
   }
-  
+
   async getVoteKickVotes(voteKickId: number): Promise<VoteKickVote[]> {
-    return Array.from(this.voteKickVotes.values()).filter(
-      (vote) => vote.voteKickId === voteKickId
-    );
+    return Array.from(this.voteKickVotes.values())
+      .filter(vote => vote.voteKickId === voteKickId);
   }
-  
-  async getVoteKickVoteByVoter(voteKickId: number, voterId: number): Promise<VoteKickVote | undefined> {
-    return Array.from(this.voteKickVotes.values()).find(
-      (vote) => vote.voteKickId === voteKickId && vote.voterId === voterId
-    );
+
+  async updateVoteKick(id: number, data: Partial<VoteKick>): Promise<VoteKick | undefined> {
+    const voteKick = this.voteKicks.get(id);
+    if (!voteKick) return undefined;
+    
+    const updatedVoteKick = { ...voteKick, ...data };
+    this.voteKicks.set(id, updatedVoteKick);
+    return updatedVoteKick;
   }
 }
 
