@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events } from 'discord.js';
+import { Client, GatewayIntentBits, Events, TextChannel } from 'discord.js';
 import { registerCommands } from './bot/commands';
 import { logger } from './bot/utils/logger';
 import { config } from './bot/config';
@@ -6,9 +6,10 @@ import { storage } from './storage';
 import { QueueService } from './bot/services/queueService';
 import { PlayerService } from './bot/services/playerService';
 import { MatchService } from './bot/services/matchService';
+import { DiscordUser } from '@shared/schema';
 
-let client: Client | null = null;
 // Initialize services immediately regardless of Discord bot status
+let client: Client | null = null;
 let queueService = new QueueService(storage);
 let playerService = new PlayerService(storage);
 let matchService = new MatchService(storage);
@@ -49,11 +50,11 @@ export async function initializeBot() {
 
         // Quick registration of new players if needed
         if (!interaction.user.bot) {
-          await playerService?.ensurePlayerExists({
-            discordId: interaction.user.id,
+          await playerService.ensurePlayerExists({
+            id: interaction.user.id,
             username: interaction.user.username,
             discriminator: interaction.user.discriminator,
-            avatar: interaction.user.avatar || ''
+            avatar: interaction.user.avatar
           });
         }
 
@@ -85,13 +86,18 @@ export async function initializeBot() {
     // Handle message events specifically for vote processing
     client.on(Events.MessageCreate, async (message) => {
       if (message.author.bot) return;
+      
+      // Skip if not in a text channel or if the channel doesn't have a name property
+      if (!message.channel || !('name' in message.channel)) return;
+      
+      const textChannel = message.channel as TextChannel;
 
       // Handle vote messages for votekick
       // Example format: "yes" or "no" in a match channel
       if ((message.content.toLowerCase() === 'yes' || message.content.toLowerCase() === 'no') && 
-          message.channel.name?.startsWith('match-')) {
+          textChannel.name.startsWith('match-')) {
         try {
-          const matchId = parseInt(message.channel.name.replace('match-', ''));
+          const matchId = parseInt(textChannel.name.replace('match-', ''));
           
           if (isNaN(matchId)) return;
 
@@ -104,9 +110,9 @@ export async function initializeBot() {
           
           if (!match) return;
           
-          // Check if there are any active votekicks
-          const voteKicks = await storage.getVoteKicks(matchId);
-          const activeVoteKick = voteKicks.find(vk => vk.status === 'PENDING');
+          // Check if there are any active votekicks (assuming we have to get these by match ID)
+          // Assuming voteKicks should be getActiveVoteKick, since that's what's in the storage interface
+          const activeVoteKick = await storage.getActiveVoteKick(matchId, player.id);
           
           if (!activeVoteKick) return;
           
