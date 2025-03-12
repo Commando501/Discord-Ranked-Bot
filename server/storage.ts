@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { eq, and, or, desc, inArray } from 'drizzle-orm';
 import {
   Player, InsertPlayer,
   Queue, InsertQueue,
@@ -9,9 +10,11 @@ import {
   MatchVote, InsertMatchVote,
   VoteKick, InsertVoteKick,
   VoteKickVote, InsertVoteKickVote,
-  DiscordUser
+  DiscordUser,
+  players, queue, matches, teams, teamPlayers, matchVotes, voteKicks, voteKickVotes
 } from "@shared/schema";
 import { defaultBotConfig, BotConfig } from "@shared/botConfig";
+import { db } from './db';
 
 // Path to the configuration file
 const CONFIG_FILE_PATH = path.join(process.cwd(), 'discordbot-config.json');
@@ -114,345 +117,458 @@ function updateConfigSection(currentConfig: BotConfig, section: string, sectionC
   };
 }
 
-export class MemStorage implements IStorage {
-  private players: Map<number, Player>;
-  private queue: Map<number, Queue>;
-  private matches: Map<number, Match>;
-  private teams: Map<number, Team>;
-  private teamPlayers: Array<TeamPlayer>;
-  private matchVotes: Map<number, MatchVote>;
-  private voteKicks: Map<number, VoteKick>;
-  private voteKickVotes: Map<number, VoteKickVote>;
+export class DatabaseStorage implements IStorage {
   private botConfig: BotConfig;
   
-  private playerIdCounter: number;
-  private queueIdCounter: number;
-  private matchIdCounter: number;
-  private teamIdCounter: number;
-  private matchVoteIdCounter: number;
-  private voteKickIdCounter: number;
-  private voteKickVoteIdCounter: number;
-
   constructor() {
-    this.players = new Map();
-    this.queue = new Map();
-    this.matches = new Map();
-    this.teams = new Map();
-    this.teamPlayers = [];
-    this.matchVotes = new Map();
-    this.voteKicks = new Map();
-    this.voteKickVotes = new Map();
-    
-    this.playerIdCounter = 1;
-    this.queueIdCounter = 1;
-    this.matchIdCounter = 1;
-    this.teamIdCounter = 1;
-    this.matchVoteIdCounter = 1;
-    this.voteKickIdCounter = 1;
-    this.voteKickVoteIdCounter = 1;
-    
     // Load bot config from file or initialize with defaults
     this.botConfig = loadConfigFromFile();
   }
 
   // Player operations
   async getPlayerByDiscordId(discordId: string): Promise<Player | undefined> {
-    return Array.from(this.players.values()).find(
-      (player) => player.discordId === discordId
-    );
+    try {
+      const [player] = await db.select().from(players).where(eq(players.discordId, discordId));
+      return player;
+    } catch (error) {
+      console.error('Error in getPlayerByDiscordId:', error);
+      return undefined;
+    }
   }
 
   async getPlayer(id: number): Promise<Player | undefined> {
-    return this.players.get(id);
+    try {
+      const [player] = await db.select().from(players).where(eq(players.id, id));
+      return player;
+    } catch (error) {
+      console.error('Error in getPlayer:', error);
+      return undefined;
+    }
   }
 
   async createPlayer(playerData: InsertPlayer): Promise<Player> {
-    const id = this.playerIdCounter++;
-    const player: Player = {
-      id,
-      mmr: playerData.mmr || 1000,
-      wins: playerData.wins || 0,
-      losses: playerData.losses || 0,
-      winStreak: playerData.winStreak || 0,
-      lossStreak: playerData.lossStreak || 0,
-      isActive: playerData.isActive !== undefined ? playerData.isActive : true,
-      createdAt: new Date(),
-      // Required fields from playerData
-      discordId: playerData.discordId,
-      username: playerData.username,
-      discriminator: playerData.discriminator,
-      avatar: playerData.avatar
-    };
-    this.players.set(id, player);
-    return player;
+    try {
+      const [player] = await db.insert(players).values(playerData).returning();
+      return player;
+    } catch (error) {
+      console.error('Error in createPlayer:', error);
+      throw error;
+    }
   }
 
   async updatePlayer(id: number, data: Partial<Player>): Promise<Player | undefined> {
-    const player = this.players.get(id);
-    if (!player) return undefined;
-    
-    const updatedPlayer = { ...player, ...data };
-    this.players.set(id, updatedPlayer);
-    return updatedPlayer;
+    try {
+      const [updatedPlayer] = await db
+        .update(players)
+        .set(data)
+        .where(eq(players.id, id))
+        .returning();
+      return updatedPlayer;
+    } catch (error) {
+      console.error('Error in updatePlayer:', error);
+      return undefined;
+    }
   }
 
   async listTopPlayers(limit: number): Promise<Player[]> {
-    return Array.from(this.players.values())
-      .sort((a, b) => b.mmr - a.mmr)
-      .slice(0, limit);
+    try {
+      console.log(`Fetched ${limit} top players`);
+      const topPlayers = await db
+        .select()
+        .from(players)
+        .where(eq(players.isActive, true))
+        .orderBy(desc(players.mmr))
+        .limit(limit);
+      return topPlayers;
+    } catch (error) {
+      console.error('Error in listTopPlayers:', error);
+      return [];
+    }
   }
 
   // Queue operations
   async addPlayerToQueue(queueEntry: InsertQueue): Promise<Queue> {
-    const id = this.queueIdCounter++;
-    const entry: Queue = {
-      ...queueEntry,
-      id,
-      joinedAt: new Date()
-    };
-    this.queue.set(id, entry);
-    return entry;
+    try {
+      const [entry] = await db.insert(queue).values(queueEntry).returning();
+      return entry;
+    } catch (error) {
+      console.error('Error in addPlayerToQueue:', error);
+      throw error;
+    }
   }
 
   async removePlayerFromQueue(playerId: number): Promise<boolean> {
-    for (const [id, entry] of this.queue.entries()) {
-      if (entry.playerId === playerId) {
-        this.queue.delete(id);
-        return true;
-      }
+    try {
+      const result = await db
+        .delete(queue)
+        .where(eq(queue.playerId, playerId));
+      return result.rowCount > 0;
+    } catch (error) {
+      console.error('Error in removePlayerFromQueue:', error);
+      return false;
     }
-    return false;
   }
 
   async getQueuePlayers(): Promise<Array<Queue & { player: Player }>> {
-    const result: Array<Queue & { player: Player }> = [];
-    
-    for (const queueEntry of this.queue.values()) {
-      const player = this.players.get(queueEntry.playerId);
-      if (player) {
-        result.push({
-          ...queueEntry,
-          player
-        });
-      }
+    try {
+      const queueWithPlayers = await db.query.queue.findMany({
+        with: {
+          player: true
+        },
+        orderBy: (queue, { asc }) => [asc(queue.joinedAt)]
+      });
+      return queueWithPlayers;
+    } catch (error) {
+      console.error('Error in getQueuePlayers:', error);
+      return [];
     }
-    
-    return result.sort((a, b) => a.joinedAt.getTime() - b.joinedAt.getTime());
   }
 
   async isPlayerInQueue(playerId: number): Promise<boolean> {
-    for (const entry of this.queue.values()) {
-      if (entry.playerId === playerId) {
-        return true;
-      }
+    try {
+      const [entry] = await db
+        .select()
+        .from(queue)
+        .where(eq(queue.playerId, playerId));
+      return !!entry;
+    } catch (error) {
+      console.error('Error in isPlayerInQueue:', error);
+      return false;
     }
-    return false;
   }
 
   async clearQueue(): Promise<void> {
-    this.queue.clear();
+    try {
+      await db.delete(queue);
+    } catch (error) {
+      console.error('Error in clearQueue:', error);
+    }
   }
 
   // Match operations
   async createMatch(match: InsertMatch): Promise<Match> {
-    const id = this.matchIdCounter++;
-    const newMatch: Match = {
-      ...match,
-      id,
-      createdAt: new Date(),
-      finishedAt: null,
-      winningTeamId: null
-    };
-    this.matches.set(id, newMatch);
-    return newMatch;
+    try {
+      const [newMatch] = await db.insert(matches).values(match).returning();
+      return newMatch;
+    } catch (error) {
+      console.error('Error in createMatch:', error);
+      throw error;
+    }
   }
 
   async getMatch(id: number): Promise<Match | undefined> {
-    return this.matches.get(id);
+    try {
+      const [match] = await db
+        .select()
+        .from(matches)
+        .where(eq(matches.id, id));
+      return match;
+    } catch (error) {
+      console.error('Error in getMatch:', error);
+      return undefined;
+    }
   }
 
   async getActiveMatches(): Promise<Array<Match & { teams: Array<Team & { players: Player[] }> }>> {
-    const activeMatches = Array.from(this.matches.values())
-      .filter(match => match.status === 'WAITING' || match.status === 'ACTIVE');
-    
-    const result: Array<Match & { teams: Array<Team & { players: Player[] }> }> = [];
-    
-    for (const match of activeMatches) {
-      const matchTeams = await this.getMatchTeams(match.id);
-      result.push({
-        ...match,
-        teams: matchTeams
-      });
+    try {
+      const activeMatchesResult = await db
+        .select()
+        .from(matches)
+        .where(
+          or(
+            eq(matches.status, 'WAITING'),
+            eq(matches.status, 'ACTIVE')
+          )
+        );
+      
+      const result: Array<Match & { teams: Array<Team & { players: Player[] }> }> = [];
+      
+      for (const match of activeMatchesResult) {
+        const matchTeams = await this.getMatchTeams(match.id);
+        result.push({
+          ...match,
+          teams: matchTeams
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error in getActiveMatches:', error);
+      return [];
     }
-    
-    return result;
   }
 
   async updateMatch(id: number, data: Partial<Match>): Promise<Match | undefined> {
-    const match = this.matches.get(id);
-    if (!match) return undefined;
-    
-    const updatedMatch = { ...match, ...data };
-    this.matches.set(id, updatedMatch);
-    return updatedMatch;
+    try {
+      const [updatedMatch] = await db
+        .update(matches)
+        .set(data)
+        .where(eq(matches.id, id))
+        .returning();
+      return updatedMatch;
+    } catch (error) {
+      console.error('Error in updateMatch:', error);
+      return undefined;
+    }
   }
 
   async getPlayerMatches(playerId: number, limit: number): Promise<Match[]> {
-    // Find all teams the player is in
-    const playerTeams = this.teamPlayers
-      .filter(tp => tp.playerId === playerId)
-      .map(tp => tp.teamId);
-    
-    // Find matches where the player's teams participated
-    const matchIds = new Set<number>();
-    for (const team of this.teams.values()) {
-      if (playerTeams.includes(team.id)) {
-        matchIds.add(team.matchId);
+    try {
+      // Find all teams the player is in
+      const playerTeamResults = await db
+        .select()
+        .from(teamPlayers)
+        .where(eq(teamPlayers.playerId, playerId));
+      
+      if (playerTeamResults.length === 0) {
+        return [];
       }
+      
+      const teamIds = playerTeamResults.map(tp => tp.teamId);
+      
+      // Find all matches associated with these teams
+      const teamResults = await db
+        .select()
+        .from(teams)
+        .where(inArray(teams.id, teamIds));
+      
+      if (teamResults.length === 0) {
+        return [];
+      }
+      
+      const matchIds = teamResults.map(t => t.matchId);
+      
+      // Get match details
+      const matchResults = await db
+        .select()
+        .from(matches)
+        .where(inArray(matches.id, matchIds))
+        .orderBy(desc(matches.createdAt))
+        .limit(limit);
+      
+      return matchResults;
+    } catch (error) {
+      console.error('Error in getPlayerMatches:', error);
+      return [];
     }
-    
-    // Get the actual match objects
-    const playerMatches = Array.from(matchIds)
-      .map(id => this.matches.get(id)!)
-      .filter(Boolean)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    
-    return playerMatches.slice(0, limit);
   }
 
   async getMatchHistory(limit: number): Promise<Array<Match & { teams: Team[] }>> {
-    const completedMatches = Array.from(this.matches.values())
-      .filter(match => match.status === 'COMPLETED')
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, limit);
-    
-    const result: Array<Match & { teams: Team[] }> = [];
-    
-    for (const match of completedMatches) {
-      const matchTeams = Array.from(this.teams.values())
-        .filter(team => team.matchId === match.id);
+    try {
+      const completedMatchesResult = await db
+        .select()
+        .from(matches)
+        .where(eq(matches.status, 'COMPLETED'))
+        .orderBy(desc(matches.createdAt))
+        .limit(limit);
       
-      result.push({
-        ...match,
-        teams: matchTeams
-      });
+      const result: Array<Match & { teams: Team[] }> = [];
+      
+      for (const match of completedMatchesResult) {
+        const teamResults = await db
+          .select()
+          .from(teams)
+          .where(eq(teams.matchId, match.id));
+        
+        result.push({
+          ...match,
+          teams: teamResults
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error in getMatchHistory:', error);
+      return [];
     }
-    
-    return result;
   }
 
   // Team operations
   async createTeam(team: InsertTeam): Promise<Team> {
-    const id = this.teamIdCounter++;
-    const newTeam: Team = {
-      ...team,
-      id
-    };
-    this.teams.set(id, newTeam);
-    return newTeam;
+    try {
+      const [newTeam] = await db.insert(teams).values(team).returning();
+      return newTeam;
+    } catch (error) {
+      console.error('Error in createTeam:', error);
+      throw error;
+    }
   }
 
   async getTeam(id: number): Promise<Team | undefined> {
-    return this.teams.get(id);
+    try {
+      const [team] = await db
+        .select()
+        .from(teams)
+        .where(eq(teams.id, id));
+      return team;
+    } catch (error) {
+      console.error('Error in getTeam:', error);
+      return undefined;
+    }
   }
 
   async addPlayerToTeam(teamPlayer: InsertTeamPlayer): Promise<void> {
-    this.teamPlayers.push(teamPlayer);
+    try {
+      await db.insert(teamPlayers).values(teamPlayer);
+    } catch (error) {
+      console.error('Error in addPlayerToTeam:', error);
+      throw error;
+    }
   }
 
   async getTeamPlayers(teamId: number): Promise<Player[]> {
-    const playerIds = this.teamPlayers
-      .filter(tp => tp.teamId === teamId)
-      .map(tp => tp.playerId);
-    
-    return playerIds
-      .map(id => this.players.get(id)!)
-      .filter(Boolean);
+    try {
+      // Get all player IDs in the team
+      const teamPlayerResults = await db
+        .select()
+        .from(teamPlayers)
+        .where(eq(teamPlayers.teamId, teamId));
+      
+      if (teamPlayerResults.length === 0) {
+        return [];
+      }
+      
+      const playerIds = teamPlayerResults.map(tp => tp.playerId);
+      
+      // Get player details
+      const playerResults = await db
+        .select()
+        .from(players)
+        .where(inArray(players.id, playerIds));
+      
+      return playerResults;
+    } catch (error) {
+      console.error('Error in getTeamPlayers:', error);
+      return [];
+    }
   }
 
   async getMatchTeams(matchId: number): Promise<Array<Team & { players: Player[] }>> {
-    const teams = Array.from(this.teams.values())
-      .filter(team => team.matchId === matchId);
-    
-    const result: Array<Team & { players: Player[] }> = [];
-    
-    for (const team of teams) {
-      const players = await this.getTeamPlayers(team.id);
-      result.push({
-        ...team,
-        players
-      });
+    try {
+      const teamResults = await db
+        .select()
+        .from(teams)
+        .where(eq(teams.matchId, matchId));
+      
+      const result: Array<Team & { players: Player[] }> = [];
+      
+      for (const team of teamResults) {
+        const players = await this.getTeamPlayers(team.id);
+        result.push({
+          ...team,
+          players
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error in getMatchTeams:', error);
+      return [];
     }
-    
-    return result;
   }
 
   // Vote operations
   async addMatchVote(vote: InsertMatchVote): Promise<MatchVote> {
-    const id = this.matchVoteIdCounter++;
-    const newVote: MatchVote = {
-      ...vote,
-      id,
-      createdAt: new Date()
-    };
-    this.matchVotes.set(id, newVote);
-    return newVote;
+    try {
+      const [newVote] = await db.insert(matchVotes).values(vote).returning();
+      return newVote;
+    } catch (error) {
+      console.error('Error in addMatchVote:', error);
+      throw error;
+    }
   }
 
   async getMatchVotes(matchId: number): Promise<MatchVote[]> {
-    return Array.from(this.matchVotes.values())
-      .filter(vote => vote.matchId === matchId);
+    try {
+      const votes = await db
+        .select()
+        .from(matchVotes)
+        .where(eq(matchVotes.matchId, matchId));
+      return votes;
+    } catch (error) {
+      console.error('Error in getMatchVotes:', error);
+      return [];
+    }
   }
   
   // Vote kick operations
   async createVoteKick(voteKick: InsertVoteKick): Promise<VoteKick> {
-    const id = this.voteKickIdCounter++;
-    const newVoteKick: VoteKick = {
-      ...voteKick,
-      id,
-      createdAt: new Date(),
-      finishedAt: null
-    };
-    this.voteKicks.set(id, newVoteKick);
-    return newVoteKick;
+    try {
+      const [newVoteKick] = await db.insert(voteKicks).values(voteKick).returning();
+      return newVoteKick;
+    } catch (error) {
+      console.error('Error in createVoteKick:', error);
+      throw error;
+    }
   }
 
   async getVoteKick(id: number): Promise<VoteKick | undefined> {
-    return this.voteKicks.get(id);
+    try {
+      const [voteKick] = await db
+        .select()
+        .from(voteKicks)
+        .where(eq(voteKicks.id, id));
+      return voteKick;
+    } catch (error) {
+      console.error('Error in getVoteKick:', error);
+      return undefined;
+    }
   }
 
   async getActiveVoteKick(matchId: number, targetPlayerId: number): Promise<VoteKick | undefined> {
-    return Array.from(this.voteKicks.values())
-      .find(vk => 
-        vk.matchId === matchId && 
-        vk.targetPlayerId === targetPlayerId && 
-        vk.status === 'PENDING'
-      );
+    try {
+      const [voteKick] = await db
+        .select()
+        .from(voteKicks)
+        .where(
+          and(
+            eq(voteKicks.matchId, matchId),
+            eq(voteKicks.targetPlayerId, targetPlayerId),
+            eq(voteKicks.status, 'PENDING')
+          )
+        );
+      return voteKick;
+    } catch (error) {
+      console.error('Error in getActiveVoteKick:', error);
+      return undefined;
+    }
   }
 
   async addVoteKickVote(vote: InsertVoteKickVote): Promise<VoteKickVote> {
-    const id = this.voteKickVoteIdCounter++;
-    const newVote: VoteKickVote = {
-      ...vote,
-      id,
-      createdAt: new Date()
-    };
-    this.voteKickVotes.set(id, newVote);
-    return newVote;
+    try {
+      const [newVote] = await db.insert(voteKickVotes).values(vote).returning();
+      return newVote;
+    } catch (error) {
+      console.error('Error in addVoteKickVote:', error);
+      throw error;
+    }
   }
 
   async getVoteKickVotes(voteKickId: number): Promise<VoteKickVote[]> {
-    return Array.from(this.voteKickVotes.values())
-      .filter(vote => vote.voteKickId === voteKickId);
+    try {
+      const votes = await db
+        .select()
+        .from(voteKickVotes)
+        .where(eq(voteKickVotes.voteKickId, voteKickId));
+      return votes;
+    } catch (error) {
+      console.error('Error in getVoteKickVotes:', error);
+      return [];
+    }
   }
 
   async updateVoteKick(id: number, data: Partial<VoteKick>): Promise<VoteKick | undefined> {
-    const voteKick = this.voteKicks.get(id);
-    if (!voteKick) return undefined;
-    
-    const updatedVoteKick = { ...voteKick, ...data };
-    this.voteKicks.set(id, updatedVoteKick);
-    return updatedVoteKick;
+    try {
+      const [updatedVoteKick] = await db
+        .update(voteKicks)
+        .set(data)
+        .where(eq(voteKicks.id, id))
+        .returning();
+      return updatedVoteKick;
+    } catch (error) {
+      console.error('Error in updateVoteKick:', error);
+      return undefined;
+    }
   }
   
   // Bot configuration operations
@@ -470,4 +586,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
