@@ -397,10 +397,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid player ID' });
       }
       
-      const playerData = req.body;
+      // Validate the request body
+      const { mmr, wins, losses, winStreak, lossStreak, isActive } = req.body;
       
-      // Add validation here in a real app
-      const updatedPlayer = await storage.updatePlayer(playerId, playerData);
+      // Build the update data with only valid fields
+      const updateData: Partial<Player> = {};
+      
+      if (typeof mmr === 'number') updateData.mmr = mmr;
+      if (typeof wins === 'number') updateData.wins = wins;
+      if (typeof losses === 'number') updateData.losses = losses;
+      if (typeof winStreak === 'number') updateData.winStreak = winStreak;
+      if (typeof lossStreak === 'number') updateData.lossStreak = lossStreak;
+      if (typeof isActive === 'boolean') updateData.isActive = isActive;
+      
+      // Check if there's anything to update
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: 'No valid fields to update' });
+      }
+      
+      // Update the player
+      const updatedPlayer = await storage.updatePlayer(playerId, updateData);
       
       if (!updatedPlayer) {
         return res.status(404).json({ message: 'Player not found' });
