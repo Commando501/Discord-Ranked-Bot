@@ -20,23 +20,17 @@ export default function Sidebar() {
           Bot Management
         </div>
         <div className="space-y-1">
-          <Link href="/">
-            <a className={getNavItemClasses("/")}>
-              <i className="ri-dashboard-line mr-2"></i>
-              <span>Dashboard</span>
-            </a>
+          <Link href="/" className={getNavItemClasses("/")}>
+            <i className="ri-dashboard-line mr-2"></i>
+            <span>Dashboard</span>
           </Link>
-          <Link href="/admin">
-            <a className={getNavItemClasses("/admin")}>
-              <i className="ri-user-settings-line mr-2"></i>
-              <span>Admin Settings</span>
-            </a>
+          <Link href="/admin" className={getNavItemClasses("/admin")}>
+            <i className="ri-user-settings-line mr-2"></i>
+            <span>Admin Settings</span>
           </Link>
-          <Link href="/config">
-            <a className={getNavItemClasses("/config")}>
-              <i className="ri-settings-3-line mr-2"></i>
-              <span>Bot Configuration</span>
-            </a>
+          <Link href="/config" className={getNavItemClasses("/config")}>
+            <i className="ri-settings-3-line mr-2"></i>
+            <span>Bot Configuration</span>
           </Link>
         </div>
 
@@ -44,23 +38,17 @@ export default function Sidebar() {
           Matchmaking
         </div>
         <div className="space-y-1">
-          <Link href="/queue">
-            <a className={getNavItemClasses("/queue")}>
-              <i className="ri-team-line mr-2"></i>
-              <span>Current Queue</span>
-            </a>
+          <Link href="/queue" className={getNavItemClasses("/queue")}>
+            <i className="ri-team-line mr-2"></i>
+            <span>Current Queue</span>
           </Link>
-          <Link href="/matches">
-            <a className={getNavItemClasses("/matches")}>
-              <i className="ri-sword-line mr-2"></i>
-              <span>Active Matches</span>
-            </a>
+          <Link href="/matches" className={getNavItemClasses("/matches")}>
+            <i className="ri-sword-line mr-2"></i>
+            <span>Active Matches</span>
           </Link>
-          <Link href="/history">
-            <a className={getNavItemClasses("/history")}>
-              <i className="ri-history-line mr-2"></i>
-              <span>Match History</span>
-            </a>
+          <Link href="/history" className={getNavItemClasses("/history")}>
+            <i className="ri-history-line mr-2"></i>
+            <span>Match History</span>
           </Link>
         </div>
 
@@ -68,17 +56,13 @@ export default function Sidebar() {
           Players
         </div>
         <div className="space-y-1">
-          <Link href="/players">
-            <a className={getNavItemClasses("/players")}>
-              <i className="ri-user-line mr-2"></i>
-              <span>Player Profiles</span>
-            </a>
+          <Link href="/players" className={getNavItemClasses("/players")}>
+            <i className="ri-user-line mr-2"></i>
+            <span>Player Profiles</span>
           </Link>
-          <Link href="/leaderboards">
-            <a className={getNavItemClasses("/leaderboards")}>
-              <i className="ri-trophy-line mr-2"></i>
-              <span>Leaderboards</span>
-            </a>
+          <Link href="/leaderboards" className={getNavItemClasses("/leaderboards")}>
+            <i className="ri-trophy-line mr-2"></i>
+            <span>Leaderboards</span>
           </Link>
         </div>
 
@@ -86,11 +70,9 @@ export default function Sidebar() {
           Seasons
         </div>
         <div className="space-y-1">
-          <Link href="/seasons">
-            <a className={getNavItemClasses("/seasons")}>
-              <i className="ri-calendar-line mr-2"></i>
-              <span>Manage Seasons</span>
-            </a>
+          <Link href="/seasons" className={getNavItemClasses("/seasons")}>
+            <i className="ri-calendar-line mr-2"></i>
+            <span>Manage Seasons</span>
           </Link>
         </div>
       </div>

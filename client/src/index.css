@@ -1,3 +1,6 @@
+/* Add Remix Icon font */
+@import url('https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -81,6 +84,3 @@
     @apply flex items-center p-3 bg-[#40444B] rounded-md;
   }
 }
-
-/* Add Remix Icon font */
-@import url('https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css');
