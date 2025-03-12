@@ -401,7 +401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { mmr, wins, losses, winStreak, lossStreak, isActive } = req.body;
       
       // Build the update data with only valid fields
-      const updateData: Partial<Player> = {};
+      const updateData: Partial<typeof players.$inferSelect> = {};
       
       if (typeof mmr === 'number') updateData.mmr = mmr;
       if (typeof wins === 'number') updateData.wins = wins;
@@ -483,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Extract and flatten teams from matches
       const allTeams = activeMatches.reduce((teams, match) => {
         return [...teams, ...match.teams];
-      }, []);
+      }, [] as any[]);
       
       res.json(allTeams);
     } catch (error) {
