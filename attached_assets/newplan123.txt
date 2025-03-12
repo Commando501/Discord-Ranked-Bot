@@ -1,0 +1,288 @@
+## Core Technology Stack
+- Backend
+- Node.js (v20+)
+- TypeScript (strict typing throughout)
+- PostgreSQL database
+- Discord.js for Discord API interactions
+- Drizzle ORM for database management (replacing Prisma)
+- Express for web server/API
+
+## Executive Summary
+
+This Discord bot provides an automated matchmaking and queue management system for competitive gaming communities. The core functionality allows players to join a queue, get matched into balanced teams based on their MMR (Matchmaking Rating), play matches, and have their performance tracked over time. The system also includes features such as vote-based match result reporting, player kick voting, seasonal rankings, and player profiles with statistics.
+
+The primary value proposition of this application is to automate the previously manual process of creating balanced teams, managing competitive matches, and tracking player performance in Discord gaming communities. By providing a robust ranking system, match history, and organized match channels, the bot enhances the competitive experience while eliminating the administrative overhead typically required to manage such systems. The integration of voting mechanisms for match outcomes and player management creates a self-moderating community experience.
+
+## Discord Bot Commands
+
+### `/queue` Command (alias: `/q`)
+**Functionality**: Places a player in the matchmaking queue.
+
+**Implementation Details**:
+- Adds player to the queue table in the database
+- Prevents duplicate entries by checking if player is already queued
+- Stores player ID, timestamp, and priority level
+- Assigns 1000 as initial MMR for new players
+- Automatically notifies when sufficient players are available for a match
+- Implements a configurable timeout system to remove inactive players\
+
+### `/leave` Command (aliases: `/r`, `/remove`)
+**Functionality**: Removes a player from the matchmaking queue.
+
+**Implementation Details**:
+- Deletes the player's entry from the queue table
+- Updates queue analytics for behavior tracking
+- Sends confirmation message to the player
+- Recalculates match possibilities after player removal
+- Handles edge cases such as players attempting to leave when not in queue
+
+
+### `/list` Command (alias: `/l`)
+**Functionality**: Lists all players currently in the queue.
+
+**Implementation Details**:
+- Retrieves all queue entries with player information
+- Groups players by team size preferences
+- Orders players by wait time (longest first)
+- Shows MMR for each player (admin-only view)
+- Utilizes Discord embeds with pagination for large player counts
+- Distinguishes between main queue and priority queue players
+
+
+## 2. Match Management System
+
+### `/forcematch` Command
+**Functionality**: Admin command to manually create a match with specified players.
+
+**Implementation Details**:
+- Restricted to users with admin role
+- Takes player mentions or IDs as parameters
+- Creates a match entry in the database
+- Assigns players to teams using MMR balancing algorithm
+- Creates team entries linked to the match
+- Sets up voice channels if enabled
+- Sends match details to the designated match channel
+- Removes players from queue if they were queued
+
+### `/endmatch` Command
+**Functionality**: Ends a match and records the results.
+
+**Implementation Details**:
+- Takes match ID and winning team as parameters
+- Updates match status in database from "ACTIVE" to "COMPLETED"
+- Records winning team in the match entry
+- Updates player statistics (MMR, wins, losses, streaks)
+- Uses ELO-based algorithm for MMR adjustments
+- Deletes or archives match voice channels
+- Sends match results to the results channel
+- Updates player season statistics for matches in active seasons
+
+### `/votekick` Command
+**Functionality**: Allows players to vote to remove a player from a match.
+
+**Implementation Details**:
+- Takes player mention or ID as parameter
+- Verifies voter and target are in an active match
+- Creates votekick entry in database
+- Tracks votes from team members
+- Requires team majority vote for successful kick
+- Removes player from match when threshold is reached
+- Cancels match if insufficient players remain
+- Implements cooldown to prevent abuse
+- Logs all votekick attempts for administrative review
+
+## 3. Player Information System
+
+### `/profile` Command (aliases: `/p`, `/stats`)
+**Functionality**: Displays a player's matchmaking statistics and profile.
+
+**Implementation Details**:
+- Takes optional player mention or ID (defaults to command user)
+- Queries player database entry for comprehensive statistics
+- Shows MMR, wins, losses, win rate percentage
+- Displays current win/loss streak
+- Shows seasonal statistics during active seasons
+- Includes reputation scores and badges
+- Uses formatted Discord embeds
+- Includes recent match history summary
+- Shows player ranking when leaderboards are enabled
+
+### `/history` Command
+**Functionality**: Shows a player's match history.
+
+**Implementation Details**:
+- Takes optional player mention or ID and optional count parameter
+- Queries match database for matches involving the player
+- Shows match results, timestamps, opponents, and MMR changes
+- Implements pagination for players with extensive match history
+- Uses color coding (green for wins, red for losses)
+- Includes match IDs for reference
+- Offers filtering by match type or season
+- Provides detailed performance metrics per match
+
+### `/streak` Command
+**Functionality**: Displays a player's current win/loss streak.
+
+**Implementation Details**:
+- Takes optional player mention or ID
+- Calculates longest streak from match history
+- Shows current streak with visual representation
+- Compares to player's personal best streak
+- Displays server record streaks for context
+- Includes encouraging messages for positive streaks
+- Uses color-coded embeds based on streak type
+
+## 4. Administration System
+
+### `/resetqueue` Command
+**Functionality**: Admin command to clear the entire matchmaking queue.
+
+**Implementation Details**:
+- Restricted to users with admin role
+- Deletes all entries from queue table
+- Sends notification to server channel about queue reset
+- Optional parameter to specify reset reason
+- Creates log entry for audit purposes
+- Sends direct messages to affected players
+- Resets queue analytics counters
+
+### `/resetdata` Command
+**Functionality**: Admin command to reset a player's data.
+
+**Implementation Details**:
+- Restricted to users with admin role
+- Takes player mention or ID and optional reset type parameter
+- Can reset MMR, win/loss record, or all data
+- Preserves player history in archive table
+- Creates detailed log entry for audit trail
+- Requires confirmation due to destructive nature
+- Implements cooldown to prevent accidental multiple resets
+
+### `/dummy` Command
+**Functionality**: Creates dummy players for testing queue and match systems.
+
+**Implementation Details**:
+- Restricted to development mode or super admins
+- Creates configurable number of test player entries
+- Assigns random MMR values within specified range
+- Adds dummy players to queue automatically if requested
+- Flags entries as dummy players in database
+- Provides cleanup with `/dummy clear` subcommand
+- Can simulate specific MMR distributions for testing
+
+### `/matchtimer` Command
+**Functionality**: Sets or adjusts the match time limit.
+
+**Implementation Details**:
+- Takes time in minutes as parameter
+- Updates configuration for match duration
+- Applies to newly created matches
+- Option to apply to existing matches
+- Sets up scheduled task to check for expired matches
+- Sends warnings when matches approach time limit
+- Creates log entry when configuration changes
+
+### `/togglevoice` Command
+**Functionality**: Enables or disables automatic voice channel creation for matches.
+
+**Implementation Details**:
+- Toggles voice channel creation flag in configuration
+- Takes optional parameter to explicitly set on/off
+- Creates category for match channels if needed
+- Sets up permissions for match voice channels
+- Option to configure team channel naming pattern
+- Provides confirmation of current setting
+- Restricted to users with manage channels permission
+
+## 5. Reputation System
+
+### `/shields` Command
+**Functionality**: Manages and displays information about the reputation shield system.
+
+**Implementation Details**:
+- Includes subcommands: info, status, grant, revoke
+- `info` shows general shield system explanation
+- `status` displays current shield count for specified player
+- `grant` allows admins to manually grant shields
+- `revoke` allows admins to remove shields
+- Shields automatically apply to protect MMR on losses
+- System tracks shield usage in reputation_shield_logs table
+- Shows history of shield applications and grants
+- Explains how shields are earned through reputation
+
+### Automatic Shield Application
+**Functionality**: Applies shields automatically when players lose matches.
+
+**Implementation Details**:
+- Triggers when match results are processed
+- Checks if losing player has available shields
+- Consumes one shield to prevent MMR loss
+- Creates detailed log entry of shield usage
+- Notifies player that shield was applied
+- Tracks statistics on shield effectiveness
+- Has priority system if multiple shields are available
+
+### Reputation Grant System
+**Functionality**: Allows players to give reputation points to others.
+
+**Implementation Details**:
+- Players can grant reputation in categories:
+  - Shot caller (strategic leadership)
+  - Good communications
+  - Tilt proof (maintaining positive attitude)
+  - GG (good sportsmanship)
+- Limited grants per day per player
+- Can only grant to recent teammates
+- Each grant is recorded in reputationGrants table
+- Accumulates in player's reputation score
+- Automatically awards shields at certain thresholds
+- Prevents self-grants and spam
+
+## 6. Season Management System
+
+### `/season` Command
+**Functionality**: Manages competitive seasons.
+
+**Implementation Details**:
+- Includes subcommands: info, create, end, leaderboard
+- `info` shows current season details
+- `create` starts a new season (admin only)
+- `end` concludes the current season (admin only)
+- `leaderboard` displays top players in current season
+- Each season has unique ID, name, number, and date range
+- Player stats are archived when season ends
+- Season transitions reset certain stats while preserving others
+- Matches are linked to active season when created
+
+
+### Logging System
+**Functionality**: Records bot events and errors for monitoring and debugging.
+
+**Implementation Details**:
+- Uses Winston logging library
+- Supports multiple transports (console, file, external)
+- Log rotation to prevent file size issues
+- Structured logging with context fields
+- Different log levels (debug, info, warn, error)
+- Request ID tracking across function calls
+- Specialized loggers for different subsystems
+- Analytics capabilities for error trends
+- Performance timing for operation profiling
+
+### Database Adapter System
+**Functionality**: Provides database connectivity with ORM features.
+
+**Implementation Details**:
+- Custom DrizzleORM adapter with Prisma-like query interface
+- Connection pooling for efficient database usage
+- Transaction support for atomic operations
+- Schema definition with type safety
+- Relation handling between tables
+- Migration system for schema changes
+- Query builder with type safety
+- Safe type casting between database and application
+- Comprehensive error handling for database errors
+
+
+
+#
