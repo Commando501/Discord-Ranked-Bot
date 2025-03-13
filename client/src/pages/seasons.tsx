@@ -73,7 +73,7 @@ export default function SeasonsPage() {
     mutationFn: async () => {
       return apiRequest('/api/admin/seasons/new', 'POST');
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setIsProcessing(false);
       setShowNewSeasonDialog(false);
       toast({
@@ -98,7 +98,7 @@ export default function SeasonsPage() {
     mutationFn: async () => {
       return apiRequest('/api/admin/seasons/distribute-rewards', 'POST');
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setIsProcessing(false);
       setShowDistributeRewardsDialog(false);
       toast({
@@ -303,6 +303,90 @@ export default function SeasonsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* New Season Dialog */}
+      <AlertDialog open={showNewSeasonDialog} onOpenChange={setShowNewSeasonDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Start New Season</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to start a new season? This will:
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>Increment the season number to {(config.currentSeason || 1) + 1}</li>
+                <li>Set today as the season start date</li>
+                <li>Set the end date to 3 months from now</li>
+                {config.mmrResetType !== 'none' && (
+                  <li>Apply MMR reset ({config.mmrResetType}) to all players</li>
+                )}
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                // Prevent the dialog from closing automatically (we'll close it in the onSuccess callback)
+                e.preventDefault();
+                handleStartNewSeason();
+              }}
+              disabled={isProcessing}
+            >
+              {isProcessing && startNewSeason.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Start New Season"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Distribute Rewards Dialog */}
+      <AlertDialog open={showDistributeRewardsDialog} onOpenChange={setShowDistributeRewardsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Distribute Season Rewards</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to distribute the rewards for Season {config.currentSeason}?
+              
+              <div className="mt-4 space-y-2">
+                <p className="font-medium">Reward Tiers:</p>
+                <div className="bg-muted/40 p-4 rounded-md space-y-3">
+                  {config.rewardTiers && config.rewardTiers.map((tier, index) => (
+                    <div key={index} className="flex justify-between items-center">
+                      <span className="font-medium">{tier.name}</span>
+                      <Badge variant="secondary">{tier.mmrThreshold}+ MMR</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                // Prevent the dialog from closing automatically
+                e.preventDefault();
+                handleDistributeRewards();
+              }}
+              disabled={isProcessing}
+            >
+              {isProcessing && distributeRewards.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Distribute Rewards"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
