@@ -11,6 +11,7 @@ import MatchesPage from "@/pages/matches";
 import HistoryPage from "@/pages/history";
 import PlayersPage from "@/pages/players";
 import LeaderboardsPage from "@/pages/leaderboards";
+import SeasonsPage from "@/pages/seasons";
 
 function Router() {
   return (
@@ -27,6 +28,9 @@ function Router() {
       {/* Players routes */}
       <Route path="/players" component={PlayersPage} />
       <Route path="/leaderboards" component={LeaderboardsPage} />
+      
+      {/* Seasons routes */}
+      <Route path="/seasons" component={SeasonsPage} />
       
       <Route component={NotFound} />
     </Switch>
