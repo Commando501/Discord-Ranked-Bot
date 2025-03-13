@@ -5,6 +5,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { SeasonConfig, seasonConfigSchema } from "@shared/botConfig";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { z } from "zod";
+import { useToast } from "@/hooks/use-toast";
+import { AlertCircle, AlertTriangle, Calendar, Loader2, Trophy } from "lucide-react";
 
 // Components
 import { Button } from "@/components/ui/button";
@@ -13,12 +15,23 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import SeasonConfigPanel from "@/components/config/season-config";
-import { Loader2, Calendar, Trophy, AlertCircle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function SeasonsPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("manage");
+  const [showNewSeasonDialog, setShowNewSeasonDialog] = useState(false);
+  const [showDistributeRewardsDialog, setShowDistributeRewardsDialog] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Fetch season configuration from API
   const { data: botConfig, isLoading, error } = useQuery({
@@ -53,6 +66,67 @@ export default function SeasonsPage() {
   // Handle form submission
   const handleConfigChange = (updatedConfig: SeasonConfig) => {
     updateSeasonConfig.mutate(updatedConfig);
+  };
+  
+  // Start new season mutation
+  const startNewSeason = useMutation({
+    mutationFn: async () => {
+      return apiRequest('/api/admin/seasons/new', 'POST');
+    },
+    onSuccess: (data) => {
+      setIsProcessing(false);
+      setShowNewSeasonDialog(false);
+      toast({
+        title: "New season started",
+        description: data.message || "Season has been started successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/config'] });
+    },
+    onError: (error) => {
+      setIsProcessing(false);
+      toast({
+        title: "Failed to start new season",
+        description: "There was an error starting the new season. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to start new season:", error);
+    }
+  });
+  
+  // Distribute rewards mutation
+  const distributeRewards = useMutation({
+    mutationFn: async () => {
+      return apiRequest('/api/admin/seasons/distribute-rewards', 'POST');
+    },
+    onSuccess: (data) => {
+      setIsProcessing(false);
+      setShowDistributeRewardsDialog(false);
+      toast({
+        title: "Rewards distributed",
+        description: data.message || "Season rewards have been distributed successfully.",
+      });
+    },
+    onError: (error: any) => {
+      setIsProcessing(false);
+      toast({
+        title: "Failed to distribute rewards",
+        description: error?.response?.data?.message || "There was an error distributing rewards. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to distribute rewards:", error);
+    }
+  });
+  
+  // Handle starting a new season
+  const handleStartNewSeason = () => {
+    setIsProcessing(true);
+    startNewSeason.mutate();
+  };
+  
+  // Handle distributing rewards
+  const handleDistributeRewards = () => {
+    setIsProcessing(true);
+    distributeRewards.mutate();
   };
 
   // Calculate time remaining in current season
@@ -182,14 +256,30 @@ export default function SeasonsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button className="w-full" variant="outline">
+                <Button 
+                  className="w-full" 
+                  variant="outline" 
+                  onClick={() => setShowNewSeasonDialog(true)}
+                >
                   <Calendar className="mr-2 h-4 w-4" />
                   Start New Season
                 </Button>
-                <Button className="w-full" variant="outline">
+                <Button 
+                  className="w-full" 
+                  variant="outline" 
+                  onClick={() => setShowDistributeRewardsDialog(true)}
+                  disabled={!config.rewardTiers || config.rewardTiers.length === 0}
+                >
                   <Trophy className="mr-2 h-4 w-4" />
                   Distribute Rewards
                 </Button>
+                
+                {!config.rewardTiers || config.rewardTiers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    <AlertTriangle className="h-3 w-3 inline mr-1" />
+                    Configure reward tiers to enable distribution
+                  </p>
+                ) : null}
               </CardContent>
             </Card>
           </div>

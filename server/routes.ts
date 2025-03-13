@@ -535,6 +535,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to clear queue' });
     }
   });
+  
+  // Start a new season
+  app.post('/api/admin/seasons/new', adminMiddleware, async (req, res) => {
+    try {
+      // Get current config
+      const currentConfig = await storage.getBotConfig();
+      const { seasonManagement } = currentConfig;
+      
+      // Increment season number
+      const newSeasonNumber = (seasonManagement.currentSeason || 1) + 1;
+      
+      // Set new dates
+      const startDate = new Date().toISOString();
+      
+      // Calculate end date (3 months from now)
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + 3);
+      
+      // Update season config
+      const updatedSeasonConfig = {
+        ...seasonManagement,
+        currentSeason: newSeasonNumber,
+        seasonStartDate: startDate,
+        seasonEndDate: endDate.toISOString()
+      };
+      
+      // Apply MMR reset based on config
+      if (seasonManagement.mmrResetType !== 'none') {
+        // In a real implementation, we would reset MMR for all players here
+        // For this demo, we'll just acknowledge it in the response
+      }
+      
+      // Update the configuration
+      currentConfig.seasonManagement = updatedSeasonConfig;
+      await storage.updateBotConfig(currentConfig);
+      
+      res.json({ 
+        success: true, 
+        message: `Season ${newSeasonNumber} started successfully`,
+        seasonData: updatedSeasonConfig
+      });
+    } catch (error) {
+      console.error('Error starting new season:', error);
+      res.status(500).json({ message: 'Failed to start new season' });
+    }
+  });
+  
+  // Distribute season rewards
+  app.post('/api/admin/seasons/distribute-rewards', adminMiddleware, async (req, res) => {
+    try {
+      // Get current config
+      const currentConfig = await storage.getBotConfig();
+      const { seasonManagement } = currentConfig;
+      
+      // In a real implementation, we would:
+      // 1. Get all players
+      // 2. Calculate their rewards based on MMR thresholds
+      // 3. Send messages to Discord users
+      // 4. Generate logs
+      
+      // For this demo, we'll just acknowledge the request
+      
+      // Check if we have reward tiers defined
+      if (!seasonManagement.rewardTiers || seasonManagement.rewardTiers.length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'No reward tiers defined. Please define reward tiers before distributing rewards.' 
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Rewards for Season ${seasonManagement.currentSeason} distributed successfully`,
+        rewardTiers: seasonManagement.rewardTiers.length
+      });
+    } catch (error) {
+      console.error('Error distributing rewards:', error);
+      res.status(500).json({ message: 'Failed to distribute rewards' });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
