@@ -21,20 +21,17 @@ export default function SeasonsPage() {
   const [activeTab, setActiveTab] = useState("manage");
 
   // Fetch season configuration from API
-  const { data: config, isLoading, error } = useQuery({
+  const { data: botConfig, isLoading, error } = useQuery({
     queryKey: ['/api/config'],
-    select: (data) => {
-      return data?.seasonManagement as SeasonConfig;
-    },
   });
+  
+  // Extract the season management section
+  const config = botConfig?.seasonManagement as SeasonConfig | undefined;
 
   // Save season configuration
   const updateSeasonConfig = useMutation({
     mutationFn: async (updatedConfig: SeasonConfig) => {
-      return apiRequest('/api/config/seasonManagement', {
-        method: 'PATCH',
-        body: JSON.stringify(updatedConfig),
-      });
+      return apiRequest('/api/config/seasonManagement', 'PATCH', updatedConfig);
     },
     onSuccess: () => {
       toast({
