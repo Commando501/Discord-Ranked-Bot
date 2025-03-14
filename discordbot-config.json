@@ -31,11 +31,13 @@
     "maxMmrDifference": 300
   },
   "seasonManagement": {
-    "currentSeason": 1,
+    "currentSeason": 2,
     "mmrResetType": "soft",
     "placementMatchRequirements": 10,
     "rewardTiers": [],
-    "enableEndOfSeasonAnnouncements": true
+    "enableEndOfSeasonAnnouncements": true,
+    "seasonStartDate": "2025-03-14T02:07:44.514Z",
+    "seasonEndDate": "2025-06-14T02:07:44.514Z"
   },
   "matchRules": {
     "voteSystemSettings": {
