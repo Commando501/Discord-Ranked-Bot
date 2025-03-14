@@ -15,6 +15,10 @@ export class PlayerService {
   
   async ensurePlayerExists(userData: DiscordUser): Promise<any> {
     try {
+      if (!userData?.discordId) {
+        throw new Error('Invalid Discord user data: Missing discord ID');
+      }
+
       // Check if player already exists
       let player = await this.storage.getPlayerByDiscordId(userData.discordId);
       
@@ -22,8 +26,8 @@ export class PlayerService {
         // Create new player
         player = await this.storage.createPlayer({
           discordId: userData.discordId,
-          username: userData.username,
-          discriminator: userData.discriminator,
+          username: userData.username || 'Unknown',
+          discriminator: userData.discriminator || '0000',
           avatar: userData.avatar || ''
         });
         
