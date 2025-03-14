@@ -65,9 +65,11 @@ export class QueueService {
   async checkAndCreateMatch(guild: Guild, force: boolean = false): Promise<boolean> {
     try {
       const queuedPlayers = await this.storage.getQueuePlayers();
+      const botConfig = await this.storage.getBotConfig();
+      const minPlayersRequired = botConfig.matchmaking.queueSizeLimits.min;
       
-      if (queuedPlayers.length < config.REQUIRED_PLAYERS_PER_MATCH && !force) {
-        logger.info(`Not enough players in queue to create a match: ${queuedPlayers.length}/${config.REQUIRED_PLAYERS_PER_MATCH}`);
+      if (queuedPlayers.length < minPlayersRequired && !force) {
+        logger.info(`Not enough players in queue to create a match: ${queuedPlayers.length}/${minPlayersRequired}`);
         return false;
       }
       
@@ -79,9 +81,9 @@ export class QueueService {
         return a.joinedAt.getTime() - b.joinedAt.getTime(); // Earlier join time first
       });
       
-      // Take the required number of players
+      // Take the required number of players (using config from JSON file)
       const matchPlayers = sortedPlayers
-        .slice(0, config.REQUIRED_PLAYERS_PER_MATCH)
+        .slice(0, minPlayersRequired)
         .map(entry => entry.playerId);
       
       // Create the match

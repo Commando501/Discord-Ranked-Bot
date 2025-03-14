@@ -14,6 +14,7 @@ import { IStorage } from '../../storage';
 import { logger } from '../utils/logger';
 import { config } from '../config';
 import { calculateTeamsMMR } from '../utils/helpers';
+import { BotConfig } from '@shared/botConfig';
 
 export class MatchService {
   private storage: IStorage;
@@ -197,10 +198,17 @@ export class MatchService {
         const isWinningTeam = team.id === winningTeamId;
         
         for (const player of team.players) {
+          // Get MMR settings from config
+          const botConfig = await this.storage.getBotConfig();
+          const mmrSettings = botConfig.mmrSystem;
+          
+          // Use kFactor from config for win/loss calculation
+          // Default gain/loss values if we can't calculate from kFactor
+          const mmrGain = config.MMR_GAIN_PER_WIN;
+          const mmrLoss = config.MMR_LOSS_PER_LOSS;
+          
           // Calculate MMR change - winners gain, losers lose
-          const mmrChange = isWinningTeam 
-            ? config.MMR_GAIN_PER_WIN 
-            : -config.MMR_LOSS_PER_LOSS;
+          const mmrChange = isWinningTeam ? mmrGain : -mmrLoss;
           
           // Update streaks
           let winStreak = player.winStreak;
@@ -214,7 +222,7 @@ export class MatchService {
             winStreak = 0;
           }
           
-          // Apply streak bonuses if applicable
+          // Apply streak bonuses if applicable (using hardcoded values for now as they aren't in JSON config)
           let streakBonus = 0;
           if (winStreak >= config.STREAK_THRESHOLD) {
             streakBonus = Math.min(
@@ -323,9 +331,17 @@ export class MatchService {
         approve: true
       });
       
+      // Get vote system settings from config
+      const botConfig = await this.storage.getBotConfig();
+      const voteSettings = botConfig.matchRules.voteSystemSettings;
+      
       // Get total team size
       const teamPlayers = initiatorTeam.players;
-      const requiredVotes = Math.ceil(teamPlayers.length / 2); // Majority needed
+      // Calculate required votes based on majority percentage from config
+      const requiredVotes = Math.max(
+        voteSettings.minVotesNeeded,
+        Math.ceil(teamPlayers.length * (voteSettings.majorityPercent / 100))
+      );
       
       // Create voting message
       const embed = new EmbedBuilder()
