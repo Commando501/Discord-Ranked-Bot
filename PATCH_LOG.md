@@ -18,6 +18,19 @@ Discord Matchmaking Bot with MMR-based team balancing, queue management, and mat
 
 ## Recent Changes
 
+### 2024-03-14 03:45:12 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/index.bot.ts`
+
+**Changes**:
+- Fixed Discord ID field name in player registration
+- Changed `id` to `discordId` in user data object passed to `ensurePlayerExists`
+
+**Purpose**: Fix "Missing discord ID" error in player registration during command execution
+
+**Dependencies Affected**: None
+
 ### 2024-03-14 03:16:34 UTC
 **Type**: Bug Fix
 **Files Modified**: 
