@@ -1,7 +1,6 @@
 import { Client, IntentsBitField, Events, Collection, GatewayIntentBits } from 'discord.js';
 import { registerCommands } from './commands';
 import { logger } from './utils/logger';
-import { config } from './config';
 import { storage } from '../storage';
 import { QueueService } from './services/queueService';
 import { PlayerService } from './services/playerService';
@@ -82,7 +81,10 @@ export class DiscordBot {
   
   public async start() {
     try {
-      await this.client.login(config.DISCORD_TOKEN);
+      if (!process.env.DISCORD_TOKEN) {
+        throw new Error('DISCORD_TOKEN is not defined in environment');
+      }
+      await this.client.login(process.env.DISCORD_TOKEN);
     } catch (error) {
       logger.error(`Failed to start bot: ${error}`);
       throw error;

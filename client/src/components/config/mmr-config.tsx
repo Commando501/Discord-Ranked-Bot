@@ -161,6 +161,82 @@ export default function MmrConfigPanel({ config, onChange }: MmrConfigPanelProps
               />
             </div>
             
+            {/* Streak Settings */}
+            <div className="space-y-4 pt-4">
+              <div className="text-lg font-medium">Win Streak Bonuses</div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <FormField
+                  control={form.control}
+                  name="streakSettings.threshold"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Streak Threshold</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min={1} 
+                          max={20} 
+                          {...field} 
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Wins needed to start bonus
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="streakSettings.bonusPerWin"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bonus Per Win</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min={1} 
+                          max={50} 
+                          {...field} 
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Extra MMR per streak win
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="streakSettings.maxBonus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Maximum Bonus</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min={5} 
+                          max={200} 
+                          {...field} 
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Maximum streak bonus
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+            
             {/* MMR Restrictions */}
             <div className="space-y-4 pt-4">
               <div className="text-lg font-medium">MMR Restrictions</div>

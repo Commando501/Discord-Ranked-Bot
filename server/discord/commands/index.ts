@@ -1,6 +1,6 @@
 import { REST, Routes, Collection } from 'discord.js';
 import { logger } from '../../bot/utils/logger';
-import { config } from '../../bot/config';
+import { storage } from '../../storage';
 
 import * as queueCommand from './queue';
 import * as leaveCommand from './leave';
@@ -60,13 +60,16 @@ export async function registerCommands() {
   try {
     logger.info('Started refreshing application (/) commands.');
 
+    // Fetch the bot configuration from storage
+    const botConfig = await storage.getBotConfig();
+    
     // If guild ID is provided, register commands for specific guild (faster for testing)
-    if (config.guildId) {
+    if (botConfig.general.guildId) {
       await rest.put(
-        Routes.applicationGuildCommands(process.env.CLIENT_ID, config.guildId),
+        Routes.applicationGuildCommands(process.env.CLIENT_ID, botConfig.general.guildId),
         { body: commandsData },
       );
-      logger.info(`Successfully registered commands for guild ID: ${config.guildId}`);
+      logger.info(`Successfully registered commands for guild ID: ${botConfig.general.guildId}`);
     } else {
       // Register commands globally (takes up to an hour to propagate)
       await rest.put(
