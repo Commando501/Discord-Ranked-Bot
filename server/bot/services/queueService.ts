@@ -1,7 +1,6 @@
 import { Guild } from 'discord.js';
 import { IStorage } from '../../storage';
 import { logger } from '../utils/logger';
-import { config } from '../config';
 import { MatchService } from './matchService';
 import { BotConfig } from '@shared/botConfig';
 

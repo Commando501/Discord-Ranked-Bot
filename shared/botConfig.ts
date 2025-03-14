@@ -37,6 +37,15 @@ export const mmrConfigSchema = z.object({
   placementMatches: z.number().int().min(0).max(20).default(5),
   mmrRangeRestrictions: z.boolean().default(true),
   maxMmrDifference: z.number().int().min(0).max(2000).default(300),
+  streakSettings: z.object({
+    threshold: z.number().int().min(1).max(20).default(3),
+    bonusPerWin: z.number().int().min(1).max(50).default(5),
+    maxBonus: z.number().int().min(5).max(200).default(25),
+  }).default({
+    threshold: 3,
+    bonusPerWin: 5,
+    maxBonus: 25,
+  }),
 });
 
 // Season Management
@@ -161,6 +170,11 @@ export const defaultBotConfig: BotConfig = {
     placementMatches: 5,
     mmrRangeRestrictions: true,
     maxMmrDifference: 300,
+    streakSettings: {
+      threshold: 3,
+      bonusPerWin: 5,
+      maxBonus: 25
+    },
   },
   seasonManagement: {
     currentSeason: 1,

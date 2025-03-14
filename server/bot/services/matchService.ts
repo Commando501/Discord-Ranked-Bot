@@ -12,7 +12,6 @@ import {
 } from 'discord.js';
 import { IStorage } from '../../storage';
 import { logger } from '../utils/logger';
-import { config } from '../config';
 import { calculateTeamsMMR } from '../utils/helpers';
 import { BotConfig } from '@shared/botConfig';
 
@@ -99,6 +98,11 @@ export class MatchService {
           ]
         });
         
+        // Get the team names from our created teams
+        const matchTeams = await this.storage.getMatchTeams(match.id);
+        const team1Name = matchTeams[0]?.name || 'Alpha';
+        const team2Name = matchTeams[1]?.name || 'Bravo';
+
         // Send match details to the channel
         if (matchChannel) {
           const embed = new EmbedBuilder()
@@ -107,12 +111,12 @@ export class MatchService {
             .setDescription('Your match has been created! Good luck and have fun!')
             .addFields(
               { 
-                name: `Team ${teamsData.teams[0][0].teamName} (Avg MMR: ${teamsData.team1MMR})`, 
+                name: `Team ${team1Name} (Avg MMR: ${teamsData.team1MMR})`, 
                 value: teamsData.teams[0].map(p => `<@${p.discordId}> (${p.mmr})`).join('\n'),
                 inline: true
               },
               { 
-                name: `Team ${teamsData.teams[1][0].teamName} (Avg MMR: ${teamsData.team2MMR})`, 
+                name: `Team ${team2Name} (Avg MMR: ${teamsData.team2MMR})`, 
                 value: teamsData.teams[1].map(p => `<@${p.discordId}> (${p.mmr})`).join('\n'),
                 inline: true
               }
@@ -122,12 +126,12 @@ export class MatchService {
           // Create vote buttons
           const team1Button = new ButtonBuilder()
             .setCustomId(`vote_${match.id}_team1`)
-            .setLabel(`Team ${teamsData.teams[0][0].teamName} Won`)
+            .setLabel(`Team ${team1Name} Won`)
             .setStyle(ButtonStyle.Success);
           
           const team2Button = new ButtonBuilder()
             .setCustomId(`vote_${match.id}_team2`)
-            .setLabel(`Team ${teamsData.teams[1][0].teamName} Won`)
+            .setLabel(`Team ${team2Name} Won`)
             .setStyle(ButtonStyle.Danger);
           
           const row = new ActionRowBuilder<ButtonBuilder>()
@@ -203,9 +207,10 @@ export class MatchService {
           const mmrSettings = botConfig.mmrSystem;
           
           // Use kFactor from config for win/loss calculation
-          // Default gain/loss values if we can't calculate from kFactor
-          const mmrGain = config.MMR_GAIN_PER_WIN;
-          const mmrLoss = config.MMR_LOSS_PER_LOSS;
+          // Calculate win/loss values based on kFactor from config
+          const kFactor = mmrSettings.kFactor;
+          const mmrGain = Math.round(kFactor * 0.75); // Simplified calculation
+          const mmrLoss = Math.round(kFactor * 0.625); // Simplified calculation
           
           // Calculate MMR change - winners gain, losers lose
           const mmrChange = isWinningTeam ? mmrGain : -mmrLoss;
@@ -222,12 +227,12 @@ export class MatchService {
             winStreak = 0;
           }
           
-          // Apply streak bonuses if applicable (using hardcoded values for now as they aren't in JSON config)
+          // Apply streak bonuses if applicable (using config values)
           let streakBonus = 0;
-          if (winStreak >= config.STREAK_THRESHOLD) {
+          if (winStreak >= mmrSettings.streakSettings.threshold) {
             streakBonus = Math.min(
-              config.MAX_STREAK_BONUS,
-              Math.floor((winStreak - config.STREAK_THRESHOLD + 1) * config.STREAK_BONUS_PER_WIN)
+              mmrSettings.streakSettings.maxBonus,
+              Math.floor((winStreak - mmrSettings.streakSettings.threshold + 1) * mmrSettings.streakSettings.bonusPerWin)
             );
           }
           
