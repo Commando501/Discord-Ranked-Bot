@@ -1,11 +1,12 @@
 import { REST, Routes, Collection } from 'discord.js';
-import { logger } from '../../utils/logger';
-import config from '../../config';
+import { logger } from '../../bot/utils/logger';
+import { config } from '../../bot/config';
 
 import * as queueCommand from './queue';
 import * as leaveCommand from './leave';
 import * as listCommand from './list';
 import * as profileCommand from './profile';
+import * as configCommand from './config';
 import * as matchCommands from './match';
 import * as adminCommands from './admin';
 
@@ -17,6 +18,7 @@ commands.set(queueCommand.data.name, queueCommand);
 commands.set(leaveCommand.data.name, leaveCommand);
 commands.set(listCommand.data.name, listCommand);
 commands.set(profileCommand.data.name, profileCommand);
+commands.set(configCommand.data.name, configCommand);
 commands.set(matchCommands.forcematchCommand.data.name, matchCommands.forcematchCommand);
 commands.set(matchCommands.endmatchCommand.data.name, matchCommands.endmatchCommand);
 commands.set(matchCommands.votekickCommand.data.name, matchCommands.votekickCommand);
@@ -32,6 +34,7 @@ const commandsData = [
   leaveCommand.data.toJSON(),
   listCommand.data.toJSON(),
   profileCommand.data.toJSON(),
+  configCommand.data.toJSON(),
   matchCommands.forcematchCommand.data.toJSON(),
   matchCommands.endmatchCommand.data.toJSON(),
   matchCommands.votekickCommand.data.toJSON(),
