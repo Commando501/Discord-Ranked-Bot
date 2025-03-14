@@ -3,6 +3,7 @@ import { IStorage } from '../../storage';
 import { logger } from '../utils/logger';
 import { config } from '../config';
 import { MatchService } from './matchService';
+import { BotConfig } from '@shared/botConfig';
 
 export class QueueService {
   private storage: IStorage;
