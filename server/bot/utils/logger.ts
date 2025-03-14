@@ -1,4 +1,23 @@
 import { createLogger, format, transports } from 'winston';
+import fs from 'fs';
+import path from 'path';
+import { defaultBotConfig } from '@shared/botConfig';
+
+// Path to the configuration file (same as in storage.ts and config.ts)
+const CONFIG_FILE_PATH = path.join(process.cwd(), 'discordbot-config.json');
+
+// Try to read configuration from file if it exists
+let loggingLevel = 'info'; // Default level
+
+try {
+  if (fs.existsSync(CONFIG_FILE_PATH)) {
+    const fileContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf8');
+    const config = JSON.parse(fileContent);
+    loggingLevel = config.general?.loggingLevel || defaultBotConfig.general.loggingLevel;
+  }
+} catch (error) {
+  console.error('[LOGGER] Error loading config for logger:', error);
+}
 
 // Define the custom format
 const customFormat = format.printf(({ level, message, timestamp }) => {
@@ -7,7 +26,7 @@ const customFormat = format.printf(({ level, message, timestamp }) => {
 
 // Create the logger instance
 export const logger = createLogger({
-  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+  level: loggingLevel,
   format: format.combine(
     format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     format.errors({ stack: true }),
@@ -41,6 +60,6 @@ export const logger = createLogger({
 export default {
   info: (message: string) => logger.info(message),
   warn: (message: string) => logger.warn(message),
-  error: (message: string) => logger.error(message),
+  error: (message: string, meta?: any) => logger.error(message, meta),
   debug: (message: string) => logger.debug(message)
 };

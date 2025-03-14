@@ -25,6 +25,9 @@ export const config = {
   DISCORD_TOKEN: process.env.DISCORD_TOKEN || '',
   CLIENT_ID: process.env.CLIENT_ID || '',
   
+  // Discord server settings
+  guildId: fileConfig.general.guildId || '', // Added for command registration
+  
   // Match settings (these should be moved to the JSON config eventually)
   REQUIRED_PLAYERS_PER_MATCH: fileConfig.matchmaking.queueSizeLimits.min,
   MMR_GAIN_PER_WIN: 25, // Should be calculated from k-factor

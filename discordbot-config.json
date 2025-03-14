@@ -6,7 +6,8 @@
     },
     "commandPrefix": "!",
     "adminRoleIds": [],
-    "loggingLevel": "info"
+    "loggingLevel": "info",
+    "guildId": ""
   },
   "matchmaking": {
     "queueSizeLimits": {
