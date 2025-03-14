@@ -1,13 +1,12 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { storage } from '../../storage';
-import { logger } from '../../utils/logger';
-import { QueueService } from '../../services/queueService';
-import { PlayerService } from '../../services/playerService';
+import { logger } from '../../bot/utils/logger';
+import { QueueService } from '../../bot/services/queueService';
+import { PlayerService } from '../../bot/services/playerService';
 
 export const data = new SlashCommandBuilder()
   .setName('leave')
-  .setDescription('Leave the matchmaking queue')
-  .addAliases(['r', 'remove']);
+  .setDescription('Leave the matchmaking queue');
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();

@@ -24,7 +24,7 @@ const playerService = new PlayerService(storage);
 const matchService = new MatchService(storage);
 
 // Command definitions
-const commands = [
+export const commands = [
   {
     data: new SlashCommandBuilder()
       .setName('queue')
@@ -34,10 +34,10 @@ const commands = [
       
       try {
         const player = await playerService.getOrCreatePlayer({
-          discordId: interaction.user.id,
+          id: interaction.user.id,
           username: interaction.user.username,
           discriminator: interaction.user.discriminator,
-          avatar: interaction.user.avatar || ''
+          avatar: interaction.user.avatar
         });
         
         const isAlreadyQueued = await queueService.isPlayerInQueue(player.id);
@@ -511,10 +511,10 @@ const commands = [
           if (!user) continue;
           
           const player = await playerService.getOrCreatePlayer({
-            discordId: user.id,
+            id: user.id,
             username: user.username,
             discriminator: user.discriminator,
-            avatar: user.avatar || ''
+            avatar: user.avatar
           });
           
           players.push(player);

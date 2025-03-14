@@ -1,15 +1,14 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { storage } from '../../storage';
-import { logger } from '../../utils/logger';
-import { QueueService } from '../../services/queueService';
-import { MatchService } from '../../services/matchService';
-import { PlayerService } from '../../services/playerService';
-import { formatTimeDifference } from '../../utils/embeds';
+import { logger } from '../../bot/utils/logger';
+import { QueueService } from '../../bot/services/queueService';
+import { MatchService } from '../../bot/services/matchService';
+import { PlayerService } from '../../bot/services/playerService';
+import { formatDuration } from '../../bot/utils/helpers';
 
 export const data = new SlashCommandBuilder()
   .setName('list')
-  .setDescription('List players in the queue and active matches')
-  .addAliases(['l']);
+  .setDescription('List players in the queue and active matches');
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
@@ -42,7 +41,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       for (const entry of queueEntries) {
         const player = await playerService.getPlayerById(entry.playerId);
         if (player) {
-          const waitTime = formatTimeDifference(entry.joinedAt, new Date());
+          const waitTime = formatDuration(new Date().getTime() - entry.joinedAt.getTime());
           queueDetails.push({
             username: player.discordUsername,
             mmr: player.mmr,
@@ -73,7 +72,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const matchDetails = await matchService.getMatchDetails(match.id);
         
         if (matchDetails && matchDetails.teams.length > 0) {
-          const matchDuration = formatTimeDifference(match.createdAt, new Date());
+          const matchDuration = formatDuration(new Date().getTime() - match.createdAt.getTime());
           let matchDescription = `**Status:** ${match.status}\n**Duration:** ${matchDuration}\n\n`;
           
           for (const team of matchDetails.teams) {

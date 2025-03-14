@@ -15,23 +15,23 @@ export class PlayerService {
   
   async ensurePlayerExists(userData: DiscordUser): Promise<any> {
     try {
-      if (!userData?.discordId) {
-        throw new Error('Invalid Discord user data: Missing discord ID');
+      if (!userData?.id) {
+        throw new Error('Invalid Discord user data: Missing ID');
       }
 
       // Check if player already exists
-      let player = await this.storage.getPlayerByDiscordId(userData.discordId);
+      let player = await this.storage.getPlayerByDiscordId(userData.id);
       
       if (!player) {
-        // Create new player
+        // Create new player with discordId from id
         player = await this.storage.createPlayer({
-          discordId: userData.discordId,
+          discordId: userData.id,
           username: userData.username || 'Unknown',
           discriminator: userData.discriminator || '0000',
-          avatar: userData.avatar || ''
+          avatar: userData.avatar || null
         });
         
-        logger.info(`Created new player: ${userData.username}#${userData.discriminator} (${userData.discordId})`);
+        logger.info(`Created new player: ${userData.username}#${userData.discriminator} (${userData.id})`);
       }
       
       return player;
@@ -98,5 +98,9 @@ export class PlayerService {
       logger.error(`Error getting top players: ${error}`);
       return [];
     }
+  }
+  
+  async getPlayerById(playerId: number): Promise<any | null> {
+    return this.storage.getPlayer(playerId);
   }
 }

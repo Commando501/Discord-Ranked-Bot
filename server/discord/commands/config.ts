@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { storage } from '../../storage';
+import { logger } from '../../bot/utils/logger';
 
 export const data = new SlashCommandBuilder()
   .setName('config')
@@ -151,10 +152,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       await interaction.reply({ embeds: [embed] });
     }
   } catch (error) {
-    console.error('Error executing config command:', error);
-    await interaction.reply({
-      content: 'There was an error executing this command!',
-      ephemeral: true
-    });
+    logger.error('Error executing config command', { error, userId: interaction.user.id });
+    
+    const errorEmbed = new EmbedBuilder()
+      .setColor('#ED4245')
+      .setTitle('Error')
+      .setDescription('There was an error retrieving the configuration information. Please try again later.');
+    
+    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
   }
 }

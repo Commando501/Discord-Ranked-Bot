@@ -51,6 +51,15 @@ export class QueueService {
     return this.storage.getQueuePlayers();
   }
   
+  async getAllQueueEntries(): Promise<any[]> {
+    return this.storage.getQueuePlayers();
+  }
+  
+  async getPlayerQueueEntry(playerId: number): Promise<any | null> {
+    const queuePlayers = await this.storage.getQueuePlayers();
+    return queuePlayers.find(entry => entry.playerId === playerId) || null;
+  }
+  
   async getQueueSize(): Promise<number> {
     const queue = await this.storage.getQueuePlayers();
     return queue.length;

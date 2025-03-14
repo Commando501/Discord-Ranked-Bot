@@ -1,4 +1,4 @@
-import { Client, Events, GatewayIntentBits } from 'discord.js';
+import { Client, Events, GatewayIntentBits, Collection } from 'discord.js';
 import { logger } from '../bot/utils/logger';
 import { registerCommands, getCommands } from './commands';
 import { storage } from '../storage';
@@ -29,16 +29,28 @@ export async function initializeBot() {
     if (!interaction.isChatInputCommand()) return;
 
     try {
-      const commands = getCommands();
-      const command = commands.get(interaction.commandName);
+      // First try the discord command collection
+      const discordCommands = getCommands();
+      const discordCommand = discordCommands.get(interaction.commandName);
 
-      if (!command) {
-        logger.warn(`Command "${interaction.commandName}" not found`);
+      if (discordCommand && discordCommand.execute) {
+        await discordCommand.execute(interaction);
+        logger.info(`Discord command "${interaction.commandName}" executed by ${interaction.user.tag}`);
         return;
       }
+      
+      // If not found in discord commands, check in bot commands
+      if (Array.isArray(botCommands.commands)) {
+        const botCommand = botCommands.commands.find(cmd => cmd.data.name === interaction.commandName);
+        if (botCommand && botCommand.execute) {
+          await botCommand.execute(interaction);
+          logger.info(`Bot command "${interaction.commandName}" executed by ${interaction.user.tag}`);
+          return;
+        }
+      }
 
-      await command.execute(interaction);
-      logger.info(`Command "${interaction.commandName}" executed by ${interaction.user.tag}`);
+      // No command found
+      logger.warn(`Command "${interaction.commandName}" not found in either command collection`);
     } catch (error) {
       logger.error('Error executing command', { error, command: interaction.commandName });
       

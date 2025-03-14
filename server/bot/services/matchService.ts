@@ -25,6 +25,27 @@ export class MatchService {
   }
   
   /**
+   * Get active matches
+   */
+  async getActiveMatches(): Promise<any[]> {
+    return this.storage.getActiveMatches();
+  }
+  
+  /**
+   * Get match details
+   */
+  async getMatchDetails(matchId: number): Promise<any> {
+    return this.storage.getMatch(matchId);
+  }
+  
+  /**
+   * Get player match results
+   */
+  async getPlayerMatchResults(playerId: number, limit: number = 5): Promise<any[]> {
+    return this.storage.getPlayerMatches(playerId, limit);
+  }
+  
+  /**
    * Logs important events to the configured event log channel
    * @param title Event title
    * @param description Event description

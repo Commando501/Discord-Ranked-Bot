@@ -42,10 +42,10 @@ export class DiscordBot {
         // Quick registration of new players if needed
         if (!interaction.user.bot) {
           await this.playerService.ensurePlayerExists({
-            discordId: interaction.user.id,
+            id: interaction.user.id,
             username: interaction.user.username,
             discriminator: interaction.user.discriminator,
-            avatar: interaction.user.avatar || ''
+            avatar: interaction.user.avatar
           });
         }
         

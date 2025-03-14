@@ -1,13 +1,12 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { storage } from '../../storage';
-import { logger } from '../../utils/logger';
-import { QueueService } from '../../services/queueService';
-import { PlayerService } from '../../services/playerService';
+import { logger } from '../../bot/utils/logger';
+import { QueueService } from '../../bot/services/queueService';
+import { PlayerService } from '../../bot/services/playerService';
 
 export const data = new SlashCommandBuilder()
   .setName('queue')
-  .setDescription('Join the matchmaking queue')
-  .addAliases(['q']);
+  .setDescription('Join the matchmaking queue');
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
@@ -18,8 +17,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     
     // Get or create player
     const player = await playerService.getOrCreatePlayer({
-      discordId: interaction.user.id,
-      discordUsername: interaction.user.tag
+      id: interaction.user.id,
+      username: interaction.user.tag,
+      discriminator: '',
+      avatar: null
     });
     
     // Get the queue service
@@ -59,13 +60,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.editReply({ embeds: [embed] });
     
     // Check if we have enough players to create a match
-    const canCreateMatch = await queueService.checkAndCreateMatch(interaction.guild);
-    
-    if (canCreateMatch) {
-      logger.info('Enough players in queue, creating match');
+    if (interaction.guild) {
+      const canCreateMatch = await queueService.checkAndCreateMatch(interaction.guild);
       
-      // This will be handled by the QueueService
-      // which will notify players about the new match
+      if (canCreateMatch) {
+        logger.info('Enough players in queue, creating match');
+        // This will be handled by the QueueService
+        // which will notify players about the new match
+      }
+    } else {
+      logger.warn('Unable to create match: interaction.guild is null');
     }
     
   } catch (error) {

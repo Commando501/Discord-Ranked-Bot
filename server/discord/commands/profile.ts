@@ -1,13 +1,12 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder, User } from 'discord.js';
 import { storage } from '../../storage';
-import { logger } from '../../utils/logger';
-import { PlayerService } from '../../services/playerService';
-import { MatchService } from '../../services/matchService';
+import { logger } from '../../bot/utils/logger';
+import { PlayerService } from '../../bot/services/playerService';
+import { MatchService } from '../../bot/services/matchService';
 
 export const data = new SlashCommandBuilder()
   .setName('profile')
   .setDescription('View your or another player\'s profile and statistics')
-  .addAliases(['p', 'stats'])
   .addUserOption(option =>
     option
       .setName('user')

@@ -2,13 +2,13 @@ import { REST, Routes, Collection } from 'discord.js';
 import { logger } from '../../bot/utils/logger';
 import { storage } from '../../storage';
 
+// Import our local commands
 import * as queueCommand from './queue';
 import * as leaveCommand from './leave';
 import * as listCommand from './list';
 import * as profileCommand from './profile';
 import * as configCommand from './config';
-import * as matchCommands from './match';
-import * as adminCommands from './admin';
+// Match and admin commands are implemented directly in server/bot/commands.ts
 
 // Create a collection of all commands
 const commands = new Collection();
@@ -19,30 +19,15 @@ commands.set(leaveCommand.data.name, leaveCommand);
 commands.set(listCommand.data.name, listCommand);
 commands.set(profileCommand.data.name, profileCommand);
 commands.set(configCommand.data.name, configCommand);
-commands.set(matchCommands.forcematchCommand.data.name, matchCommands.forcematchCommand);
-commands.set(matchCommands.endmatchCommand.data.name, matchCommands.endmatchCommand);
-commands.set(matchCommands.votekickCommand.data.name, matchCommands.votekickCommand);
-commands.set(adminCommands.resetqueueCommand.data.name, adminCommands.resetqueueCommand);
-commands.set(adminCommands.resetdataCommand.data.name, adminCommands.resetdataCommand);
-commands.set(adminCommands.dummyCommand.data.name, adminCommands.dummyCommand);
-commands.set(adminCommands.matchtimerCommand.data.name, adminCommands.matchtimerCommand);
-commands.set(adminCommands.togglevoiceCommand.data.name, adminCommands.togglevoiceCommand);
+// Match and admin commands are accessed through server/bot/commands.ts
 
-// Get all slash command data for registration
+// Get all slash command data for registration without immediate dependency on bot/commands
 const commandsData = [
   queueCommand.data.toJSON(),
   leaveCommand.data.toJSON(),
   listCommand.data.toJSON(),
   profileCommand.data.toJSON(),
-  configCommand.data.toJSON(),
-  matchCommands.forcematchCommand.data.toJSON(),
-  matchCommands.endmatchCommand.data.toJSON(),
-  matchCommands.votekickCommand.data.toJSON(),
-  adminCommands.resetqueueCommand.data.toJSON(),
-  adminCommands.resetdataCommand.data.toJSON(),
-  adminCommands.dummyCommand.data.toJSON(),
-  adminCommands.matchtimerCommand.data.toJSON(),
-  adminCommands.togglevoiceCommand.data.toJSON(),
+  configCommand.data.toJSON()
 ];
 
 // Function to register commands with Discord API
@@ -60,6 +45,16 @@ export async function registerCommands() {
   try {
     logger.info('Started refreshing application (/) commands.');
 
+    // Now that we're in the function, we can safely import bot commands
+    // This avoids the circular dependency issue
+    const botCommands = await import('../../bot/commands');
+    
+    // Create combined command data with both local and bot commands
+    const allCommandsData = [
+      ...commandsData,
+      ...botCommands.commands.map(cmd => cmd.data.toJSON())
+    ];
+
     // Fetch the bot configuration from storage
     const botConfig = await storage.getBotConfig();
     
@@ -67,14 +62,14 @@ export async function registerCommands() {
     if (botConfig.general.guildId) {
       await rest.put(
         Routes.applicationGuildCommands(process.env.CLIENT_ID, botConfig.general.guildId),
-        { body: commandsData },
+        { body: allCommandsData },
       );
       logger.info(`Successfully registered commands for guild ID: ${botConfig.general.guildId}`);
     } else {
       // Register commands globally (takes up to an hour to propagate)
       await rest.put(
         Routes.applicationCommands(process.env.CLIENT_ID),
-        { body: commandsData },
+        { body: allCommandsData },
       );
       logger.info('Successfully registered commands globally');
     }
