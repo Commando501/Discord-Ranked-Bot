@@ -51,7 +51,7 @@ export async function initializeBot() {
         // Quick registration of new players if needed
         if (!interaction.user.bot) {
           await playerService.ensurePlayerExists({
-            discordId: interaction.user.id,
+            id: interaction.user.id,
             username: interaction.user.username,
             discriminator: interaction.user.discriminator,
             avatar: interaction.user.avatar
