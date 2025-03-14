@@ -194,6 +194,27 @@ export default function GeneralConfigPanel({ config, onChange }: GeneralConfigPa
                     </FormItem>
                   )}
                 />
+                
+                <FormField
+                  control={form.control}
+                  name="logEventChannelId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Event Log Channel</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Discord channel ID (optional)" 
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(e.target.value || undefined)}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Channel where important bot events will be logged
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { Client, Events, GatewayIntentBits } from 'discord.js';
-import config from '../config';
-import { logger } from '../utils/logger';
+import { logger } from '../bot/utils/logger';
 import { registerCommands, getCommands } from './commands';
+import { storage } from '../storage';
 
 const client = new Client({
   intents: [
@@ -61,10 +61,9 @@ export async function initializeBot() {
     logger.info('Discord bot login successful');
     
     // Register slash commands when bot is ready
-    if (config.registerCommandsOnStartup) {
-      await registerCommands();
-      logger.info('Slash commands registered');
-    }
+    const botConfig = await storage.getBotConfig();
+    await registerCommands();
+    logger.info('Slash commands registered');
   } catch (error) {
     logger.error('Discord bot login failed', { error });
     throw error;

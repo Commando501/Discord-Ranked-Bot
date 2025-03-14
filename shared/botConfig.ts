@@ -10,7 +10,8 @@ export const generalConfigSchema = z.object({
   adminRoleIds: z.array(z.string()).default([]),
   loggingLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   errorNotificationChannelId: z.string().optional(),
-  guildId: z.string().optional(), // Add guild ID for command registration
+  logEventChannelId: z.string().optional(), // Channel ID for logging important events
+  guildId: z.string().optional(), // Guild ID for command registration
 });
 
 // Matchmaking Settings
@@ -147,6 +148,7 @@ export const defaultBotConfig: BotConfig = {
     adminRoleIds: [],
     loggingLevel: 'info',
     errorNotificationChannelId: undefined,
+    logEventChannelId: undefined, // Added for event logging
     guildId: undefined, // Added for command registration
   },
   matchmaking: {

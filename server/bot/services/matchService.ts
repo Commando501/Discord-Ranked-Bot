@@ -8,18 +8,62 @@ import {
   ActionRowBuilder,
   CommandInteraction,
   GuildChannel,
-  MessageCreateOptions
+  MessageCreateOptions,
+  Client
 } from 'discord.js';
 import { IStorage } from '../../storage';
 import { logger } from '../utils/logger';
 import { calculateTeamsMMR } from '../utils/helpers';
 import { BotConfig } from '@shared/botConfig';
+import { getDiscordClient } from '../../discord/bot';
 
 export class MatchService {
   private storage: IStorage;
   
   constructor(storage: IStorage) {
     this.storage = storage;
+  }
+  
+  /**
+   * Logs important events to the configured event log channel
+   * @param title Event title
+   * @param description Event description
+   * @param fields Additional fields to include
+   */
+  async logEvent(title: string, description: string, fields: {name: string, value: string, inline?: boolean}[] = []) {
+    try {
+      const botConfig = await this.storage.getBotConfig();
+      const logChannelId = botConfig.general.logEventChannelId;
+      
+      if (!logChannelId) {
+        logger.debug('No event log channel configured, skipping event logging');
+        return;
+      }
+      
+      const client = getDiscordClient();
+      if (!client) {
+        logger.error('Discord client not available for event logging');
+        return;
+      }
+      
+      const logChannel = await client.channels.fetch(logChannelId);
+      if (!logChannel || !logChannel.isTextBased()) {
+        logger.error(`Event log channel ${logChannelId} not found or not a text channel`);
+        return;
+      }
+      
+      const embed = new EmbedBuilder()
+        .setColor('#5865F2')
+        .setTitle(`📝 ${title}`)
+        .setDescription(description)
+        .addFields(fields)
+        .setTimestamp();
+        
+      await logChannel.send({ embeds: [embed] });
+      logger.debug(`Event logged to channel ${logChannelId}: ${title}`);
+    } catch (error) {
+      logger.error(`Failed to log event: ${error}`);
+    }
   }
   
   async createMatchWithPlayers(playerIds: number[], guild: Guild): Promise<{ success: boolean, message: string, matchId?: number }> {
@@ -148,6 +192,17 @@ export class MatchService {
         // Continue without channel creation if it fails
       }
       
+      // Log the match creation event
+      await this.logEvent(
+        "Match Created",
+        `Match #${match.id} has been created successfully.`,
+        [
+          { name: 'Match ID', value: match.id.toString(), inline: true },
+          { name: 'Players', value: validPlayers.length.toString(), inline: true },
+          { name: 'Channel', value: matchChannel ? `<#${matchChannel.id}>` : 'None', inline: true }
+        ]
+      );
+      
       return { 
         success: true, 
         message: matchChannel 
@@ -246,6 +301,22 @@ export class MatchService {
           });
         }
       }
+      
+      // Log the match completion event
+      const winningPlayers = matchTeams.find(team => team.id === winningTeamId)?.players || [];
+      const losingPlayers = matchTeams.find(team => team.id !== winningTeamId)?.players || [];
+      
+      await this.logEvent(
+        "Match Ended",
+        `Match #${matchId} has been completed. Team ${winningTeam.name} has won!`,
+        [
+          { name: 'Match ID', value: matchId.toString(), inline: true },
+          { name: 'Winning Team', value: winningTeam.name, inline: true },
+          { name: 'Duration', value: match.createdAt ? `${Math.round((Date.now() - new Date(match.createdAt).getTime()) / 60000)} minutes` : 'Unknown', inline: true },
+          { name: 'Winners', value: winningPlayers.map(p => p.username).join(', ') || 'None', inline: false },
+          { name: 'Losers', value: losingPlayers.map(p => p.username).join(', ') || 'None', inline: false }
+        ]
+      );
       
       return { 
         success: true, 
@@ -378,6 +449,19 @@ export class MatchService {
       
       // Handle vote collection and processing would be done in a message event handler
       // That part is not implemented here but would be added to bot/index.ts
+      
+      // Log the vote kick initiation
+      await this.logEvent(
+        "Vote Kick Initiated",
+        `<@${initiator.discordId}> has initiated a vote to kick <@${target.discordId}> from match #${matchWithBothPlayers.id}.`,
+        [
+          { name: 'Match ID', value: matchWithBothPlayers.id.toString(), inline: true },
+          { name: 'Team', value: initiatorTeam.name, inline: true },
+          { name: 'Required Votes', value: requiredVotes.toString(), inline: true },
+          { name: 'Initiator', value: initiator.username, inline: true },
+          { name: 'Target', value: target.username, inline: true }
+        ]
+      );
       
       return { 
         success: true, 
