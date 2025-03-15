@@ -494,7 +494,7 @@ export class MatchService {
     }
   }
 
-  async cancelMatch(matchId: number): Promise<{ success: boolean; message: string }> {
+  async handleMatchCancellation(matchId: number): Promise<{ success: boolean; message: string }> {
     try {
       const match = await this.storage.getMatch(matchId);
 
