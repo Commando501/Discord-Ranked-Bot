@@ -3,6 +3,22 @@
 
 ## Recent Changes
 
+### 2024-03-14 04:45:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/routes.ts`
+- `server/bot/services/matchService.ts`
+
+**Changes**:
+- Fixed match cancellation implementation by moving logic to storage layer
+- Renamed `cancelMatch` to `handleMatchCancellation` in MatchService
+- Updated route handler to use correct storage methods
+- Added proper status update for cancelled matches
+
+**Purpose**: Fix match cancellation functionality and storage layer integration
+
+**Dependencies Affected**: None
+
 ### 2024-03-14 04:40:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
