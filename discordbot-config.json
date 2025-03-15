@@ -7,11 +7,13 @@
     "commandPrefix": "!",
     "adminRoleIds": [],
     "loggingLevel": "info",
+    "errorNotificationChannelId": "1350568833726943354",
+    "logEventChannelId": "1350568898272952442",
     "guildId": ""
   },
   "matchmaking": {
     "queueSizeLimits": {
-      "min": 8,
+      "min": 2,
       "max": 50
     },
     "autoMatchCreation": true,
@@ -29,16 +31,21 @@
     "mmrCalculationMethod": "elo",
     "placementMatches": 5,
     "mmrRangeRestrictions": true,
-    "maxMmrDifference": 300
+    "maxMmrDifference": 300,
+    "streakSettings": {
+      "threshold": 3,
+      "bonusPerWin": 10,
+      "maxBonus": 20
+    }
   },
   "seasonManagement": {
-    "currentSeason": 2,
+    "currentSeason": 1,
+    "seasonStartDate": "2025-03-14T02:07:44.514Z",
+    "seasonEndDate": "2025-06-14T02:07:44.514Z",
     "mmrResetType": "soft",
     "placementMatchRequirements": 10,
     "rewardTiers": [],
-    "enableEndOfSeasonAnnouncements": true,
-    "seasonStartDate": "2025-03-14T02:07:44.514Z",
-    "seasonEndDate": "2025-06-14T02:07:44.514Z"
+    "enableEndOfSeasonAnnouncements": true
   },
   "matchRules": {
     "voteSystemSettings": {
@@ -46,10 +53,10 @@
       "minVotesNeeded": 3
     },
     "matchTimeLimitHours": 2,
-    "enableForfeit": true,
+    "enableForfeit": false,
     "noShowTimeoutMinutes": 10,
     "minPlayersToStart": 4,
-    "allowSubstitutes": true
+    "allowSubstitutes": false
   },
   "notifications": {
     "matchReminders": true,
