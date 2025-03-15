@@ -18,6 +18,20 @@ Discord Matchmaking Bot with MMR-based team balancing, queue management, and mat
 
 ## Recent Changes
 
+### 2024-03-14 04:00:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/utils/logger.ts`
+
+**Changes**:
+- Added Discord token configuration to HTTP transport in logger
+- Ensured proper authorization headers for Discord API requests
+- Configured token from environment variables
+
+**Purpose**: Fix "Expected token to be set for this request" error during event logging
+
+**Dependencies Affected**: None
+
 ### 2024-03-14 03:50:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
