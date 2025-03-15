@@ -497,7 +497,7 @@ export class MatchService {
 
 
 
-  async cancelMatch(matchId: number): Promise<{ success: boolean, message: string }> {
+  async cancelMatch(matchId: number): Promise<{ success: boolean; message: string }> {
     try {
       const match = await this.storage.getMatch(matchId);
       
@@ -519,7 +519,7 @@ export class MatchService {
         finishedAt: new Date()
       });
 
-      // Try to delete the match channel
+      // Delete Discord channel
       try {
         const client = getDiscordClient();
         if (client) {
@@ -543,6 +543,27 @@ export class MatchService {
           playerId: player.id,
           priority: 0
         });
+      }
+
+      // Log the cancellation
+      await this.logEvent(
+        "Match Cancelled",
+        `Match #${matchId} has been cancelled.`,
+        [
+          { name: 'Match ID', value: matchId.toString(), inline: true },
+          { name: 'Players Returned', value: players.length.toString(), inline: true }
+        ]
+      );
+
+      return { 
+        success: true, 
+        message: `Match #${matchId} cancelled. ${players.length} players returned to queue.`
+      };
+    } catch (error) {
+      logger.error(`Error cancelling match: ${error}`);
+      return { success: false, message: 'Failed to cancel match due to an error' };
+    }
+  }
       }
 
       // Log the cancellation
