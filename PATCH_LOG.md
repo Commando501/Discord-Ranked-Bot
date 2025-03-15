@@ -18,6 +18,21 @@ Discord Matchmaking Bot with MMR-based team balancing, queue management, and mat
 
 ## Recent Changes
 
+### 2024-03-14 04:35:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/matchService.ts`
+
+**Changes**:
+- Fixed syntax error in `cancelMatch` method
+- Removed duplicate code blocks
+- Corrected function closure and bracket placement
+- Ensured proper error handling flow
+
+**Purpose**: Fix TypeScript compilation error in match cancellation implementation
+
+**Dependencies Affected**: None
+
 ### 2024-03-14 04:30:00 UTC
 **Type**: Feature Implementation
 **Files Modified**: 
