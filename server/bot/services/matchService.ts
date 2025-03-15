@@ -558,11 +558,14 @@ export class MatchService {
     }
   }
 
-  private async logEvent = async (title: string, description: string, fields: Array<{ name: string; value: string; inline?: boolean }>) => {
-    try {
+  private internalLogEvent = async (title: string, description: string, fields: Array<{ name: string; value: string; inline?: boolean }>) => 
+  {
+    try 
+    {
       // Implement logging logic here
       logger.info(`${title}: ${description}`);
-    } catch (error) {
+    } catch (error) 
+    {
       logger.error(`Failed to log event: ${error}`);
     }
   }
