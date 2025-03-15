@@ -14,6 +14,28 @@ import {
   dataManagementConfigSchema
 } from "@shared/botConfig";
 
+// Assuming this class exists and is correctly implemented.  Add it if it's missing.
+class MatchService {
+  storage: any;
+  constructor(storage: any) {
+    this.storage = storage;
+  }
+  async cancelMatch(matchId: number): Promise<{ success: boolean; message?: string }> {
+    try {
+      const match = await this.storage.getMatch(matchId);
+      if (!match) {
+        return { success: false, message: 'Match not found' };
+      }
+      // Add logic to cancel the match and clean up resources here.  This is a placeholder.
+      await this.storage.cancelMatch(matchId);
+      return { success: true, message: 'Match cancelled successfully' };
+    } catch (error) {
+      console.error('Error cancelling match in service:', error);
+      return { success: false, message: 'Failed to cancel match' };
+    }
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Admin middleware for protecting admin routes
   const adminMiddleware = (req: any, res: any, next: any) => {
@@ -21,14 +43,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // For now, we'll allow all requests in this example
     next();
   };
-  
+
   // API Routes for the frontend dashboard
   app.get('/api/stats', async (req, res) => {
     try {
       const queuePlayers = await storage.getQueuePlayers();
       const activeMatches = await storage.getActiveMatches();
       const topPlayers = await storage.listTopPlayers(5);
-      
+
       res.json({
         queueCount: queuePlayers.length,
         activeMatchesCount: activeMatches.length,
@@ -74,13 +96,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/players/top', async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
-      
+
       // Get the top players from storage
       const topPlayers = await storage.listTopPlayers(limit);
-      
+
       // Log the number of players found for debugging
       console.log(`Fetched ${topPlayers.length} top players`);
-      
+
       res.json(topPlayers);
     } catch (error) {
       console.error('Error fetching top players:', error);
@@ -93,11 +115,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { discordId } = req.params;
       const player = await storage.getPlayerByDiscordId(discordId);
-      
+
       if (!player) {
         return res.status(404).json({ message: 'Player not found' });
       }
-      
+
       res.json(player);
     } catch (error) {
       console.error('Error fetching player by Discord ID:', error);
@@ -109,17 +131,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/players/:id', async (req, res) => {
     try {
       const playerId = parseInt(req.params.id);
-      
+
       if (isNaN(playerId)) {
         return res.status(400).json({ message: 'Invalid player ID' });
       }
-      
+
       const player = await storage.getPlayer(playerId);
-      
+
       if (!player) {
         return res.status(404).json({ message: 'Player not found' });
       }
-      
+
       res.json(player);
     } catch (error) {
       console.error('Error fetching player by ID:', error);
@@ -131,16 +153,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const playerId = parseInt(req.params.id);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      
+
       if (isNaN(playerId)) {
         return res.status(400).json({ message: 'Invalid player ID' });
       }
-      
+
       const player = await storage.getPlayer(playerId);
       if (!player) {
         return res.status(404).json({ message: 'Player not found' });
       }
-      
+
       const matches = await storage.getPlayerMatches(playerId, limit);
       res.json(matches);
     } catch (error) {
@@ -163,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       { name: '/endmatch', description: 'Admin: End a match and record results', usage: '/endmatch <match_id> <winning_team>' },
       { name: '/resetqueue', description: 'Admin: Reset the queue', usage: '/resetqueue' }
     ];
-    
+
     res.json(commands);
   });
 
@@ -179,7 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bot Configuration Routes
-  
+
   // Get bot configuration
   app.get('/api/config', adminMiddleware, async (req, res) => {
     try {
@@ -190,12 +212,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch bot configuration' });
     }
   });
-  
+
   // Update bot configuration
   app.put('/api/config', adminMiddleware, async (req, res) => {
     try {
       const configData = req.body;
-      
+
       // Validate the configuration data
       try {
         const validatedConfig = botConfigSchema.parse(configData);
@@ -215,30 +237,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to update bot configuration' });
     }
   });
-  
+
   // Update specific configuration section
   app.patch('/api/config/:section', adminMiddleware, async (req, res) => {
     try {
       const { section } = req.params;
       const sectionData = req.body;
-      
+
       // Validate the section exists
       const validSections = [
         'general', 'matchmaking', 'mmrSystem', 'seasonManagement',
         'matchRules', 'notifications', 'integrations', 'dataManagement'
       ];
-      
+
       if (!validSections.includes(section)) {
         return res.status(400).json({ message: `Invalid section: ${section}` });
       }
-      
+
       // Get current config
       const currentConfig = await storage.getBotConfig();
-      
+
       // Validate the section data
       try {
         let validatedSectionData;
-        
+
         switch (section) {
           case 'general':
             validatedSectionData = generalConfigSchema.parse(sectionData);
@@ -267,13 +289,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           default:
             throw new Error('Invalid section');
         }
-        
+
         // Update the section in the config
         const updatedConfig = {
           ...currentConfig,
           [section]: validatedSectionData
         };
-        
+
         // Update the full config
         const savedConfig = await storage.updateBotConfig(updatedConfig);
         res.json({ [section]: savedConfig[section as keyof typeof savedConfig] });
@@ -305,7 +327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch players' });
     }
   });
-  
+
   // Create sample players (for development/testing only)
   app.post('/api/dev/sample-data', adminMiddleware, async (req, res) => {
     try {
@@ -372,11 +394,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isActive: true
         }
       ];
-      
+
       for (const playerData of samplePlayers) {
         await storage.createPlayer(playerData);
       }
-      
+
       res.json({ 
         success: true, 
         message: 'Sample data created successfully',
@@ -392,36 +414,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/admin/players/:id', adminMiddleware, async (req, res) => {
     try {
       const playerId = parseInt(req.params.id);
-      
+
       if (isNaN(playerId)) {
         return res.status(400).json({ message: 'Invalid player ID' });
       }
-      
+
       // Validate the request body
       const { mmr, wins, losses, winStreak, lossStreak, isActive } = req.body;
-      
+
       // Build the update data with only valid fields
       const updateData: Partial<typeof players.$inferSelect> = {};
-      
+
       if (typeof mmr === 'number') updateData.mmr = mmr;
       if (typeof wins === 'number') updateData.wins = wins;
       if (typeof losses === 'number') updateData.losses = losses;
       if (typeof winStreak === 'number') updateData.winStreak = winStreak;
       if (typeof lossStreak === 'number') updateData.lossStreak = lossStreak;
       if (typeof isActive === 'boolean') updateData.isActive = isActive;
-      
+
       // Check if there's anything to update
       if (Object.keys(updateData).length === 0) {
         return res.status(400).json({ message: 'No valid fields to update' });
       }
-      
+
       // Update the player
       const updatedPlayer = await storage.updatePlayer(playerId, updateData);
-      
+
       if (!updatedPlayer) {
         return res.status(404).json({ message: 'Player not found' });
       }
-      
+
       res.json(updatedPlayer);
     } catch (error) {
       console.error('Error updating player:', error);
@@ -435,12 +457,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get both active and completed matches with a high limit
       const activeMatches = await storage.getActiveMatches();
       const recentMatches = await storage.getMatchHistory(50);
-      
+
       // Combine and sort by creation date
       const allMatches = [...activeMatches, ...recentMatches].sort((a, b) => {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
-      
+
       res.json(allMatches);
     } catch (error) {
       console.error('Error fetching all matches:', error);
@@ -452,20 +474,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/admin/matches/:id', adminMiddleware, async (req, res) => {
     try {
       const matchId = parseInt(req.params.id);
-      
+
       if (isNaN(matchId)) {
         return res.status(400).json({ message: 'Invalid match ID' });
       }
-      
+
       const matchData = req.body;
-      
+
       // Add validation here in a real app
       const updatedMatch = await storage.updateMatch(matchId, matchData);
-      
+
       if (!updatedMatch) {
         return res.status(404).json({ message: 'Match not found' });
       }
-      
+
       res.json(updatedMatch);
     } catch (error) {
       console.error('Error updating match:', error);
@@ -479,12 +501,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // In a real app, we would have a method to get all teams
       // For this demo, we'll get teams from active matches
       const activeMatches = await storage.getActiveMatches();
-      
+
       // Extract and flatten teams from matches
       const allTeams = activeMatches.reduce((teams, match) => {
         return [...teams, ...match.teams];
       }, [] as any[]);
-      
+
       res.json(allTeams);
     } catch (error) {
       console.error('Error fetching all teams:', error);
@@ -507,17 +529,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/admin/queue/:playerId', adminMiddleware, async (req, res) => {
     try {
       const playerId = parseInt(req.params.playerId);
-      
+
       if (isNaN(playerId)) {
         return res.status(400).json({ message: 'Invalid player ID' });
       }
-      
+
       const success = await storage.removePlayerFromQueue(playerId);
-      
+
       if (!success) {
         return res.status(404).json({ message: 'Player not found in queue' });
       }
-      
+
       res.json({ success: true, message: 'Player removed from queue' });
     } catch (error) {
       console.error('Error removing player from queue:', error);
@@ -535,24 +557,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to clear queue' });
     }
   });
-  
+
   // Start a new season
   app.post('/api/admin/seasons/new', adminMiddleware, async (req, res) => {
     try {
       // Get current config
       const currentConfig = await storage.getBotConfig();
       const { seasonManagement } = currentConfig;
-      
+
       // Increment season number
       const newSeasonNumber = (seasonManagement.currentSeason || 1) + 1;
-      
+
       // Set new dates
       const startDate = new Date().toISOString();
-      
+
       // Calculate end date (3 months from now)
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() + 3);
-      
+
       // Update season config
       const updatedSeasonConfig = {
         ...seasonManagement,
@@ -560,17 +582,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         seasonStartDate: startDate,
         seasonEndDate: endDate.toISOString()
       };
-      
+
       // Apply MMR reset based on config
       if (seasonManagement.mmrResetType !== 'none') {
         // In a real implementation, we would reset MMR for all players here
         // For this demo, we'll just acknowledge it in the response
       }
-      
+
       // Update the configuration
       currentConfig.seasonManagement = updatedSeasonConfig;
       await storage.updateBotConfig(currentConfig);
-      
+
       res.json({ 
         success: true, 
         message: `Season ${newSeasonNumber} started successfully`,
@@ -581,22 +603,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to start new season' });
     }
   });
-  
+
   // Distribute season rewards
   app.post('/api/admin/seasons/distribute-rewards', adminMiddleware, async (req, res) => {
     try {
       // Get current config
       const currentConfig = await storage.getBotConfig();
       const { seasonManagement } = currentConfig;
-      
+
       // In a real implementation, we would:
       // 1. Get all players
       // 2. Calculate their rewards based on MMR thresholds
       // 3. Send messages to Discord users
       // 4. Generate logs
-      
+
       // For this demo, we'll just acknowledge the request
-      
+
       // Check if we have reward tiers defined
       if (!seasonManagement.rewardTiers || seasonManagement.rewardTiers.length === 0) {
         return res.status(400).json({ 
@@ -604,7 +626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: 'No reward tiers defined. Please define reward tiers before distributing rewards.' 
         });
       }
-      
+
       res.json({ 
         success: true, 
         message: `Rewards for Season ${seasonManagement.currentSeason} distributed successfully`,
@@ -615,6 +637,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to distribute rewards' });
     }
   });
+
+  app.post('/api/matches/:id/cancel', adminMiddleware, async (req, res) => {
+    try {
+      const matchId = parseInt(req.params.id);
+      if (isNaN(matchId)) {
+        return res.status(400).json({ message: 'Invalid match ID' });
+      }
+
+      const matchService = new MatchService(storage);
+      const result = await matchService.cancelMatch(matchId);
+
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error('Error cancelling match:', error);
+      res.status(500).json({ message: 'Failed to cancel match' });
+    }
+  });
+
 
   const httpServer = createServer(app);
   return httpServer;

@@ -494,3 +494,73 @@ export class MatchService {
     }
   }
 }
+
+
+
+  async cancelMatch(matchId: number): Promise<{ success: boolean, message: string }> {
+    try {
+      const match = await this.storage.getMatch(matchId);
+      
+      if (!match) {
+        return { success: false, message: 'Match not found' };
+      }
+
+      if (match.status === 'COMPLETED' || match.status === 'CANCELLED') {
+        return { success: false, message: `Match is already ${match.status.toLowerCase()}` };
+      }
+
+      // Get match players before updating status
+      const teams = await this.storage.getMatchTeams(matchId);
+      const players = teams.flatMap(team => team.players);
+
+      // Update match status
+      await this.storage.updateMatch(matchId, { 
+        status: 'CANCELLED',
+        finishedAt: new Date()
+      });
+
+      // Try to delete the match channel
+      try {
+        const client = getDiscordClient();
+        if (client) {
+          const guild = client.guilds.cache.first();
+          if (guild) {
+            const matchChannel = guild.channels.cache.find(
+              channel => channel.name === `match-${matchId}`
+            );
+            if (matchChannel) {
+              await matchChannel.delete();
+            }
+          }
+        }
+      } catch (error) {
+        logger.error(`Error deleting match channel: ${error}`);
+      }
+
+      // Return players to queue
+      for (const player of players) {
+        await this.storage.addPlayerToQueue({
+          playerId: player.id,
+          priority: 0
+        });
+      }
+
+      // Log the cancellation
+      await this.logEvent(
+        "Match Cancelled",
+        `Match #${matchId} has been cancelled.`,
+        [
+          { name: 'Match ID', value: matchId.toString(), inline: true },
+          { name: 'Players Returned', value: players.length.toString(), inline: true }
+        ]
+      );
+
+      return { 
+        success: true, 
+        message: `Match #${matchId} cancelled. ${players.length} players returned to queue.`
+      };
+    } catch (error) {
+      logger.error(`Error cancelling match: ${error}`);
+      return { success: false, message: 'Failed to cancel match due to an error' };
+    }
+  }

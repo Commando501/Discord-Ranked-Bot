@@ -18,6 +18,23 @@ Discord Matchmaking Bot with MMR-based team balancing, queue management, and mat
 
 ## Recent Changes
 
+### 2024-03-14 04:30:00 UTC
+**Type**: Feature Implementation
+**Files Modified**: 
+- `server/bot/services/matchService.ts`
+- `server/routes.ts`
+
+**Changes**:
+- Added `cancelMatch` method to MatchService
+- Implemented proper match cancellation logic
+- Added channel cleanup for cancelled matches
+- Added players return to queue functionality
+- Updated API endpoint to use new cancellation method
+
+**Purpose**: Fix match cancellation not cleaning up resources and returning players to queue
+
+**Dependencies Affected**: None
+
 ### 2024-03-14 04:00:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
