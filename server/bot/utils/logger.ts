@@ -14,6 +14,18 @@ try {
     const fileContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf8');
     const config = JSON.parse(fileContent);
     loggingLevel = config.general?.loggingLevel || defaultBotConfig.general.loggingLevel;
+    
+    // Add Discord token to logger configuration
+    if (process.env.DISCORD_TOKEN) {
+      logger.add(new transports.Http({
+        host: 'discord.com',
+        path: '/api/webhooks',
+        ssl: true,
+        headers: {
+          'Authorization': `Bot ${process.env.DISCORD_TOKEN}`
+        }
+      }));
+    }
   }
 } catch (error) {
   console.error('[LOGGER] Error loading config for logger:', error);
