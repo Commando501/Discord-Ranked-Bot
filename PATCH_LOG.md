@@ -3,6 +3,21 @@
 
 ## Recent Changes
 
+### 2024-03-14 04:55:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/bot/services/matchService.ts`
+
+**Changes**:
+- Enhanced match embed to display match ID more prominently
+- Added admin reference section in match description
+- Included `/endmatch` command usage example in the embed
+- Improved visibility of match ID for administrative purposes
+
+**Purpose**: Improve match administration by making match IDs more accessible for admin commands
+
+**Dependencies Affected**: None
+
 ### 2024-03-14 04:50:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
