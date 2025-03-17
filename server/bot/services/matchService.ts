@@ -173,7 +173,7 @@ export class MatchService {
           const embed = new EmbedBuilder()
             .setColor('#5865F2')
             .setTitle(`Match #${match.id}`)
-            .setDescription('Your match has been created! Good luck and have fun!')
+            .setDescription(`Your match has been created! Good luck and have fun!\n\n**Admin Reference**\nMatch ID: \`${match.id}\` (Use \`/endmatch ${match.id} <winning_team>\` to end this match)`)
             .addFields(
               { 
                 name: `Team ${team1Name} (Avg MMR: ${teamsData.team1MMR})`, 
