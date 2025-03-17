@@ -645,18 +645,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid match ID' });
       }
 
+      // First update the match status in the database
       const updateResult = await storage.updateMatch(matchId, {
         status: 'CANCELLED',
         finishedAt: new Date()
       });
 
+      // Use the local MatchService
       const matchService = new MatchService(storage);
-      const cancellationResult = await matchService.handleMatchCancellation(matchId);
+      const cancellationResult = await matchService.cancelMatch(matchId);
 
       if (cancellationResult.success) {
         res.json(cancellationResult);
       } else {
-        res.status(400).json(result);
+        res.status(400).json(cancellationResult);
       }
     } catch (error) {
       console.error('Error cancelling match:', error);
