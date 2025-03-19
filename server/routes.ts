@@ -26,8 +26,12 @@ class MatchService {
       if (!match) {
         return { success: false, message: 'Match not found' };
       }
-      // Add logic to cancel the match and clean up resources here.  This is a placeholder.
-      await this.storage.cancelMatch(matchId);
+      
+      // Update match status to CANCELLED
+      await this.storage.updateMatch(matchId, { status: 'CANCELLED' });
+      
+      // Since we don't have a dedicated cancelMatch in storage,
+      // we use updateMatch to mark the match as cancelled
       return { success: true, message: 'Match cancelled successfully' };
     } catch (error) {
       console.error('Error cancelling match in service:', error);
