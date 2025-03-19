@@ -350,6 +350,45 @@ export class MatchService {
         ]
       );
 
+      // Start channel deletion countdown
+      try {
+        const client = getDiscordClient();
+        if (client) {
+          const guild = client.guilds.cache.first();
+          if (guild) {
+            const matchChannel = guild.channels.cache.find(
+              channel => channel.name === `match-${matchId}`
+            );
+            if (matchChannel && matchChannel.isTextBased()) {
+              const countdownSeconds = 10;
+              let secondsLeft = countdownSeconds;
+
+              const countdownMessage = await matchChannel.send(`Match completed! Channel will be deleted in ${countdownSeconds} seconds...`);
+
+              const interval = setInterval(async () => {
+                secondsLeft--;
+                if (secondsLeft > 0) {
+                  await countdownMessage.edit(`Match completed! Channel will be deleted in ${secondsLeft} seconds...`);
+                } else {
+                  clearInterval(interval);
+
+                  // Add players back to queue
+                  const queueService = new QueueService(this.storage);
+                  for (const player of [...winningPlayers, ...losingPlayers]) {
+                    await queueService.addPlayerToQueue(player.id);
+                  }
+
+                  // Delete the channel
+                  await matchChannel.delete();
+                }
+              }, 1000);
+            }
+          }
+        }
+      } catch (error) {
+        logger.error(`Error handling match channel cleanup: ${error}`);
+      }
+
       return { 
         success: true, 
         message: `Match #${matchId} has been completed. Team ${winningTeam.name} has won!`
