@@ -16,6 +16,8 @@ import { logger } from '../utils/logger';
 import { calculateTeamsMMR } from '../utils/helpers';
 import { BotConfig } from '@shared/botConfig';
 import { getDiscordClient } from '../../discord/bot';
+import { QueueService } from './queueService';
+
 
 export class MatchService {
   private storage: IStorage;
@@ -534,8 +536,38 @@ export class MatchService {
             const matchChannel = guild.channels.cache.find(
               channel => channel.name === `match-${matchId}`
             );
-            if (matchChannel) {
-              await matchChannel.delete();
+            if (matchChannel && matchChannel.isTextBased()) {
+              // Start countdown
+              const countdownSeconds = 10;
+              let secondsLeft = countdownSeconds;
+
+              const countdownMessage = await matchChannel.send(`Match completed! Channel will be deleted in ${countdownSeconds} seconds...`);
+
+              const interval = setInterval(async () => {
+                secondsLeft--;
+                if (secondsLeft > 0) {
+                  await countdownMessage.edit(`Match completed! Channel will be deleted in ${secondsLeft} seconds...`);
+                } else {
+                  clearInterval(interval);
+
+                  // Get all players from the match
+                  const matchTeams = await this.storage.getMatchTeams(matchId);
+                  const players = [];
+                  for (const team of matchTeams) {
+                    const teamPlayers = await this.storage.getTeamPlayers(team.id);
+                    players.push(...teamPlayers);
+                  }
+
+                  // Add players back to queue
+                  const queueService = new QueueService(this.storage);
+                  for (const player of players) {
+                    await queueService.addPlayerToQueue(player.playerId);
+                  }
+
+                  // Delete the channel
+                  await matchChannel.delete();
+                }
+              }, 1000);
             }
           }
         }
