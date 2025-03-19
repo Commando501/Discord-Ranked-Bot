@@ -44,6 +44,8 @@ export const matches = pgTable("matches", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   finishedAt: timestamp("finished_at"),
   winningTeamId: integer("winning_team_id"),
+  channelId: text("channel_id"), // Discord channel ID
+  categoryId: text("category_id"), // Discord category ID
 });
 
 export const insertMatchSchema = createInsertSchema(matches).omit({
@@ -51,6 +53,8 @@ export const insertMatchSchema = createInsertSchema(matches).omit({
   createdAt: true,
   finishedAt: true,
   winningTeamId: true,
+  channelId: true,
+  categoryId: true,
 });
 
 // Team model

@@ -151,28 +151,51 @@ export class MatchService {
         );
 
         if (!matchCategory) {
-          matchCategory = await guild.channels.create({
-            name: 'Matches',
-            type: ChannelType.GuildCategory
-          });
+          logger.info('Creating new Matches category');
+          try {
+            matchCategory = await guild.channels.create({
+              name: 'Matches',
+              type: ChannelType.GuildCategory
+            });
+            logger.info(`Successfully created Matches category with ID: ${matchCategory.id}`);
+          } catch (categoryError) {
+            logger.error(`Failed to create Matches category: ${categoryError}`);
+            throw new Error(`Failed to create match category: ${categoryError.message}`);
+          }
+        } else {
+          logger.info(`Found existing Matches category with ID: ${matchCategory.id}`);
         }
 
         // Create a text channel for this match
-        matchChannel = await guild.channels.create({
-          name: `match-${match.id}`,
-          type: ChannelType.GuildText,
-          parent: matchCategory.id,
-          permissionOverwrites: [
-            {
-              id: guild.roles.everyone.id,
-              deny: ['ViewChannel']
-            },
-            ...playerIds.map(id => ({
-              id: players.find(p => p?.id === id)?.discordId || '',
-              allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory']
-            }))
-          ]
-        });
+        logger.info(`Creating match channel for match #${match.id}`);
+        try {
+          matchChannel = await guild.channels.create({
+            name: `match-${match.id}`,
+            type: ChannelType.GuildText,
+            parent: matchCategory.id,
+            permissionOverwrites: [
+              {
+                id: guild.roles.everyone.id,
+                deny: ['ViewChannel']
+              },
+              ...playerIds.map(id => ({
+                id: players.find(p => p?.id === id)?.discordId || '',
+                allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory']
+              }))
+            ]
+          });
+          logger.info(`Successfully created match channel with ID: ${matchChannel.id}`);
+          
+          // Store channel and category IDs in the match record
+          await this.storage.updateMatch(match.id, {
+            channelId: matchChannel.id,
+            categoryId: matchCategory.id
+          });
+          logger.info(`Updated match record with channel and category IDs`);
+        } catch (channelError) {
+          logger.error(`Failed to create match channel: ${channelError}`);
+          throw new Error(`Failed to create match channel: ${channelError.message}`);
+        }
 
         // Get the team names from our created teams
         const matchTeams = await this.storage.getMatchTeams(match.id);
@@ -353,40 +376,106 @@ export class MatchService {
       // Start channel deletion countdown
       try {
         const client = getDiscordClient();
-        if (client) {
-          const guild = client.guilds.cache.first();
-          if (guild) {
-            const matchChannel = guild.channels.cache.find(
-              channel => channel.name === `match-${matchId}`
-            );
-            if (matchChannel && matchChannel.isTextBased()) {
-              const countdownSeconds = 10;
-              let secondsLeft = countdownSeconds;
-
-              const countdownMessage = await matchChannel.send(`Match completed! Channel will be deleted in ${countdownSeconds} seconds...`);
-
-              const interval = setInterval(async () => {
-                secondsLeft--;
-                if (secondsLeft > 0) {
-                  await countdownMessage.edit(`Match completed! Channel will be deleted in ${secondsLeft} seconds...`);
-                } else {
-                  clearInterval(interval);
-
-                  // Add players back to queue
-                  const queueService = new QueueService(this.storage);
-                  for (const player of [...winningPlayers, ...losingPlayers]) {
-                    await queueService.addPlayerToQueue(player.id);
-                  }
-
-                  // Delete the channel
-                  await matchChannel.delete();
-                }
-              }, 1000);
-            }
-          }
+        if (!client) {
+          logger.error('Discord client not available for match cleanup');
+          throw new Error('Discord client not available');
         }
+        
+        const guild = client.guilds.cache.first();
+        if (!guild) {
+          logger.error('No guild available for match cleanup');
+          throw new Error('No guild available');
+        }
+        
+        // First try to get the channel by stored ID
+        let matchChannel = match.channelId 
+          ? guild.channels.cache.get(match.channelId)
+          : null;
+        
+        // If not found by ID, try by name as fallback
+        if (!matchChannel) {
+          logger.warn(`Channel ID ${match.channelId} not found, attempting to find by name...`);
+          matchChannel = guild.channels.cache.find(
+            channel => channel.name === `match-${matchId}`
+          );
+        }
+        
+        if (!matchChannel) {
+          logger.error(`Match channel for match ${matchId} not found`);
+          throw new Error('Match channel not found');
+        }
+        
+        if (!matchChannel.isTextBased()) {
+          logger.error(`Match channel for match ${matchId} is not a text channel`);
+          throw new Error('Match channel is not a text channel');
+        }
+
+        logger.info(`Found match channel ${matchChannel.name} (${matchChannel.id}) for cleanup`);
+        
+        const countdownSeconds = 10;
+        let secondsLeft = countdownSeconds;
+        
+        // Send countdown message with clear error handling
+        let countdownMessage;
+        try {
+          countdownMessage = await matchChannel.send(`Match completed! Channel will be deleted in ${countdownSeconds} seconds...`);
+          logger.info(`Sent countdown message ${countdownMessage.id} to channel ${matchChannel.id}`);
+        } catch (msgError) {
+          logger.error(`Failed to send countdown message: ${msgError}`);
+          throw new Error('Failed to send countdown message');
+        }
+
+        const interval = setInterval(async () => {
+          try {
+            secondsLeft--;
+            if (secondsLeft > 0) {
+              await countdownMessage.edit(`Match completed! Channel will be deleted in ${secondsLeft} seconds...`);
+            } else {
+              clearInterval(interval);
+              logger.info(`Countdown complete, processing match cleanup for match ${matchId}`);
+
+              // Add players back to queue
+              const queueService = new QueueService(this.storage);
+              logger.info(`Adding ${winningPlayers.length + losingPlayers.length} players back to queue`);
+              
+              for (const player of [...winningPlayers, ...losingPlayers]) {
+                try {
+                  await queueService.addPlayerToQueue(player.id);
+                  logger.info(`Added player ${player.username} (ID: ${player.id}) back to queue`);
+                } catch (queueError) {
+                  logger.error(`Failed to add player ${player.id} back to queue: ${queueError}`);
+                  // Continue with other players
+                }
+              }
+
+              // Delete the channel
+              try {
+                logger.info(`Attempting to delete channel ${matchChannel.name} (${matchChannel.id})`);
+                await matchChannel.delete();
+                logger.info(`Successfully deleted channel for match ${matchId}`);
+              } catch (deleteError) {
+                logger.error(`Failed to delete channel: ${deleteError}`);
+                // Even if channel deletion fails, we've already re-queued players
+              }
+            }
+          } catch (intervalError) {
+            logger.error(`Error in countdown interval: ${intervalError}`);
+            clearInterval(interval);
+          }
+        }, 1000);
       } catch (error) {
         logger.error(`Error handling match channel cleanup: ${error}`);
+        
+        // Even if there's an error with channel cleanup, make sure players get back into queue
+        try {
+          const queueService = new QueueService(this.storage);
+          for (const player of [...winningPlayers, ...losingPlayers]) {
+            await queueService.addPlayerToQueue(player.id);
+            logger.info(`Added player ${player.username} back to queue during error recovery`);
+          }
+        } catch (recoveryError) {
+          logger.error(`Failed in recovery attempt to add players back to queue: ${recoveryError}`);
+        }
       }
 
       return { 
@@ -503,10 +592,27 @@ export class MatchService {
         .setFooter({ text: 'Type "yes" or "no" in this channel to vote' })
         .setTimestamp();
 
-      // Try to find the match channel
-      const matchChannel = interaction.guild?.channels.cache.find(
-        channel => channel.name === `match-${matchWithBothPlayers.id}`
-      );
+      // Try to find the match channel first by stored ID, then by name
+      let matchChannel = null;
+      
+      // First try to get the channel by stored ID if available
+      if (matchWithBothPlayers.channelId) {
+        matchChannel = interaction.guild?.channels.cache.get(matchWithBothPlayers.channelId);
+        if (matchChannel) {
+          logger.info(`Found match channel by stored ID: ${matchWithBothPlayers.channelId}`);
+        }
+      }
+      
+      // If not found by ID, try by name as fallback
+      if (!matchChannel) {
+        logger.warn(`Channel ID ${matchWithBothPlayers.channelId} not found or not available, attempting to find by name...`);
+        matchChannel = interaction.guild?.channels.cache.find(
+          channel => channel.name === `match-${matchWithBothPlayers.id}`
+        );
+        if (matchChannel) {
+          logger.info(`Found match channel by name: match-${matchWithBothPlayers.id}`);
+        }
+      }
 
       if (matchChannel && matchChannel.isTextBased()) {
         await matchChannel.send({ 
@@ -569,57 +675,90 @@ export class MatchService {
       // Delete Discord channel
       try {
         const client = getDiscordClient();
-        if (client) {
-          const guild = client.guilds.cache.first();
-          if (guild) {
-            const matchChannel = guild.channels.cache.find(
-              channel => channel.name === `match-${matchId}`
-            );
-            if (matchChannel && matchChannel.isTextBased()) {
-              // Start countdown
-              const countdownSeconds = 10;
-              let secondsLeft = countdownSeconds;
-
-              const countdownMessage = await matchChannel.send(`Match completed! Channel will be deleted in ${countdownSeconds} seconds...`);
-
-              const interval = setInterval(async () => {
+        if (!client) {
+          logger.error('Discord client not available for match cancellation');
+          throw new Error('Discord client not available');
+        }
+        
+        const guild = client.guilds.cache.first();
+        if (!guild) {
+          logger.error('No guild available for match cancellation');
+          throw new Error('No guild available');
+        }
+        
+        // First try to get the channel by stored ID
+        let matchChannel = match.channelId 
+          ? guild.channels.cache.get(match.channelId)
+          : null;
+        
+        // If not found by ID, try by name as fallback
+        if (!matchChannel) {
+          logger.warn(`Channel ID ${match.channelId} not found, attempting to find by name...`);
+          matchChannel = guild.channels.cache.find(
+            channel => channel.name === `match-${matchId}`
+          );
+        }
+        
+        if (!matchChannel) {
+          logger.error(`Match channel for match ${matchId} not found during cancellation`);
+          // We'll still add players back to queue even if channel isn't found
+        } else if (matchChannel.isTextBased()) {
+          logger.info(`Found match channel ${matchChannel.name} (${matchChannel.id}) for cancellation cleanup`);
+          
+          // Start countdown
+          const countdownSeconds = 10;
+          let secondsLeft = countdownSeconds;
+          
+          try {
+            const countdownMessage = await matchChannel.send(`Match cancelled! Channel will be deleted in ${countdownSeconds} seconds...`);
+            logger.info(`Sent cancellation countdown message to channel ${matchChannel.id}`);
+            
+            const interval = setInterval(async () => {
+              try {
                 secondsLeft--;
                 if (secondsLeft > 0) {
-                  await countdownMessage.edit(`Match completed! Channel will be deleted in ${secondsLeft} seconds...`);
+                  await countdownMessage.edit(`Match cancelled! Channel will be deleted in ${secondsLeft} seconds...`);
                 } else {
                   clearInterval(interval);
-
-                  // Get all players from the match
-                  const matchTeams = await this.storage.getMatchTeams(matchId);
-                  const players = [];
-                  for (const team of matchTeams) {
-                    const teamPlayers = await this.storage.getTeamPlayers(team.id);
-                    players.push(...teamPlayers);
-                  }
-
-                  // Add players back to queue
-                  const queueService = new QueueService(this.storage);
-                  for (const player of players) {
-                    await queueService.addPlayerToQueue(player.playerId);
-                  }
-
+                  logger.info(`Cancellation countdown complete for match ${matchId}`);
+                  
                   // Delete the channel
-                  await matchChannel.delete();
+                  try {
+                    logger.info(`Attempting to delete channel ${matchChannel.name} (${matchChannel.id})`);
+                    await matchChannel.delete();
+                    logger.info(`Successfully deleted channel for cancelled match ${matchId}`);
+                  } catch (deleteError) {
+                    logger.error(`Failed to delete channel during cancellation: ${deleteError}`);
+                  }
                 }
-              }, 1000);
-            }
+              } catch (intervalError) {
+                logger.error(`Error in cancellation countdown interval: ${intervalError}`);
+                clearInterval(interval);
+              }
+            }, 1000);
+          } catch (messageError) {
+            logger.error(`Failed to send cancellation countdown message: ${messageError}`);
           }
         }
       } catch (error) {
-        logger.error(`Error deleting match channel: ${error}`);
+        logger.error(`Error handling match channel cancellation: ${error}`);
       }
-
-      // Return players to queue
-      for (const player of players) {
-        await this.storage.addPlayerToQueue({
-          playerId: player.id,
-          priority: 0
-        });
+      
+      // Return players to queue - use the players we already retrieved at the beginning
+      try {
+        const queueService = new QueueService(this.storage);
+        logger.info(`Adding ${players.length} players back to queue after match cancellation`);
+        
+        for (const player of players) {
+          try {
+            await queueService.addPlayerToQueue(player.id);
+            logger.info(`Added player ${player.username} (ID: ${player.id}) back to queue after cancellation`);
+          } catch (queueError) {
+            logger.error(`Failed to add player ${player.id} back to queue during cancellation: ${queueError}`);
+          }
+        }
+      } catch (playersError) {
+        logger.error(`Failed to process players for queue reentry: ${playersError}`);
       }
 
       // Log the cancellation
