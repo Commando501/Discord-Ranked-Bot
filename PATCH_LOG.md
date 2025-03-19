@@ -3,6 +3,21 @@
 
 ## Recent Changes
 
+### 2024-03-17 11:10:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/bot/services/matchService.ts`
+
+**Changes**:
+- Added countdown functionality to `endMatch` method
+- Implemented automatic player re-queueing after match completion
+- Added proper cleanup of match channels after countdown
+- Enhanced match completion flow with visual countdown feedback
+
+**Purpose**: Ensure countdown and cleanup functionality works when matches end normally via `/endmatch` command
+
+**Dependencies Affected**: None
+
 ### 2024-03-17 11:05:00 UTC
 **Type**: Enhancement
 **Files Modified**: 
