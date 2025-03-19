@@ -3,6 +3,37 @@
 
 ## Recent Changes
 
+### 2024-03-17 11:00:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/matchService.ts`
+
+**Changes**:
+- Enhanced event logging functionality with robust error handling
+- Added fallback mechanism to console logging when Discord client isn't ready
+- Implemented proper client readiness checks to prevent Discord API errors
+- Added nested try-catch blocks to ensure logging occurs even when Discord fails
+
+**Purpose**: Fix "Expected token to be set for this request" errors during event logging by making the system more resilient
+
+**Dependencies Affected**: None
+
+### 2024-03-17 10:55:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/routes.ts`
+- `server/bot/services/matchService.ts`
+
+**Changes**:
+- Fixed method name mismatch between MatchService and API routes
+- Updated API route to use proper `cancelMatch` method for match cancellation
+- Aligned method names between service and controller layers
+- Fixed unresolved reference to `players` variable in routes.ts
+
+**Purpose**: Resolve method name inconsistency causing match cancellation functionality to fail
+
+**Dependencies Affected**: None
+
 ### 2024-03-14 04:55:00 UTC
 **Type**: Enhancement
 **Files Modified**: 
@@ -220,4 +251,4 @@ Discord Matchmaking Bot with MMR-based team balancing, queue management, and mat
 4. Enhanced statistics tracking
 
 ---
-*Last Updated: 2024-03-14 03:16:34 UTC*
+*Last Updated: 2024-03-17 11:00:00 UTC*

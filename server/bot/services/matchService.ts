@@ -58,32 +58,41 @@ export class MatchService {
 
       if (!logChannelId) {
         logger.debug('No event log channel configured, skipping event logging');
-        return;
+        // Fall back to local logging
+        return this.internalLogEvent(title, description, fields);
       }
 
-      const client = getDiscordClient();
-      if (!client) {
-        logger.error('Discord client not available for event logging');
-        return;
+      // Try to get the Discord client
+      try {
+        const client = getDiscordClient();
+        if (!client || !client.isReady()) {
+          logger.warn('Discord client not ready for event logging, using fallback');
+          return this.internalLogEvent(title, description, fields);
+        }
+
+        const logChannel = await client.channels.fetch(logChannelId);
+        if (!logChannel || !logChannel.isTextBased()) {
+          logger.warn(`Event log channel ${logChannelId} not found or not a text channel, using fallback`);
+          return this.internalLogEvent(title, description, fields);
+        }
+
+        const embed = new EmbedBuilder()
+          .setColor('#5865F2')
+          .setTitle(`📝 ${title}`)
+          .setDescription(description)
+          .addFields(fields)
+          .setTimestamp();
+
+        await logChannel.send({ embeds: [embed] });
+        logger.debug(`Event logged to channel ${logChannelId}: ${title}`);
+      } catch (discordError) {
+        logger.warn(`Discord logging failed, using fallback: ${discordError}`);
+        return this.internalLogEvent(title, description, fields);
       }
-
-      const logChannel = await client.channels.fetch(logChannelId);
-      if (!logChannel || !logChannel.isTextBased()) {
-        logger.error(`Event log channel ${logChannelId} not found or not a text channel`);
-        return;
-      }
-
-      const embed = new EmbedBuilder()
-        .setColor('#5865F2')
-        .setTitle(`📝 ${title}`)
-        .setDescription(description)
-        .addFields(fields)
-        .setTimestamp();
-
-      await logChannel.send({ embeds: [embed] });
-      logger.debug(`Event logged to channel ${logChannelId}: ${title}`);
     } catch (error) {
       logger.error(`Failed to log event: ${error}`);
+      // Make sure we at least log to console
+      this.internalLogEvent(title, description, fields);
     }
   }
 
