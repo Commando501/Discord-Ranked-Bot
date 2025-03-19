@@ -13,6 +13,7 @@ import {
   integrationConfigSchema,
   dataManagementConfigSchema
 } from "@shared/botConfig";
+import { players, Player } from "@shared/schema";
 
 // Assuming this class exists and is correctly implemented.  Add it if it's missing.
 class MatchService {
@@ -427,7 +428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { mmr, wins, losses, winStreak, lossStreak, isActive } = req.body;
 
       // Build the update data with only valid fields
-      const updateData: Partial<typeof players.$inferSelect> = {};
+      const updateData: Partial<Player> = {};
 
       if (typeof mmr === 'number') updateData.mmr = mmr;
       if (typeof wins === 'number') updateData.wins = wins;
@@ -649,13 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid match ID' });
       }
 
-      // First update the match status in the database
-      const updateResult = await storage.updateMatch(matchId, {
-        status: 'CANCELLED',
-        finishedAt: new Date()
-      });
-
-      // Use the local MatchService
+      // Use the MatchService which now properly handles cancellation
       const matchService = new MatchService(storage);
       const cancellationResult = await matchService.cancelMatch(matchId);
 
