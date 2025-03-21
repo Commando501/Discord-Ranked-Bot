@@ -17,13 +17,13 @@
       "max": 50
     },
     "autoMatchCreation": true,
-    "matchCreationIntervalSeconds": 30,
+    "matchCreationIntervalSeconds": 10,
     "queueTimeoutMinutes": 60,
-    "minPlayersPerTeam": 5,
+    "minPlayersPerTeam": 4,
     "teamBalanceMethod": "mmr",
     "matchAnnouncementFormat": "Match #{matchId} has been created! Teams: Team {team1} vs Team {team2}",
     "postMatchResultsFormat": "Match #{matchId} has ended! Winner: {winnerTeam}",
-    "autoEndMatchHours": 24
+    "autoEndMatchHours": 2
   },
   "mmrSystem": {
     "startingMmr": 1000,
