@@ -25,9 +25,10 @@ export class QueueService {
     this.queueCheckInterval = setInterval(async () => {
       const guild = getBot()?.guilds.cache.first();
       if (guild) {
+        const config = await this.storage.getBotConfig();
         await this.checkAndCreateMatch(guild);
       }
-    }, 15000); // 15 seconds
+    }, (await this.storage.getBotConfig()).matchmaking.matchCreationIntervalSeconds * 1000);
   }
 
   async addPlayerToQueue(playerId: number): Promise<boolean> {
