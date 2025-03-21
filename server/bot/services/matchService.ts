@@ -383,7 +383,7 @@ export class MatchService {
         
         // Get config to find guild ID
         const botConfig = await this.storage.getBotConfig();
-        const guildId = botConfig.generalSettings.guildId;
+        const guildId = botConfig.general.guildId;
         
         // First try to get the guild directly by ID from config
         let guild = null;
@@ -711,7 +711,7 @@ export class MatchService {
         
         // Get config to find guild ID
         const botConfig = await this.storage.getBotConfig();
-        const guildId = botConfig.generalSettings.guildId;
+        const guildId = botConfig.general.guildId;
         
         // First try to get the guild directly by ID from config
         let guild = null;
