@@ -3,6 +3,23 @@
 
 ## Recent Changes
 
+### 2024-03-21 11:15:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/discord/commands/list.ts`
+
+**Changes**:
+- Fixed incorrect Discord.js builders import
+- Updated import structure to use main discord.js package
+- Implemented proper embed creation with correct imports
+- Enhanced error handling in list command
+
+**Purpose**: Fix module not found error preventing bot startup
+
+**Dependencies Affected**: None
+
+## Recent Changes
+
 ### 2025-03-21 05:35:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
