@@ -60,3 +60,5 @@
   - shows a timestamp
 - /forcematch
   - generates a lobby with the users pinged
+- /history
+  - NOT PROPERLY SET UP
