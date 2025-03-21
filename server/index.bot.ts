@@ -7,83 +7,25 @@ import { QueueService } from './bot/services/queueService';
 import { PlayerService } from './bot/services/playerService';
 import { MatchService } from './bot/services/matchService';
 import { DiscordUser } from '@shared/schema';
+import { initializeBot as initializeEnhancedBot, getDiscordClient as getEnhancedClient } from './discord/bot';
 
 // Initialize services immediately regardless of Discord bot status
-let client: Client | null = null;
 let queueService = new QueueService(storage);
 let playerService = new PlayerService(storage);
 let matchService = new MatchService(storage);
 
+// Use the enhanced Discord client from ./discord/bot.ts
 export async function initializeBot() {
-  if (client) {
-    logger.info('Bot is already initialized');
-    return client;
-  }
-
-  if (!config.DISCORD_TOKEN) {
-    logger.warn('No DISCORD_TOKEN found. Bot functionality will be limited, but services are available.');
-    return null;
-  }
-
   try {
-    client = new Client({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildVoiceStates,
-      ],
-    });
-
-    // Set up event handlers
-    client.once(Events.ClientReady, async (c) => {
-      logger.info(`Discord bot logged in as ${c.user.tag}`);
-      await registerCommands(client!);
-    });
-
-    client.on(Events.InteractionCreate, async (interaction) => {
-      if (!interaction.isCommand()) return;
-
-      try {
-        const { commandName } = interaction;
-
-        // Quick registration of new players if needed
-        if (!interaction.user.bot) {
-          await playerService.ensurePlayerExists({
-            id: interaction.user.id,
-            username: interaction.user.username,
-            discriminator: interaction.user.discriminator,
-            avatar: interaction.user.avatar
-          });
-        }
-
-        // Handle slash commands
-        const command = (client as any).commands.get(commandName);
-        if (!command) {
-          logger.warn(`Command not found: ${commandName}`);
-          return;
-        }
-
-        await command.execute(interaction, client);
-      } catch (error: any) {
-        logger.error(`Error executing command: ${error.message}`);
-
-        if (interaction.replied || interaction.deferred) {
-          await interaction.followUp({
-            content: 'An error occurred while executing this command.',
-            ephemeral: true
-          });
-        } else {
-          await interaction.reply({
-            content: 'An error occurred while executing this command.',
-            ephemeral: true
-          });
-        }
-      }
-    });
-
-    // Handle message events specifically for vote processing
+    await initializeEnhancedBot();
+    const client = getEnhancedClient();
+    
+    if (!client) {
+      logger.warn('Could not initialize enhanced Discord client. Bot functionality will be limited, but services are available.');
+      return null;
+    }
+    
+      // Handle message events specifically for vote processing
     client.on(Events.MessageCreate, async (message) => {
       if (message.author.bot) return;
       
@@ -110,8 +52,7 @@ export async function initializeBot() {
           
           if (!match) return;
           
-          // Check if there are any active votekicks (assuming we have to get these by match ID)
-          // Assuming voteKicks should be getActiveVoteKick, since that's what's in the storage interface
+          // Check if there are any active votekicks
           const activeVoteKick = await storage.getActiveVoteKick(matchId, player.id);
           
           if (!activeVoteKick) return;
@@ -140,8 +81,7 @@ export async function initializeBot() {
               finishedAt: new Date()
             });
             
-            // Remove player from team
-            // In this MVP we'll just notify about the successful vote
+            // Notify about the successful vote
             message.channel.send(`Vote to kick <@${player.discordId}> has passed. They have been removed from the match.`);
           } else if (votes.length >= totalTeamSize) {
             // All votes are in but not enough to kick
@@ -252,16 +192,9 @@ export async function initializeBot() {
       logger.error(`Discord client error: ${error}`);
     });
 
-    // Login and start the bot
-    try {
-      await client.login(config.DISCORD_TOKEN);
-      logger.info('Discord bot started successfully');
-      return client;
-    } catch (error: any) {
-      logger.error(`Failed to start bot: ${error.message}`);
-      client = null;
-      return null;
-    }
+    // Return the client - no need to login again as it's handled by the enhanced client
+    logger.info('Enhanced Discord client initialization completed');
+    return client;
     
   } catch (error: any) {
     logger.error(`Error setting up Discord client: ${error.message}`);
@@ -270,7 +203,8 @@ export async function initializeBot() {
 }
 
 export function getBot() {
-  return client;
+  // Use the enhanced client from discord/bot.ts
+  return getEnhancedClient();
 }
 
 export function getQueueService() {
@@ -288,12 +222,14 @@ export function getMatchService() {
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
   logger.info('Received SIGINT signal, shutting down bot...');
-  if (client) client.destroy();
+  const currentClient = getEnhancedClient();
+  if (currentClient) currentClient.destroy();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   logger.info('Received SIGTERM signal, shutting down bot...');
-  if (client) client.destroy();
+  const currentClient = getEnhancedClient();
+  if (currentClient) currentClient.destroy();
   process.exit(0);
 });

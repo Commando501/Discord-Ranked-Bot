@@ -4,36 +4,27 @@ import { logger } from './utils/logger';
 import { storage } from '../storage';
 import { QueueService } from './services/queueService';
 import { PlayerService } from './services/playerService';
+import { getDiscordClient as getEnhancedClient, initializeBot as initializeEnhancedBot } from '../discord/bot';
+import { MatchService } from './services/matchService';
 
 export class DiscordBot {
-  private client: Client;
+  private client: Client | null = null;
   private queueService: QueueService;
   private playerService: PlayerService;
+  private matchService: MatchService;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectAttempts = 0;
+  private readonly MAX_RECONNECT_ATTEMPTS = 5;
+  private readonly RECONNECT_INTERVAL = 15000; // 15 seconds
   
   constructor() {
-    this.client = new Client({
-      intents: [
-        IntentsBitField.Flags.Guilds,
-        IntentsBitField.Flags.GuildMessages,
-        IntentsBitField.Flags.GuildMembers,
-        IntentsBitField.Flags.MessageContent,
-        GatewayIntentBits.GuildVoiceStates
-      ]
-    });
-    
     this.queueService = new QueueService(storage);
     this.playerService = new PlayerService(storage);
-    
-    this.setupEventHandlers();
+    this.matchService = new MatchService(storage);
   }
   
-  private setupEventHandlers() {
-    this.client.once(Events.ClientReady, async (c) => {
-      logger.info(`Discord bot logged in as ${c.user.tag}`);
-      await registerCommands(this.client);
-    });
-    
-    this.client.on(Events.InteractionCreate, async (interaction) => {
+  private setupEventHandlers(client: Client) {
+    client.on(Events.InteractionCreate, async (interaction) => {
       if (!interaction.isCommand()) return;
       
       try {
@@ -50,13 +41,13 @@ export class DiscordBot {
         }
         
         // Handle slash commands
-        const command = (this.client as any).commands.get(commandName);
+        const command = (client as any).commands?.get(commandName);
         if (!command) {
-          logger.warn(`Command not found: ${commandName}`);
+          logger.warn(`Command not found in bot handler: ${commandName}`);
           return;
         }
         
-        await command.execute(interaction, this.client);
+        await command.execute(interaction, client);
       } catch (error) {
         logger.error(`Error executing command: ${error}`);
         
@@ -74,28 +65,53 @@ export class DiscordBot {
       }
     });
     
-    this.client.on(Events.Error, (error) => {
-      logger.error(`Discord client error: ${error}`);
+    client.on(Events.Error, (error) => {
+      logger.error(`Discord client error in bot handler: ${error}`);
     });
   }
   
   public async start() {
     try {
-      if (!process.env.DISCORD_TOKEN) {
-        throw new Error('DISCORD_TOKEN is not defined in environment');
+      // Use the enhanced client from discord/bot.ts which has reconnection logic
+      await initializeEnhancedBot();
+      this.client = getEnhancedClient();
+      
+      if (!this.client) {
+        throw new Error('Failed to initialize Discord client');
       }
-      await this.client.login(process.env.DISCORD_TOKEN);
+      
+      // Set up our event handlers
+      this.setupEventHandlers(this.client);
+      logger.info('Discord bot started successfully');
+      
+      // Start a periodic connection check
+      this.startConnectionHealthCheck();
+      
+      return this.client;
     } catch (error) {
       logger.error(`Failed to start bot: ${error}`);
       throw error;
     }
   }
   
+  private startConnectionHealthCheck() {
+    setInterval(() => {
+      // Check if we have a working client from the enhanced module
+      const currentClient = getEnhancedClient();
+      if (!currentClient) {
+        logger.warn('Bot health check: No Discord client available from enhanced module');
+        // Update our reference to the client
+        this.client = null;
+      } else {
+        // Update our reference to the client
+        this.client = currentClient;
+      }
+    }, 30000); // Check every 30 seconds
+  }
+  
   public async stop() {
-    if (this.client) {
-      this.client.destroy();
-      logger.info('Discord bot disconnected');
-    }
+    // We don't need to destroy the client here since the enhanced version handles that
+    logger.info('Discord bot stop requested (handled by enhanced client)');
   }
 }
 
