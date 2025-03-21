@@ -608,25 +608,21 @@ export const commands = [
 
 export async function registerCommands(client: Client) {
   try {
-    const rest = new REST({ version: '10' }).setToken(config.DISCORD_TOKEN);
+    // Don't register commands directly to Discord API
+    // This is now handled in server/discord/commands/index.ts
     
-    logger.info('Started refreshing application (/) commands.');
+    logger.info('Setting up local command handling only (registration handled elsewhere)');
     
+    // Still setup the local Collection for handling commands
     (client as any).commands = new Collection();
     
-    const commandsData = commands.map(command => command.data.toJSON());
-    
-    await rest.put(
-      Routes.applicationCommands(config.CLIENT_ID),
-      { body: commandsData }
-    );
-    
+    // Add our commands to the collection for handling
     commands.forEach(command => {
       (client as any).commands.set(command.data.name, command);
     });
     
-    logger.info('Successfully reloaded application (/) commands.');
+    logger.info('Command handlers registered in the client (API registration handled by enhanced bot)');
   } catch (error) {
-    logger.error(`Error registering commands: ${error}`);
+    logger.error(`Error setting up command handlers: ${error}`);
   }
 }
