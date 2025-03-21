@@ -7,37 +7,59 @@ import { BotConfig } from '@shared/botConfig';
 export class QueueService {
   private storage: IStorage;
   private matchService: MatchService;
-  
+  private queueCheckInterval: NodeJS.Timeout | null = null;
+
   constructor(storage: IStorage) {
     this.storage = storage;
     this.matchService = new MatchService(storage);
+    this.startQueueCheck();
   }
-  
+
+  private startQueueCheck() {
+    // Clear existing interval if any
+    if (this.queueCheckInterval) {
+      clearInterval(this.queueCheckInterval);
+    }
+
+    // Start new interval
+    this.queueCheckInterval = setInterval(async () => {
+      const guild = getBot()?.guilds.cache.first();
+      if (guild) {
+        await this.checkAndCreateMatch(guild);
+      }
+    }, 15000); // 15 seconds
+  }
+
   async addPlayerToQueue(playerId: number): Promise<boolean> {
     // Check if player is already in queue
     const isInQueue = await this.isPlayerInQueue(playerId);
     if (isInQueue) {
       return false;
     }
-    
+
     // Add player to queue
     await this.storage.addPlayerToQueue({
       playerId,
       priority: 0
     });
-    
+
     logger.info(`Player ${playerId} added to queue`);
+
+    // Ensure queue check is running
+    if (!this.queueCheckInterval) {
+      this.startQueueCheck();
+    }
     return true;
   }
-  
+
   async removePlayerFromQueue(playerId: number): Promise<boolean> {
     return this.storage.removePlayerFromQueue(playerId);
   }
-  
+
   async isPlayerInQueue(playerId: number): Promise<boolean> {
     return this.storage.isPlayerInQueue(playerId);
   }
-  
+
   async getQueuePlayers(): Promise<Array<{ playerId: number, joinedAt: Date, priority: number }>> {
     const queueEntries = await this.storage.getQueuePlayers();
     return queueEntries.map(entry => ({
@@ -46,7 +68,7 @@ export class QueueService {
       priority: entry.priority
     }));
   }
-  
+
   async getQueuePlayersWithInfo(): Promise<Array<{ playerId: number, joinedAt: Date, priority: number, player: any }>> {
     const queueEntries = await this.storage.getQueuePlayers();
     const playersWithInfo = await Promise.all(
@@ -60,37 +82,37 @@ export class QueueService {
     );
     return playersWithInfo;
   }
-  
+
   async getAllQueueEntries(): Promise<any[]> {
     return this.storage.getQueuePlayers();
   }
-  
+
   async getPlayerQueueEntry(playerId: number): Promise<any | null> {
     const queuePlayers = await this.storage.getQueuePlayers();
     return queuePlayers.find(entry => entry.playerId === playerId) || null;
   }
-  
+
   async getQueueSize(): Promise<number> {
     const queue = await this.storage.getQueuePlayers();
     return queue.length;
   }
-  
+
   async clearQueue(): Promise<void> {
     await this.storage.clearQueue();
     logger.info('Queue has been cleared');
   }
-  
+
   async checkAndCreateMatch(guild: Guild, force: boolean = false): Promise<boolean> {
     try {
       const queuedPlayers = await this.storage.getQueuePlayers();
       const botConfig = await this.storage.getBotConfig();
       const minPlayersRequired = botConfig.matchmaking.queueSizeLimits.min;
-      
+
       if (queuedPlayers.length < minPlayersRequired && !force) {
         logger.info(`Not enough players in queue to create a match: ${queuedPlayers.length}/${minPlayersRequired}`);
         return false;
       }
-      
+
       // Sort by priority and join time
       const sortedPlayers = queuedPlayers.sort((a, b) => {
         if (a.priority !== b.priority) {
@@ -98,25 +120,25 @@ export class QueueService {
         }
         return a.joinedAt.getTime() - b.joinedAt.getTime(); // Earlier join time first
       });
-      
+
       // Take the required number of players (using config from JSON file)
       const matchPlayers = sortedPlayers
         .slice(0, minPlayersRequired)
         .map(entry => entry.playerId);
-      
+
       // Create the match
       const result = await this.matchService.createMatchWithPlayers(matchPlayers, guild);
-      
+
       if (!result.success) {
         logger.error(`Failed to create match: ${result.message}`);
         return false;
       }
-      
+
       // Remove players from queue
       for (const playerId of matchPlayers) {
         await this.removePlayerFromQueue(playerId);
       }
-      
+
       logger.info(`Match created with ${matchPlayers.length} players`);
       return true;
     } catch (error) {
@@ -124,4 +146,10 @@ export class QueueService {
       return false;
     }
   }
+}
+
+// Placeholder for getBot() function - needs to be defined elsewhere
+function getBot() {
+    //Implementation to get the bot instance
+    return null; //Replace with actual implementation
 }
