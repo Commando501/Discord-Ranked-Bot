@@ -49,11 +49,21 @@ export async function registerCommands() {
     // This avoids the circular dependency issue
     const botCommands = await import('../../bot/commands');
     
-    // Create combined command data with both local and bot commands
+    // Get the names of local commands to avoid duplication
+    const localCommandNames = commandsData.map(cmd => cmd.name);
+    
+    // Filter bot commands to only include those not already in local commands
+    const filteredBotCommands = botCommands.commands
+      .filter(cmd => !localCommandNames.includes(cmd.data.name))
+      .map(cmd => cmd.data.toJSON());
+    
+    // Create combined command data with both local and filtered bot commands
     const allCommandsData = [
       ...commandsData,
-      ...botCommands.commands.map(cmd => cmd.data.toJSON())
+      ...filteredBotCommands
     ];
+    
+    logger.info(`Registering ${commandsData.length} local commands and ${filteredBotCommands.length} additional bot commands`);
 
     // Fetch the bot configuration from storage
     const botConfig = await storage.getBotConfig();
