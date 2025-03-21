@@ -3,6 +3,39 @@
 
 ## Recent Changes
 
+### 2025-03-21 05:26:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/discord/commands/index.ts`
+- `server/bot/commands.ts`
+
+**Changes**:
+- Fixed duplicate command registration causing "APPLICATION_COMMANDS_DUPLICATE_NAME" errors
+- Modified command registration to filter out duplicate commands from different sources
+- Implemented unique command name detection to prevent registration conflicts
+- Enhanced Discord login reliability by resolving command registration issues
+- Fixed `/list` command functionality that was previously failing
+
+**Purpose**: Fix critical Discord API login and command registration issues preventing bot connection
+
+**Dependencies Affected**: None
+
+### 2025-03-21 05:20:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/discord/bot.ts`
+
+**Changes**:
+- Improved Discord client reconnection mechanism with automatic retry
+- Added robust error handling for connection failures
+- Implemented periodic connection health checks
+- Added exponential backoff strategy for reconnection attempts
+- Enhanced client validation to ensure operations only occur with authenticated client
+
+**Purpose**: Enhance Discord client resilience and prevent disconnection-related issues
+
+**Dependencies Affected**: None
+
 ### 2024-03-17 11:10:00 UTC
 **Type**: Enhancement
 **Files Modified**: 
@@ -283,4 +316,4 @@ Discord Matchmaking Bot with MMR-based team balancing, queue management, and mat
 4. Enhanced statistics tracking
 
 ---
-*Last Updated: 2024-03-17 11:00:00 UTC*
+*Last Updated: 2025-03-21 05:30:00 UTC*
