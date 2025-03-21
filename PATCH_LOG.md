@@ -3,6 +3,22 @@
 
 ## Recent Changes
 
+### 2025-03-21 05:35:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/queueService.ts`
+- `server/discord/commands/list.ts`
+
+**Changes**:
+- Enhanced queue player info retrieval to include full player details
+- Fixed player username display in queue list command
+- Added proper MMR display for queued players
+- Improved queue entry formatting with wait times
+
+**Purpose**: Fix undefined username issue in queue list display and enhance player information visibility
+
+**Dependencies Affected**: None
+
 ### 2025-03-21 05:26:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 

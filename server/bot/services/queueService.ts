@@ -48,7 +48,17 @@ export class QueueService {
   }
   
   async getQueuePlayersWithInfo(): Promise<Array<{ playerId: number, joinedAt: Date, priority: number, player: any }>> {
-    return this.storage.getQueuePlayers();
+    const queueEntries = await this.storage.getQueuePlayers();
+    const playersWithInfo = await Promise.all(
+      queueEntries.map(async (entry) => {
+        const player = await this.storage.getPlayer(entry.playerId);
+        return {
+          ...entry,
+          player
+        };
+      })
+    );
+    return playersWithInfo;
   }
   
   async getAllQueueEntries(): Promise<any[]> {
