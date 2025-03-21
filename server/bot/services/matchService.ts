@@ -37,7 +37,15 @@ export class MatchService {
    * Get match details
    */
   async getMatchDetails(matchId: number): Promise<any> {
-    return this.storage.getMatch(matchId);
+    const match = await this.storage.getMatch(matchId);
+    if (!match) return null;
+    
+    // Get teams for this match with players
+    const teams = await this.storage.getMatchTeams(matchId);
+    return {
+      ...match,
+      teams
+    };
   }
 
   /**

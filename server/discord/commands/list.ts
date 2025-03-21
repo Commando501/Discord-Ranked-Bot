@@ -69,18 +69,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     if (activeMatches.length > 0) {
       for (let i = 0; i < activeMatches.length; i++) {
         const match = activeMatches[i];
-        const matchDetails = await matchService.getMatchDetails(match.id);
+        // Get teams directly from the activeMatches response since it already includes team data
+        const teams = match.teams || [];
         
-        if (matchDetails && matchDetails.teams.length > 0) {
+        if (teams.length > 0) {
           const matchDuration = formatDuration(new Date().getTime() - match.createdAt.getTime());
           let matchDescription = `**Status:** ${match.status}\n**Duration:** ${matchDuration}\n\n`;
           
-          for (const team of matchDetails.teams) {
-            const teamNumber = team.teamNumber;
-            matchDescription += `**Team ${teamNumber}** (Avg MMR: ${team.averageMmr || 'N/A'}):\n`;
+          for (const team of teams) {
+            const teamName = team.name || `Team ${i+1}`;
+            matchDescription += `**${teamName}** (Avg MMR: ${team.avgMMR || 'N/A'}):\n`;
             
-            for (const player of team.players) {
-              matchDescription += `• ${player.discordUsername} (MMR: ${player.mmr})\n`;
+            for (const player of team.players || []) {
+              matchDescription += `• ${player.username} (MMR: ${player.mmr})\n`;
             }
             
             matchDescription += '\n';
