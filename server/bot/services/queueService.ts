@@ -15,20 +15,23 @@ export class QueueService {
     this.startQueueCheck();
   }
 
-  private startQueueCheck() {
+  private async startQueueCheck() {
     // Clear existing interval if any
     if (this.queueCheckInterval) {
       clearInterval(this.queueCheckInterval);
     }
 
+    // Get config first
+    const config = await this.storage.getBotConfig();
+    const intervalMs = config.matchmaking.matchCreationIntervalSeconds * 1000;
+
     // Start new interval
     this.queueCheckInterval = setInterval(async () => {
       const guild = getBot()?.guilds.cache.first();
       if (guild) {
-        const config = await this.storage.getBotConfig();
         await this.checkAndCreateMatch(guild);
       }
-    }, (await this.storage.getBotConfig()).matchmaking.matchCreationIntervalSeconds * 1000);
+    }, intervalMs);
   }
 
   async addPlayerToQueue(playerId: number): Promise<boolean> {
