@@ -3,6 +3,24 @@
 
 ## Recent Changes
 
+### 2024-03-21 11:55:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/queueService.ts`
+
+**Changes**:
+- Fixed TypeScript compilation error in `startQueueCheck` method
+- Made `startQueueCheck` an async function to properly handle await calls
+- Optimized config fetching to occur before interval setup
+- Removed redundant config fetch from interval callback
+- Fixed "await can only be used inside async function" error
+
+**Purpose**: Fix TypeScript compilation error preventing bot startup due to incorrect async function declaration
+
+**Dependencies Affected**: None
+
+## Recent Changes
+
 ### 2024-03-21 11:50:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
