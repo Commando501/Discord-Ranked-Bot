@@ -3,6 +3,21 @@
 
 ## Recent Changes
 
+### 2024-03-21 11:45:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/queueService.ts`
+
+**Changes**:
+- Fixed queue checking interval after match completion
+- Ensured queue service continues to monitor player count after matches end
+- Fixed edge case where queue monitoring would stop after players are returned to queue
+- Added additional logging for queue state changes
+
+**Purpose**: Fix queue monitoring system to properly check for enough players after match completion
+
+**Dependencies Affected**: None
+
 ### 2025-03-21 08:25:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
