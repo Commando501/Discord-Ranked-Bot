@@ -381,9 +381,38 @@ export class MatchService {
           throw new Error('Discord client not available');
         }
         
-        const guild = client.guilds.cache.first();
+        // Get config to find guild ID
+        const botConfig = await this.storage.getBotConfig();
+        const guildId = botConfig.generalSettings.guildId;
+        
+        // First try to get the guild directly by ID from config
+        let guild = null;
+        if (guildId) {
+          guild = client.guilds.cache.get(guildId);
+          logger.info(`Attempting to get guild using configured ID: ${guildId}`);
+        }
+        
+        // If not found by ID or no ID configured, try first guild in cache
         if (!guild) {
-          logger.error('No guild available for match cleanup');
+          guild = client.guilds.cache.first();
+          logger.info(`Attempting to get first guild in cache: ${guild?.id || 'None found'}`);
+        }
+        
+        // If still no guild, try to fetch all guilds (might help in some cases)
+        if (!guild) {
+          logger.info('No guild in cache, attempting to fetch guilds');
+          try {
+            // Force a fetch of guilds
+            await client.guilds.fetch();
+            guild = client.guilds.cache.first();
+            logger.info(`After fetch, found guild: ${guild?.id || 'None found'}`);
+          } catch (fetchError) {
+            logger.error(`Error fetching guilds: ${fetchError}`);
+          }
+        }
+        
+        if (!guild) {
+          logger.error('No guild available for match cleanup after multiple attempts');
           throw new Error('No guild available');
         }
         
@@ -680,9 +709,38 @@ export class MatchService {
           throw new Error('Discord client not available');
         }
         
-        const guild = client.guilds.cache.first();
+        // Get config to find guild ID
+        const botConfig = await this.storage.getBotConfig();
+        const guildId = botConfig.generalSettings.guildId;
+        
+        // First try to get the guild directly by ID from config
+        let guild = null;
+        if (guildId) {
+          guild = client.guilds.cache.get(guildId);
+          logger.info(`Attempting to get guild for cancellation using configured ID: ${guildId}`);
+        }
+        
+        // If not found by ID or no ID configured, try first guild in cache
         if (!guild) {
-          logger.error('No guild available for match cancellation');
+          guild = client.guilds.cache.first();
+          logger.info(`Attempting to get first guild in cache for cancellation: ${guild?.id || 'None found'}`);
+        }
+        
+        // If still no guild, try to fetch all guilds (might help in some cases)
+        if (!guild) {
+          logger.info('No guild in cache for cancellation, attempting to fetch guilds');
+          try {
+            // Force a fetch of guilds
+            await client.guilds.fetch();
+            guild = client.guilds.cache.first();
+            logger.info(`After fetch for cancellation, found guild: ${guild?.id || 'None found'}`);
+          } catch (fetchError) {
+            logger.error(`Error fetching guilds for cancellation: ${fetchError}`);
+          }
+        }
+        
+        if (!guild) {
+          logger.error('No guild available for match cancellation after multiple attempts');
           throw new Error('No guild available');
         }
         
