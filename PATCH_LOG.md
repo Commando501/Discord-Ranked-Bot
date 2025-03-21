@@ -3,6 +3,23 @@
 
 ## Recent Changes
 
+### 2024-03-21 11:50:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/queueService.ts`
+
+**Changes**:
+- Fixed queue check interval to use configured interval from botConfig
+- Removed hardcoded 15-second interval
+- Added dynamic interval configuration based on matchCreationIntervalSeconds
+- Enhanced queue monitoring reliability by respecting system configuration
+
+**Purpose**: Fix queue checking interval to properly follow configured settings instead of using hardcoded values
+
+**Dependencies Affected**: None
+
+## Recent Changes
+
 ### 2024-03-21 11:45:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
