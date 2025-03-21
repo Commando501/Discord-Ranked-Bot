@@ -3,6 +3,23 @@
 
 ## Recent Changes
 
+### 2024-03-21 11:20:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/bot/utils/timeUtils.ts`
+
+**Changes**:
+- Created time utilities module
+- Implemented `formatDuration` function for human-readable time differences
+- Added `formatWaitTime` utility for queue wait times
+- Enhanced time formatting consistency across the application
+
+**Purpose**: Provide centralized time formatting utilities for queue and match durations
+
+**Dependencies Affected**: None
+
+## Recent Changes
+
 ### 2024-03-21 11:15:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
