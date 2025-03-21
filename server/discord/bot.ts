@@ -53,20 +53,34 @@ function setupEventHandlers(discordClient: Client) {
     if (!interaction.isChatInputCommand()) return;
 
     try {
-      // Try to get commands from the discord command collection
+      // Try to get commands from the discord command collection first
       const discordCommands = getCommands();
       const discordCommand = discordCommands.get(interaction.commandName);
 
-      if (discordCommand && typeof discordCommand.execute === 'function') {
-        await discordCommand.execute(interaction);
+      // For TypeScript type checking, verify the command has an execute function
+      if (discordCommand && typeof (discordCommand as any).execute === 'function') {
+        await (discordCommand as any).execute(interaction);
         logger.info(`Discord command "${interaction.commandName}" executed by ${interaction.user.tag}`);
         return;
       }
       
-      // We don't need to check bot commands here since they're all registered in discord commands
+      // If command not found in discord commands, check bot commands
+      try {
+        // Dynamic import to avoid circular dependencies
+        const botCommands = await import('../bot/commands');
+        const botCommand = botCommands.commands.find(cmd => cmd.data.name === interaction.commandName);
+        
+        if (botCommand && typeof botCommand.execute === 'function') {
+          await botCommand.execute(interaction);
+          logger.info(`Bot command "${interaction.commandName}" executed by ${interaction.user.tag}`);
+          return;
+        }
+      } catch (importError) {
+        logger.error('Error importing bot commands', { error: importError });
+      }
 
-      // No command found
-      logger.warn(`Command "${interaction.commandName}" not found in command collection`);
+      // No command found in either collection
+      logger.warn(`Command "${interaction.commandName}" not found in command collections`);
     } catch (error) {
       logger.error('Error executing command', { error, command: interaction.commandName });
       
