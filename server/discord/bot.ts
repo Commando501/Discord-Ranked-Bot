@@ -29,25 +29,17 @@ export async function initializeBot() {
     if (!interaction.isChatInputCommand()) return;
 
     try {
-      // First try the discord command collection
+      // Try to get commands from the discord command collection
       const discordCommands = getCommands();
       const discordCommand = discordCommands.get(interaction.commandName);
 
-      if (discordCommand && discordCommand.execute) {
+      if (discordCommand && typeof discordCommand.execute === 'function') {
         await discordCommand.execute(interaction);
         logger.info(`Discord command "${interaction.commandName}" executed by ${interaction.user.tag}`);
         return;
       }
       
-      // If not found in discord commands, check in bot commands
-      if (Array.isArray(botCommands.commands)) {
-        const botCommand = botCommands.commands.find(cmd => cmd.data.name === interaction.commandName);
-        if (botCommand && botCommand.execute) {
-          await botCommand.execute(interaction);
-          logger.info(`Bot command "${interaction.commandName}" executed by ${interaction.user.tag}`);
-          return;
-        }
-      }
+      // We don't need to check bot commands here since they're all registered in discord commands
 
       // No command found
       logger.warn(`Command "${interaction.commandName}" not found in either command collection`);
@@ -85,5 +77,12 @@ export async function initializeBot() {
 }
 
 export function getDiscordClient() {
-  return client;
+  // Only return the client if it's ready and authenticated
+  if (client && client.isReady()) {
+    return client;
+  }
+  
+  // If client isn't ready, log this and return null
+  logger.warn('Discord client is not ready or authenticated yet');
+  return null;
 }

@@ -377,8 +377,35 @@ export class MatchService {
       try {
         const client = getDiscordClient();
         if (!client) {
-          logger.error('Discord client not available for match cleanup');
-          throw new Error('Discord client not available');
+          logger.error('Discord client not ready or authenticated for match cleanup');
+          
+          // Even if cleanup fails, requeue players and mark match as ended
+          const queueService = new QueueService(this.storage);
+          logger.info(`Adding ${winningPlayers.length + losingPlayers.length} players back to queue despite cleanup failure`);
+          
+          for (const player of [...winningPlayers, ...losingPlayers]) {
+            try {
+              await queueService.addPlayerToQueue(player.id);
+              logger.info(`Added player ${player.username} back to queue despite cleanup failure`);
+            } catch (queueError) {
+              logger.error(`Failed to add player ${player.id} back to queue: ${queueError}`);
+            }
+          }
+          
+          await this.logEvent(
+            "Match Ended Without Cleanup",
+            `Match #${matchId} completed, but channel cleanup failed. Team ${winningTeam.name} has won!`,
+            [
+              { name: 'Match ID', value: matchId.toString(), inline: true },
+              { name: 'Winning Team', value: winningTeam.name, inline: true },
+              { name: 'Issue', value: 'Discord client not ready', inline: true }
+            ]
+          );
+          
+          return { 
+            success: true, 
+            message: `Match #${matchId} completed. Team ${winningTeam.name} has won. Note: Channel cleanup failed, but players were returned to queue.`
+          };
         }
         
         // Get config to find guild ID
@@ -398,16 +425,21 @@ export class MatchService {
           logger.info(`Attempting to get first guild in cache: ${guild?.id || 'None found'}`);
         }
         
-        // If still no guild, try to fetch all guilds (might help in some cases)
+        // If still no guild, try to get guild based on match configuration
         if (!guild) {
-          logger.info('No guild in cache, attempting to fetch guilds');
-          try {
-            // Force a fetch of guilds
-            await client.guilds.fetch();
+          // Instead of attempting to fetch guilds, let's log all known guilds
+          logger.info('No guild found by ID, logging all available guilds in cache');
+          const guildCount = client.guilds.cache.size;
+          
+          if (guildCount > 0) {
+            client.guilds.cache.forEach(g => {
+              logger.info(`Available guild in cache: ${g.name} (${g.id})`);
+            });
+            // Try first guild again now that we've logged all guilds
             guild = client.guilds.cache.first();
-            logger.info(`After fetch, found guild: ${guild?.id || 'None found'}`);
-          } catch (fetchError) {
-            logger.error(`Error fetching guilds: ${fetchError}`);
+          } else {
+            logger.warn(`No guilds available in cache (count: ${guildCount})`);
+            // Don't try to fetch - that requires authentication which might not be ready
           }
         }
         
@@ -705,8 +737,33 @@ export class MatchService {
       try {
         const client = getDiscordClient();
         if (!client) {
-          logger.error('Discord client not available for match cancellation');
-          throw new Error('Discord client not available');
+          logger.error('Discord client not ready or authenticated for match cancellation');
+          
+          // Even if channel cleanup fails, return players to queue
+          const queueService = new QueueService(this.storage);
+          for (const player of players) {
+            try {
+              await queueService.addPlayerToQueue(player.id);
+              logger.info(`Added player ${player.username} back to queue despite cleanup failure (cancellation)`);
+            } catch (queueError) {
+              logger.error(`Failed to add player ${player.id} back to queue during cancellation: ${queueError}`);
+            }
+          }
+          
+          await this.logEvent(
+            "Match Cancelled Without Cleanup",
+            `Match #${matchId} cancelled, but channel cleanup failed.`,
+            [
+              { name: 'Match ID', value: matchId.toString(), inline: true },
+              { name: 'Players Returned', value: players.length.toString(), inline: true },
+              { name: 'Issue', value: 'Discord client not ready', inline: true }
+            ]
+          );
+          
+          return { 
+            success: true, 
+            message: `Match #${matchId} cancelled and players returned to queue. Note: Channel cleanup was skipped.`
+          };
         }
         
         // Get config to find guild ID
@@ -726,16 +783,21 @@ export class MatchService {
           logger.info(`Attempting to get first guild in cache for cancellation: ${guild?.id || 'None found'}`);
         }
         
-        // If still no guild, try to fetch all guilds (might help in some cases)
+        // If still no guild, try to get guild based on match configuration
         if (!guild) {
-          logger.info('No guild in cache for cancellation, attempting to fetch guilds');
-          try {
-            // Force a fetch of guilds
-            await client.guilds.fetch();
+          // Instead of attempting to fetch guilds, let's log all known guilds
+          logger.info('No guild found by ID for cancellation, logging all available guilds in cache');
+          const guildCount = client.guilds.cache.size;
+          
+          if (guildCount > 0) {
+            client.guilds.cache.forEach(g => {
+              logger.info(`Available guild in cache for cancellation: ${g.name} (${g.id})`);
+            });
+            // Try first guild again now that we've logged all guilds
             guild = client.guilds.cache.first();
-            logger.info(`After fetch for cancellation, found guild: ${guild?.id || 'None found'}`);
-          } catch (fetchError) {
-            logger.error(`Error fetching guilds for cancellation: ${fetchError}`);
+          } else {
+            logger.warn(`No guilds available in cache for cancellation (count: ${guildCount})`);
+            // Don't try to fetch - that requires authentication which might not be ready
           }
         }
         
