@@ -650,9 +650,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid match ID' });
       }
 
-      // Use handleMatchCancellation for full cleanup including Discord
+      // Use the MatchService which now properly handles cancellation
       const matchService = new MatchService(storage);
-      const cancellationResult = await matchService.handleMatchCancellation(matchId);
+      const cancellationResult = await matchService.cancelMatch(matchId);
 
       if (cancellationResult.success) {
         res.json(cancellationResult);
