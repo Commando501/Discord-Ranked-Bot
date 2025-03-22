@@ -924,6 +924,166 @@ export class MatchService {
       return { success: false, message: 'Failed to cancel match due to an error' };
     }
   }
+  
+  /**
+   * Cancels a match and cleans up Discord channels WITHOUT returning players to queue
+   */
+  async handleMatchCancellationNoQueue(matchId: number): Promise<{ success: boolean; message: string }> {
+    try {
+      const match = await this.storage.getMatch(matchId);
+
+      if (!match) {
+        return { success: false, message: 'Match not found' };
+      }
+
+      if (match.status === 'COMPLETED' || match.status === 'CANCELLED') {
+        return { success: false, message: `Match is already ${match.status.toLowerCase()}` };
+      }
+
+      // Get match players before updating status
+      const teams = await this.storage.getMatchTeams(matchId);
+      const players = teams.flatMap(team => team.players);
+
+      // Update match status
+      await this.storage.updateMatch(matchId, { 
+        status: 'CANCELLED',
+        finishedAt: new Date()
+      });
+
+      // Delete Discord channel
+      try {
+        const client = getDiscordClient();
+        if (!client) {
+          logger.error('Discord client not ready or authenticated for match reset');
+          
+          await this.logEvent(
+            "Match Reset Without Cleanup",
+            `Match #${matchId} reset, but channel cleanup failed.`,
+            [
+              { name: 'Match ID', value: matchId.toString(), inline: true },
+              { name: 'Players Affected', value: players.length.toString(), inline: true },
+              { name: 'Issue', value: 'Discord client not ready', inline: true }
+            ]
+          );
+          
+          return { 
+            success: true, 
+            message: `Match #${matchId} cancelled without returning players to queue. Note: Channel cleanup was skipped.`
+          };
+        }
+        
+        // Get config to find guild ID
+        const botConfig = await this.storage.getBotConfig();
+        const guildId = botConfig.general.guildId;
+        
+        // First try to get the guild directly by ID from config
+        let guild = null;
+        if (guildId) {
+          guild = client.guilds.cache.get(guildId);
+          logger.info(`Attempting to get guild for match reset using configured ID: ${guildId}`);
+        }
+        
+        // If not found by ID or no ID configured, try first guild in cache
+        if (!guild) {
+          guild = client.guilds.cache.first();
+          logger.info(`Attempting to get first guild in cache for match reset: ${guild?.id || 'None found'}`);
+        }
+        
+        // If still no guild, try to get guild based on match configuration
+        if (!guild) {
+          // Instead of attempting to fetch guilds, let's log all known guilds
+          logger.info('No guild found by ID for match reset, logging all available guilds in cache');
+          const guildCount = client.guilds.cache.size;
+          
+          if (guildCount > 0) {
+            client.guilds.cache.forEach(g => {
+              logger.info(`Available guild in cache for match reset: ${g.name} (${g.id})`);
+            });
+            // Try first guild again now that we've logged all guilds
+            guild = client.guilds.cache.first();
+          } else {
+            logger.warn(`No guilds available in cache for match reset (count: ${guildCount})`);
+            // Don't try to fetch - that requires authentication which might not be ready
+          }
+        }
+        
+        if (!guild) {
+          logger.error('No guild available for match reset after multiple attempts');
+          throw new Error('No guild available');
+        }
+        
+        // First try to get the channel by stored ID
+        let matchChannel = match.channelId 
+          ? guild.channels.cache.get(match.channelId)
+          : null;
+        
+        // If not found by ID, try by name as fallback
+        if (!matchChannel) {
+          logger.warn(`Channel ID ${match.channelId} not found, attempting to find by name...`);
+          matchChannel = guild.channels.cache.find(
+            channel => channel.name === `match-${matchId}`
+          );
+        }
+        
+        if (!matchChannel) {
+          logger.error(`Match channel for match ${matchId} not found during match reset`);
+        } else if (matchChannel.isTextBased()) {
+          logger.info(`Found match channel ${matchChannel.name} (${matchChannel.id}) for match reset cleanup`);
+          
+          // Start countdown
+          const countdownSeconds = 10;
+          let secondsLeft = countdownSeconds;
+          
+          try {
+            const countdownMessage = await matchChannel.send(`Match reset! Players will NOT be returned to queue. Channel will be deleted in ${countdownSeconds} seconds...`);
+            logger.info(`Sent match reset countdown message to channel ${matchChannel.id}`);
+            
+            const interval = setInterval(async () => {
+              try {
+                secondsLeft--;
+                if (secondsLeft > 0) {
+                  await countdownMessage.edit(`Match reset! Players will NOT be returned to queue. Channel will be deleted in ${secondsLeft} seconds...`);
+                } else {
+                  clearInterval(interval);
+                  logger.info(`Match reset countdown complete for match ${matchId}`);
+                  
+                  // Delete the channel
+                  try {
+                    logger.info(`Attempting to delete channel ${matchChannel.name} (${matchChannel.id})`);
+                    await matchChannel.delete();
+                    logger.info(`Successfully deleted channel for reset match ${matchId}`);
+                  } catch (deleteError) {
+                    logger.error(`Failed to delete channel during match reset: ${deleteError}`);
+                  }
+                }
+              } catch (intervalError) {
+                logger.error(`Error in match reset countdown interval: ${intervalError}`);
+                clearInterval(interval);
+              }
+            }, 1000);
+          } catch (messageError) {
+            logger.error(`Failed to send match reset countdown message: ${messageError}`);
+          }
+        }
+      } catch (error) {
+        logger.error(`Error handling match reset channel cleanup: ${error}`);
+      }
+      
+      // Log the cancellation without queue
+      await this.logEvent("Match Reset", `Match #${matchId} has been reset (cancelled without requeue).`, [
+        { name: 'Match ID', value: matchId.toString(), inline: true },
+        { name: 'Players Affected', value: players.length.toString(), inline: true }
+      ]);
+
+      return { 
+        success: true, 
+        message: `Match #${matchId} cancelled without returning players to queue.`
+      };
+    } catch (error) {
+      logger.error(`Error resetting match: ${error}`);
+      return { success: false, message: 'Failed to reset match due to an error' };
+    }
+  }
 
   private internalLogEvent = async (title: string, description: string, fields: Array<{ name: string; value: string; inline?: boolean }>) => 
   {

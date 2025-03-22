@@ -662,6 +662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use handleMatchCancellation method which properly cleans up Discord channels
+      // and returns players to queue
       const cancellationResult = await matchService.handleMatchCancellation(matchId);
 
       if (cancellationResult.success) {
@@ -674,6 +675,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         message: 'Failed to cancel match due to server error'
+      });
+    }
+  });
+  
+  // Cancel match without returning players to queue
+  app.post('/api/matches/:id/cancel-reset', adminMiddleware, async (req, res) => {
+    try {
+      const matchId = parseInt(req.params.id);
+      if (isNaN(matchId)) {
+        return res.status(400).json({ message: 'Invalid match ID' });
+      }
+
+      // Get the bot MatchService instance to handle Discord channel cleanup
+      const matchService = getMatchService();
+      if (!matchService) {
+        console.error('Could not get MatchService instance from bot');
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Failed to reset match: Bot services not initialized'
+        });
+      }
+
+      // Use handleMatchCancellationNoQueue which cleans up Discord channels
+      // but does NOT return players to queue
+      const resetResult = await matchService.handleMatchCancellationNoQueue(matchId);
+
+      if (resetResult.success) {
+        res.json(resetResult);
+      } else {
+        res.status(400).json(resetResult);
+      }
+    } catch (error) {
+      console.error('Error resetting match:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to reset match due to server error'
       });
     }
   });

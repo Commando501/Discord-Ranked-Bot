@@ -3,6 +3,24 @@
 
 ## Recent Changes
 
+### 2025-03-22 00:38:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/bot/services/matchService.ts`
+- `server/routes.ts`
+- `client/src/pages/matches.tsx`
+
+**Changes**:
+- Added a new "Cancel - Reset" button to the matches dashboard
+- Implemented `handleMatchCancellationNoQueue` method to cancel matches without returning players to queue
+- Added new API endpoint `/api/matches/:id/cancel-reset` for resetting matches
+- Enhanced match cleanup in Discord to support both cancellation modes
+- Modified UI to display both cancel options with clear visual differentiation
+
+**Purpose**: Provide administrators with an option to cancel matches without returning players to queue
+
+**Dependencies Affected**: None
+
 ### 2025-03-22 00:30:00 UTC
 **Type**: Enhancement
 **Files Modified**: 

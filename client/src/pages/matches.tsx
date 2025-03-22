@@ -122,6 +122,23 @@ export default function MatchesPage() {
       });
     }
   };
+  
+  const handleCancelResetMatch = async (matchId: number) => {
+    try {
+      await apiRequest(`/api/matches/${matchId}/cancel-reset`, 'POST');
+      toast({
+        title: "Match reset",
+        description: "The match has been cancelled WITHOUT returning players to queue.",
+      });
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to reset match. Try using Discord commands instead.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <AppLayout>
@@ -236,14 +253,24 @@ export default function MatchesPage() {
                       <Users className="h-3 w-3 mr-1" />
                       View Details
                     </Button>
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => handleCancelMatch(match.id)}
-                    >
-                      Cancel Match
-                    </Button>
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="text-xs text-red-500 border-red-500/20 hover:bg-red-500/10 hover:text-red-500"
+                        onClick={() => handleCancelResetMatch(match.id)}
+                      >
+                        Cancel - Reset
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => handleCancelMatch(match.id)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
