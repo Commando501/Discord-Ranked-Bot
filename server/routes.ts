@@ -14,6 +14,7 @@ import {
   dataManagementConfigSchema
 } from "@shared/botConfig";
 import { players, Player } from "@shared/schema";
+import { getMatchService } from "./index.bot";
 
 // Assuming this class exists and is correctly implemented.  Add it if it's missing.
 class MatchService {
@@ -650,9 +651,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid match ID' });
       }
 
-      // Use the MatchService which now properly handles cancellation
-      const matchService = new MatchService(storage);
-      const cancellationResult = await matchService.cancelMatch(matchId);
+      // Get the bot MatchService instance to handle Discord channel cleanup
+      const matchService = getMatchService();
+      if (!matchService) {
+        console.error('Could not get MatchService instance from bot');
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Failed to cancel match: Bot services not initialized'
+        });
+      }
+
+      // Use handleMatchCancellation method which properly cleans up Discord channels
+      const cancellationResult = await matchService.handleMatchCancellation(matchId);
 
       if (cancellationResult.success) {
         res.json(cancellationResult);
@@ -661,7 +671,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Error cancelling match:', error);
-      res.status(500).json({ message: 'Failed to cancel match' });
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to cancel match due to server error'
+      });
     }
   });
 
