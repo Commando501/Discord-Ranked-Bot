@@ -3,6 +3,21 @@
 
 ## Recent Changes
 
+### 2025-03-22 00:30:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/routes.ts`
+
+**Changes**:
+- Fixed match cancellation from web dashboard to properly clean up Discord channels
+- Updated match cancellation API endpoint to use the proper `handleMatchCancellation` method
+- Implemented integration between dashboard cancellation and Discord channel cleanup
+- Added proper error handling for cancellation attempts with unavailable bot services
+
+**Purpose**: Ensure that matches cancelled from the web dashboard properly clean up Discord channels, notify users, and return players to queue
+
+**Dependencies Affected**: None
+
 ### 2025-03-22 00:15:00 UTC
 **Type**: Enhancement
 **Files Modified**: 
@@ -487,4 +502,4 @@ Discord Matchmaking Bot with MMR-based team balancing, queue management, and mat
 4. Enhanced statistics tracking
 
 ---
-*Last Updated: 2025-03-22 00:16:00 UTC*
+*Last Updated: 2025-03-22 00:32:00 UTC*
