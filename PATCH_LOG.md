@@ -3,6 +3,28 @@
 
 ## Recent Changes
 
+### 2025-03-22 00:15:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/bot/services/queueService.ts`
+- `server/discord/commands/queue.ts`
+- `server/bot/commands.ts`
+- `server/bot/services/matchService.ts`
+
+**Changes**:
+- Added check to prevent players from being in multiple matches simultaneously
+- Implemented `isPlayerInActiveMatch` method in QueueService
+- Enhanced `addPlayerToQueue` to return success/failure status with meaningful messages
+- Updated all queue command handlers to handle the new return format
+- Improved error messaging for players attempting to join queue while in active match
+- Enhanced logging across match and queue operations for better tracking
+
+**Purpose**: Prevent players from joining multiple matches simultaneously and improve queue integrity
+
+**Dependencies Affected**: None
+
+## Recent Changes
+
 ### 2024-03-21 11:55:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
@@ -465,4 +487,4 @@ Discord Matchmaking Bot with MMR-based team balancing, queue management, and mat
 4. Enhanced statistics tracking
 
 ---
-*Last Updated: 2025-03-21 05:30:00 UTC*
+*Last Updated: 2025-03-22 00:16:00 UTC*
