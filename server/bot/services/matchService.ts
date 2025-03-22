@@ -513,8 +513,12 @@ export class MatchService {
               
               for (const player of [...winningPlayers, ...losingPlayers]) {
                 try {
-                  await queueService.addPlayerToQueue(player.id);
-                  logger.info(`Added player ${player.username} (ID: ${player.id}) back to queue`);
+                  const queueResult = await queueService.addPlayerToQueue(player.id);
+                  if (queueResult.success) {
+                    logger.info(`Added player ${player.username} (ID: ${player.id}) back to queue`);
+                  } else {
+                    logger.warn(`Could not add player ${player.username} (ID: ${player.id}) back to queue: ${queueResult.message}`);
+                  }
                 } catch (queueError) {
                   logger.error(`Failed to add player ${player.id} back to queue: ${queueError}`);
                   // Continue with other players
@@ -543,8 +547,12 @@ export class MatchService {
         try {
           const queueService = QueueService.getInstance(this.storage);
           for (const player of [...winningPlayers, ...losingPlayers]) {
-            await queueService.addPlayerToQueue(player.id);
-            logger.info(`Added player ${player.username} back to queue during error recovery`);
+            const queueResult = await queueService.addPlayerToQueue(player.id);
+            if (queueResult.success) {
+              logger.info(`Added player ${player.username} back to queue during error recovery`);
+            } else {
+              logger.warn(`Could not add player ${player.username} back to queue during error recovery: ${queueResult.message}`);
+            }
           }
         } catch (recoveryError) {
           logger.error(`Failed in recovery attempt to add players back to queue: ${recoveryError}`);
@@ -755,8 +763,12 @@ export class MatchService {
           const queueService = QueueService.getInstance(this.storage);
           for (const player of players) {
             try {
-              await queueService.addPlayerToQueue(player.id);
-              logger.info(`Added player ${player.username} back to queue despite cleanup failure (cancellation)`);
+              const queueResult = await queueService.addPlayerToQueue(player.id);
+              if (queueResult.success) {
+                logger.info(`Added player ${player.username} back to queue despite cleanup failure (cancellation)`);
+              } else {
+                logger.warn(`Could not add player ${player.username} back to queue during cancellation: ${queueResult.message}`);
+              }
             } catch (queueError) {
               logger.error(`Failed to add player ${player.id} back to queue during cancellation: ${queueError}`);
             }
@@ -883,8 +895,12 @@ export class MatchService {
         
         for (const player of players) {
           try {
-            await queueService.addPlayerToQueue(player.id);
-            logger.info(`Added player ${player.username} (ID: ${player.id}) back to queue after cancellation`);
+            const queueResult = await queueService.addPlayerToQueue(player.id);
+            if (queueResult.success) {
+              logger.info(`Added player ${player.username} (ID: ${player.id}) back to queue after cancellation`);
+            } else {
+              logger.warn(`Could not add player ${player.username} (ID: ${player.id}) back to queue after cancellation: ${queueResult.message}`);
+            }
           } catch (queueError) {
             logger.error(`Failed to add player ${player.id} back to queue during cancellation: ${queueError}`);
           }
