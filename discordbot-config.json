@@ -17,7 +17,7 @@
       "max": 50
     },
     "autoMatchCreation": true,
-    "matchCreationIntervalSeconds": 10,
+    "matchCreationIntervalSeconds": 13,
     "queueTimeoutMinutes": 60,
     "minPlayersPerTeam": 4,
     "teamBalanceMethod": "mmr",

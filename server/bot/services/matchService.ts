@@ -503,8 +503,8 @@ export class MatchService {
               clearInterval(interval);
               logger.info(`Countdown complete, processing match cleanup for match ${matchId}`);
 
-              // Add players back to queue
-              const queueService = new QueueService(this.storage);
+              // Add players back to queue using the singleton instance
+              const queueService = QueueService.getInstance(this.storage);
               logger.info(`Adding ${winningPlayers.length + losingPlayers.length} players back to queue`);
               
               for (const player of [...winningPlayers, ...losingPlayers]) {
@@ -537,7 +537,7 @@ export class MatchService {
         
         // Even if there's an error with channel cleanup, make sure players get back into queue
         try {
-          const queueService = new QueueService(this.storage);
+          const queueService = QueueService.getInstance(this.storage);
           for (const player of [...winningPlayers, ...losingPlayers]) {
             await queueService.addPlayerToQueue(player.id);
             logger.info(`Added player ${player.username} back to queue during error recovery`);

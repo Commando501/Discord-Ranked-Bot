@@ -3,16 +3,34 @@ import { IStorage } from '../../storage';
 import { logger } from '../utils/logger';
 import { MatchService } from './matchService';
 import { BotConfig } from '@shared/botConfig';
+import { getBot as getDiscordBot } from '../../index.bot';
 
 export class QueueService {
   private storage: IStorage;
   private matchService: MatchService;
   private queueCheckInterval: NodeJS.Timeout | null = null;
+  private static instance: QueueService | null = null;
 
   constructor(storage: IStorage) {
     this.storage = storage;
     this.matchService = new MatchService(storage);
-    this.startQueueCheck();
+    
+    // Singleton pattern - only start queue check on the first instance
+    if (!QueueService.instance) {
+      QueueService.instance = this;
+      this.startQueueCheck();
+      logger.info('QueueService initialized as singleton instance');
+    } else {
+      logger.info('Using existing QueueService instance');
+    }
+  }
+
+  // Get singleton instance
+  public static getInstance(storage: IStorage): QueueService {
+    if (!QueueService.instance) {
+      QueueService.instance = new QueueService(storage);
+    }
+    return QueueService.instance;
   }
 
   private async startQueueCheck() {
@@ -24,12 +42,23 @@ export class QueueService {
     // Get config first
     const config = await this.storage.getBotConfig();
     const intervalMs = config.matchmaking.matchCreationIntervalSeconds * 1000;
+    
+    logger.info(`Starting queue check interval: ${intervalMs}ms`);
 
     // Start new interval
     this.queueCheckInterval = setInterval(async () => {
-      const guild = getBot()?.guilds.cache.first();
-      if (guild) {
-        await this.checkAndCreateMatch(guild);
+      try {
+        const bot = getDiscordBot();
+        const guild = bot?.guilds.cache.first();
+        
+        if (guild) {
+          logger.info('Queue check: Found guild, checking for potential matches');
+          await this.checkAndCreateMatch(guild);
+        } else {
+          logger.warn('Queue check: No guild available, skipping match creation check');
+        }
+      } catch (error) {
+        logger.error(`Error in queue check interval: ${error}`);
       }
     }, intervalMs);
   }
