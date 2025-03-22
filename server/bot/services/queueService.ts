@@ -48,12 +48,31 @@ export class QueueService {
     // Start new interval
     this.queueCheckInterval = setInterval(async () => {
       try {
+        // Get queue size for logging/debugging
+        const queueSize = await this.getQueueSize();
+        logger.info(`Queue check interval triggered. Current queue size: ${queueSize}`);
+        
         const bot = getDiscordBot();
         const guild = bot?.guilds.cache.first();
         
         if (guild) {
           logger.info('Queue check: Found guild, checking for potential matches');
-          await this.checkAndCreateMatch(guild);
+          
+          // Get config for logging
+          const botConfig = await this.storage.getBotConfig();
+          const minPlayersRequired = botConfig.matchmaking.queueSizeLimits.min;
+          
+          if (queueSize >= minPlayersRequired) {
+            logger.info(`Queue has enough players (${queueSize}/${minPlayersRequired}), attempting to create match`);
+            const matchCreated = await this.checkAndCreateMatch(guild);
+            if (matchCreated) {
+              logger.info('Successfully created match from queue check interval');
+            } else {
+              logger.warn('Failed to create match from queue check interval despite having enough players');
+            }
+          } else {
+            logger.info(`Not enough players in queue yet (${queueSize}/${minPlayersRequired})`);
+          }
         } else {
           logger.warn('Queue check: No guild available, skipping match creation check');
         }
@@ -63,26 +82,67 @@ export class QueueService {
     }, intervalMs);
   }
 
-  async addPlayerToQueue(playerId: number): Promise<boolean> {
-    // Check if player is already in queue
-    const isInQueue = await this.isPlayerInQueue(playerId);
-    if (isInQueue) {
+  /**
+   * Check if a player is in an active match
+   * @param playerId The player's ID to check
+   * @returns Boolean indicating if player is in an active match
+   */
+  async isPlayerInActiveMatch(playerId: number): Promise<boolean> {
+    try {
+      // Get all active matches
+      const activeMatches = await this.storage.getActiveMatches();
+      
+      // Check if player is in any of the active matches
+      for (const match of activeMatches) {
+        for (const team of match.teams) {
+          const isInTeam = team.players.some(player => player.id === playerId);
+          if (isInTeam) {
+            logger.info(`Player ${playerId} is in active match #${match.id}`);
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      logger.error(`Error checking if player is in active match: ${error}`);
+      // Default to false to allow queueing in case of errors
       return false;
     }
+  }
 
-    // Add player to queue
-    await this.storage.addPlayerToQueue({
-      playerId,
-      priority: 0
-    });
+  async addPlayerToQueue(playerId: number): Promise<{ success: boolean, message: string }> {
+    try {
+      // Check if player is already in queue
+      const isInQueue = await this.isPlayerInQueue(playerId);
+      if (isInQueue) {
+        return { success: false, message: "You are already in the queue." };
+      }
 
-    logger.info(`Player ${playerId} added to queue`);
+      // Check if player is in an active match
+      const isInMatch = await this.isPlayerInActiveMatch(playerId);
+      if (isInMatch) {
+        return { success: false, message: "You cannot join the queue while in an active match." };
+      }
 
-    // Ensure queue check is running
-    if (!this.queueCheckInterval) {
-      this.startQueueCheck();
+      // Add player to queue
+      await this.storage.addPlayerToQueue({
+        playerId,
+        priority: 0
+      });
+
+      logger.info(`Player ${playerId} added to queue`);
+
+      // Ensure queue check is running
+      if (!this.queueCheckInterval) {
+        this.startQueueCheck();
+      }
+      
+      return { success: true, message: "You have been added to the queue." };
+    } catch (error) {
+      logger.error(`Error adding player to queue: ${error}`);
+      return { success: false, message: "An error occurred while trying to add you to the queue." };
     }
-    return true;
   }
 
   async removePlayerFromQueue(playerId: number): Promise<boolean> {
@@ -181,8 +241,4 @@ export class QueueService {
   }
 }
 
-// Placeholder for getBot() function - needs to be defined elsewhere
-function getBot() {
-    //Implementation to get the bot instance
-    return null; //Replace with actual implementation
-}
+// We now use getDiscordBot imported from '../../index.bot' instead of this placeholder

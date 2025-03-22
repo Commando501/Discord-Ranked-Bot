@@ -41,7 +41,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
     
     // Add player to queue
-    await queueService.addPlayerToQueue(player.id);
+    const queueResult = await queueService.addPlayerToQueue(player.id);
+    
+    if (!queueResult.success) {
+      const errorEmbed = new EmbedBuilder()
+        .setColor('#ED4245') // Discord red
+        .setTitle('Queue Error')
+        .setDescription(queueResult.message);
+      
+      return interaction.editReply({ embeds: [errorEmbed] });
+    }
     
     // Get updated queue count
     const queueCount = (await queueService.getAllQueueEntries()).length;

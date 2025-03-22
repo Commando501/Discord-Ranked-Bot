@@ -393,8 +393,12 @@ export class MatchService {
           
           for (const player of [...winningPlayers, ...losingPlayers]) {
             try {
-              await queueService.addPlayerToQueue(player.id);
-              logger.info(`Added player ${player.username} back to queue despite cleanup failure`);
+              const queueResult = await queueService.addPlayerToQueue(player.id);
+              if (queueResult.success) {
+                logger.info(`Added player ${player.username} back to queue despite cleanup failure`);
+              } else {
+                logger.warn(`Could not add player ${player.username} back to queue: ${queueResult.message}`);
+              }
             } catch (queueError) {
               logger.error(`Failed to add player ${player.id} back to queue: ${queueError}`);
             }
@@ -748,7 +752,7 @@ export class MatchService {
           logger.error('Discord client not ready or authenticated for match cancellation');
           
           // Even if channel cleanup fails, return players to queue
-          const queueService = new QueueService(this.storage);
+          const queueService = QueueService.getInstance(this.storage);
           for (const player of players) {
             try {
               await queueService.addPlayerToQueue(player.id);
@@ -874,7 +878,7 @@ export class MatchService {
       
       // Return players to queue - use the players we already retrieved at the beginning
       try {
-        const queueService = new QueueService(this.storage);
+        const queueService = QueueService.getInstance(this.storage);
         logger.info(`Adding ${players.length} players back to queue after match cancellation`);
         
         for (const player of players) {

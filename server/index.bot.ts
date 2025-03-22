@@ -10,7 +10,7 @@ import { DiscordUser } from '@shared/schema';
 import { initializeBot as initializeEnhancedBot, getDiscordClient as getEnhancedClient } from './discord/bot';
 
 // Initialize services immediately regardless of Discord bot status
-let queueService = new QueueService(storage);
+let queueService = QueueService.getInstance(storage);
 let playerService = new PlayerService(storage);
 let matchService = new MatchService(storage);
 

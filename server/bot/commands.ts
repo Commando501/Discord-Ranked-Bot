@@ -48,7 +48,14 @@ export const commands = [
           });
         }
         
-        await queueService.addPlayerToQueue(player.id);
+        const queueResult = await queueService.addPlayerToQueue(player.id);
+        
+        if (!queueResult.success) {
+          return interaction.followUp({
+            content: `❌ ${queueResult.message}`,
+            ephemeral: true
+          });
+        }
         
         const queueCount = await queueService.getQueueSize();
         const requiredPlayers = config.REQUIRED_PLAYERS_PER_MATCH;
