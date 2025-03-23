@@ -30,7 +30,7 @@
     "kFactor": 32,
     "mmrCalculationMethod": "elo",
     "placementMatches": 5,
-    "mmrRangeRestrictions": true,
+    "mmrRangeRestrictions": false,
     "maxMmrDifference": 300,
     "streakSettings": {
       "threshold": 3,
