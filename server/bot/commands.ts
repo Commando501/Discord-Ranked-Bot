@@ -554,10 +554,10 @@ export const commands = [
           .setDescription('The ID of the match to end')
           .setRequired(true)
       )
-      .addIntegerOption(option => 
+      .addStringOption(option => 
         option
           .setName('winning_team')
-          .setDescription('The ID of the winning team')
+          .setDescription('The name of the winning team (e.g., Alpha or Bravo)')
           .setRequired(true)
       ),
     execute: async (interaction: CommandInteraction) => {
@@ -570,13 +570,13 @@ export const commands = [
         }
         
         const matchId = interaction.options.getInteger('match_id');
-        const winningTeamId = interaction.options.getInteger('winning_team');
+        const winningTeamName = interaction.options.getString('winning_team');
         
-        if (!matchId || !winningTeamId) {
-          return interaction.followUp('❌ Please provide both match ID and winning team ID.');
+        if (!matchId || !winningTeamName) {
+          return interaction.followUp('❌ Please provide both match ID and winning team name (e.g., Alpha or Bravo).');
         }
         
-        const result = await matchService.endMatch(matchId, winningTeamId);
+        const result = await matchService.endMatch(matchId, winningTeamName);
         
         if (result.success) {
           await interaction.followUp(`✅ Match ended successfully! ${result.message}`);

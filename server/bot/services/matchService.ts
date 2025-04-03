@@ -236,7 +236,7 @@ export class MatchService {
           const embed = new EmbedBuilder()
             .setColor('#5865F2')
             .setTitle(`Match #${match.id}`)
-            .setDescription(`Your match has been created! Good luck and have fun!\n\n**Admin Reference**\nMatch ID: \`${match.id}\` (Use \`/endmatch ${match.id} <winning_team>\` to end this match)`)
+            .setDescription(`Your match has been created! Good luck and have fun!\n\n**Admin Reference**\nMatch ID: \`${match.id}\` (Use \`/endmatch ${match.id} Alpha\` or \`/endmatch ${match.id} Bravo\` to end this match)`)
             .addFields(
               { 
                 name: `Team ${team1Name} (Avg MMR: ${teamsData.team1MMR})`, 
@@ -302,7 +302,7 @@ export class MatchService {
     }
   }
 
-  async endMatch(matchId: number, winningTeamId: number): Promise<{ success: boolean, message: string }> {
+  async endMatch(matchId: number, winningTeamName: string): Promise<{ success: boolean, message: string }> {
     try {
       const match = await this.storage.getMatch(matchId);
 
@@ -314,22 +314,24 @@ export class MatchService {
         return { success: false, message: `Match is already ${match.status.toLowerCase()}` };
       }
 
-      const winningTeam = await this.storage.getTeam(winningTeamId);
-
-      if (!winningTeam) {
-        return { success: false, message: 'Winning team not found' };
-      }
-
-      if (winningTeam.matchId !== matchId) {
-        return { success: false, message: 'The specified team is not part of this match' };
-      }
-
       // Get all teams for this match
       const matchTeams = await this.storage.getMatchTeams(matchId);
 
       if (matchTeams.length < 2) {
         return { success: false, message: 'Match does not have enough teams' };
       }
+      
+      // Find the winning team by name (case-insensitive)
+      const winningTeam = matchTeams.find(team => 
+        team.name.toLowerCase() === winningTeamName.toLowerCase()
+      );
+      
+      if (!winningTeam) {
+        const validTeams = matchTeams.map(team => team.name).join(', ');
+        return { success: false, message: `Team "${winningTeamName}" not found in this match. Valid teams are: ${validTeams}` };
+      }
+      
+      const winningTeamId = winningTeam.id;
 
       // Update match status
       await this.storage.updateMatch(matchId, { 

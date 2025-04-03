@@ -1,6 +1,27 @@
 
 # Project Patch Log
 
+### 2025-04-05 12:15:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/bot/services/matchService.ts`
+- `server/bot/commands.ts`
+
+**Changes**:
+- Modified `/endmatch` command to use team name instead of team ID
+- Updated `endMatch` method in matchService to accept team name parameter
+- Improved error message to show valid team names when an invalid team is specified
+- Updated match embed to show command usage example with team names
+- Enhanced user experience by allowing case-insensitive team name matching
+
+**Purpose**: Simplify match end process by allowing administrators to specify team names (e.g., "Alpha" or "Bravo") instead of numeric team IDs
+
+**Testing**: Verified that `/endmatch 46 Alpha` works correctly to end a match with Team Alpha as the winner
+
+**Dependencies Affected**: None
+
+
+
 ## Recent Changes
 
 ### 2025-04-04 12:00:00 UTC
