@@ -3,6 +3,25 @@
 
 ## Recent Changes
 
+### 2024-03-22 17:20:00 UTC
+**Type**: Bug Fix Investigation
+**Files Modified**: 
+- `server/index.ts`
+- `server/discord/bot.ts`
+
+**Changes**:
+- Added comprehensive error handling throughout the application startup process
+- Implemented global process exception handlers for uncaught exceptions and unhandled rejections
+- Added detailed step-by-step console logging for application initialization
+- Added timeout detection for Discord login to identify hangs
+- Implemented heartbeat mechanism to keep the application alive even after errors
+- Enhanced Discord client creation with fallback options
+- Added token validation and detailed logging for Discord authentication
+
+**Purpose**: Fix the issue where the application stops running immediately after loading configuration
+
+**Dependencies Affected**: None
+
 ### 2024-03-22 13:45:00 UTC
 **Type**: Bug Fix Investigation
 **Files Modified**: 

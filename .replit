@@ -14,7 +14,7 @@ localPort = 5000
 externalPort = 80
 
 [workflows]
-runButton = "Start Bot with Debug"
+runButton = "Start Bot with Maximum Debug"
 
 [[workflows.workflow]]
 name = "Project"
@@ -57,3 +57,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "NODE_DEBUG=discord* npm run dev"
+
+[[workflows.workflow]]
+name = "Start Bot with Maximum Debug"
+author = 39150183
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_DEBUG=discord*,http,net,stream,events npm run dev"

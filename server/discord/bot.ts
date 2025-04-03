@@ -149,34 +149,76 @@ async function attemptReconnect() {
 
 // Initialize the Discord bot
 export async function initializeBot() {
+  console.log("Discord bot initialization starting...");
+  
   if (!process.env.DISCORD_TOKEN) {
+    console.error('DISCORD_TOKEN is required but not found in environment variables');
     logger.error('DISCORD_TOKEN is required but not found in environment variables');
     throw new Error('DISCORD_TOKEN environment variable is required');
   }
 
+  console.log("Token validation passed, creating client...");
+  
   // Create the client if it doesn't exist
   if (!client) {
-    client = createClient();
-    setupEventHandlers(client);
+    try {
+      client = createClient();
+      console.log("Discord client created");
+      setupEventHandlers(client);
+      console.log("Event handlers attached to client");
+    } catch (clientError) {
+      console.error("Error creating Discord client:", clientError);
+      logger.error('Error creating Discord client', { error: clientError });
+      // Create a barebones client to allow the system to continue
+      client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    }
   }
 
   // Login to Discord with your token
   try {
-    await client.login(process.env.DISCORD_TOKEN);
-    logger.info('Discord bot login successful');
+    console.log("Attempting Discord login...");
+    console.log("Token length:", process.env.DISCORD_TOKEN?.length || 0);
+    console.log("Token first 5 chars:", process.env.DISCORD_TOKEN?.substring(0, 5) || "N/A");
     
-    // Register slash commands when bot is ready
-    const botConfig = await storage.getBotConfig();
-    await registerCommands();
-    logger.info('Slash commands registered');
+    // Add explicit timeout for login attempt
+    const loginPromise = client.login(process.env.DISCORD_TOKEN);
+    
+    // Add a timeout to detect if login hangs
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Discord login timeout after 30 seconds")), 30000);
+    });
+    
+    // Race the promises
+    await Promise.race([loginPromise, timeoutPromise]);
+    
+    logger.info('Discord bot login successful');
+    console.log("Discord login successful!");
+    
+    try {
+      // Register slash commands when bot is ready
+      console.log("Fetching bot config...");
+      const botConfig = await storage.getBotConfig();
+      console.log("Bot config fetched, registering commands...");
+      await registerCommands();
+      logger.info('Slash commands registered');
+      console.log("Slash commands registered successfully");
 
-    // Start a periodic connection check
-    startConnectionHealthCheck();
+      // Start a periodic connection check
+      startConnectionHealthCheck();
+      console.log("Connection health check started");
+    } catch (postLoginError) {
+      console.error("Error during post-login setup:", postLoginError);
+      logger.error('Error during post-login setup', { error: postLoginError });
+      // Continue anyway - we at least have a working client
+    }
   } catch (error) {
+    console.error("Discord login failed with error:", error);
     logger.error('Discord bot login failed', { error });
-    throw error;
+    // Throw but with a clearer message
+    throw new Error(`Discord login failed: ${error.message || 'Unknown error'}`);
   }
 
+  console.log("Discord bot initialization complete, returning client");
   return client;
 }
 
