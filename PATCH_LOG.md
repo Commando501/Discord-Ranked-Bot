@@ -3,23 +3,6 @@
 
 ## Recent Changes
 
-### 2025-03-22 00:50:00 UTC
-**Type**: Feature
-**Files Modified**: 
-- `server/discord/commands/adminqueueadd.ts` (new)
-- `server/discord/commands/index.ts`
-
-**Changes**:
-- Added new `/adminqueueadd` Discord command for testing purposes
-- Command allows admins to manually add players to queue by Discord ID
-- Includes automatic creation of mock player records if needed
-- Added Discord permission flags to restrict command to administrators only
-- Enhanced command registration for the new admin feature
-
-**Purpose**: Provide a testing utility for administrators to simulate queue activity without requiring users to be present in the Discord server
-
-**Dependencies Affected**: None
-
 ### 2025-03-22 00:38:00 UTC
 **Type**: Enhancement
 **Files Modified**: 

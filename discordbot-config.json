@@ -13,7 +13,7 @@
   },
   "matchmaking": {
     "queueSizeLimits": {
-      "min": 8,
+      "min": 2,
       "max": 50
     },
     "autoMatchCreation": true,
@@ -30,7 +30,7 @@
     "kFactor": 32,
     "mmrCalculationMethod": "elo",
     "placementMatches": 5,
-    "mmrRangeRestrictions": false,
+    "mmrRangeRestrictions": true,
     "maxMmrDifference": 300,
     "streakSettings": {
       "threshold": 3,
