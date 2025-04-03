@@ -36,7 +36,12 @@ export class QueueService {
         this.queue = new Collection<string, User>();
         this.activeMatches = new Collection<number, ActiveMatch>();
         this.usersInActiveMatch = new Set<string>();
-        this.client.logger.info("[QueueService] Initialized.");
+        // Check if client and logger exist before using them
+        if (this.client && this.client.logger) {
+            this.client.logger.info("[QueueService] Initialized.");
+        } else {
+            console.log("[QueueService] Initialized with null client. Awaiting proper initialization.");
+        }
     }
 
     // --- Queue Management ---

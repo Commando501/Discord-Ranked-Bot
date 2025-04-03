@@ -9,10 +9,15 @@ import { MatchService } from './bot/services/matchService';
 import { DiscordUser } from '@shared/schema';
 import { initializeBot as initializeEnhancedBot, getDiscordClient as getEnhancedClient } from './discord/bot';
 
-// Initialize services immediately regardless of Discord bot status
-let queueService = QueueService.getInstance(storage);
-let playerService = new PlayerService(storage);
-let matchService = new MatchService(storage);
+// Initialize services after bot initialization to avoid undefined references
+let queueService: QueueService;
+let playerService: PlayerService;
+let matchService: MatchService;
+
+// Initialize with default null values until Discord client is ready
+queueService = new QueueService(null as any);
+playerService = new PlayerService(storage);
+matchService = new MatchService(storage);
 
 // Use the enhanced Discord client from ./discord/bot.ts
 export async function initializeBot() {
@@ -24,6 +29,12 @@ export async function initializeBot() {
       logger.warn('Could not initialize enhanced Discord client. Bot functionality will be limited, but services are available.');
       return null;
     }
+    
+    // Now properly initialize services with the Discord client
+    queueService = new QueueService(client);
+    // Other services might also need the client in the future
+    // playerService = new PlayerService(client, storage);
+    // matchService = new MatchService(client, storage);
     
       // Handle message events specifically for vote processing
     client.on(Events.MessageCreate, async (message) => {

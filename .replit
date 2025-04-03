@@ -14,7 +14,7 @@ localPort = 5000
 externalPort = 80
 
 [workflows]
-runButton = "Start Bot with Singleton Fix"
+runButton = "Start Bot with Safe Initialization"
 
 [[workflows.workflow]]
 name = "Project"
@@ -69,6 +69,15 @@ args = "NODE_DEBUG=discord*,http,net,stream,events npm run dev"
 
 [[workflows.workflow]]
 name = "Start Bot with Singleton Fix"
+author = 39150183
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Start Bot with Safe Initialization"
 author = 39150183
 mode = "sequential"
 

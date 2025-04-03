@@ -3,6 +3,23 @@
 
 ## Recent Changes
 
+### 2024-03-22 20:30:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/index.bot.ts`
+- `server/bot/services/queueService.ts`
+
+**Changes**:
+- Fixed QueueService initialization to safely handle null client during startup
+- Modified constructor to check for client existence before using client.logger
+- Updated service initialization in index.bot.ts to properly initialize with client after it's ready
+- Removed incorrect use of getInstance that was causing errors with storage parameter
+- Added defensive coding to prevent "Cannot read properties of undefined" errors
+
+**Purpose**: Fix TypeError during application startup where QueueService couldn't access client.logger
+
+**Dependencies Affected**: None
+
 ### 2024-03-22 19:15:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
