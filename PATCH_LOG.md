@@ -3,6 +3,24 @@
 
 ## Recent Changes
 
+### 2025-04-03 23:30:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/queueService.ts`
+
+**Changes**:
+- Fixed race condition in queue processing causing multiple match creation
+- Added mutex-style lock with `queueCheckInProgress` flag to prevent concurrent queue checks
+- Improved queue check interval processing to skip iterations when a check is already running
+- Enhanced error handling with try/finally pattern to ensure lock is always released
+- Added detailed logging to trace queue processing flow
+
+**Purpose**: Fix critical issue where multiple matches (usually 3) were being created simultaneously with the same players after a completed match
+
+**Testing**: Verified fix by completing a match, checking that players properly returned to queue, and confirming only a single new match was created
+
+**Dependencies Affected**: None
+
 ### 2025-03-22 01:15:00 UTC
 **Type**: Feature Implementation
 **Files Modified**: 
