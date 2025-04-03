@@ -1,4 +1,4 @@
-import { Client, Events, GatewayIntentBits, Collection } from 'discord.js';
+import { Client, Events, GatewayIntentBits, Collection, Options, Partials } from 'discord.js';
 import { logger } from '../bot/utils/logger';
 import { registerCommands, getCommands } from './commands';
 import { storage } from '../storage';
@@ -20,6 +20,15 @@ function createClient() {
       GatewayIntentBits.GuildVoiceStates,
       GatewayIntentBits.MessageContent,
     ],
+    // Add these options to improve user caching
+    makeCache: Options.cacheWithLimits({
+      GuildMemberManager: {
+        maxSize: 200, // Increase member cache size
+        keepOverLimit: member => member.user.bot
+      }
+    }),
+    // Fetch members for guilds to improve caching
+    partials: [Partials.GuildMember]
   });
 }
 

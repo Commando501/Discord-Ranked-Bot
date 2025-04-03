@@ -3,6 +3,28 @@
 
 ## Recent Changes
 
+### 2025-04-04 12:00:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/matchService.ts`
+- `server/discord/bot.ts`
+
+**Changes**:
+- Fixed match channel creation failure due to Discord user caching issues
+- Changed permission setting approach to add permissions after channel creation
+- Improved Discord client configuration with better caching options
+- Added error recovery to continue match creation even when channel creation fails
+- Enhanced logging around permission management
+- Made the match creation process more resilient
+
+**Purpose**: Fix "Supplied parameter is not a cached User or Role" error when creating match channels
+
+**Testing**: Verified fix by creating a new match and ensuring channel creation succeeds
+
+**Dependencies Affected**: None
+
+## Recent Changes
+
 ### 2025-04-03 23:30:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 

@@ -152,6 +152,7 @@ export class MatchService {
 
       // Try to create a match channel if possible
       let matchChannel: TextChannel | null = null;
+      let channelCreationFailed = false;
       try {
         // Find or create a category for matches
         let matchCategory = guild.channels.cache.find(
@@ -186,10 +187,8 @@ export class MatchService {
                 id: guild.roles.everyone.id,
                 deny: ['ViewChannel']
               },
-              ...playerIds.map(id => ({
-                id: players.find(p => p?.id === id)?.discordId || '',
-                allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory']
-              }))
+              // Don't try to set individual user permissions initially
+              // Will add users after channel is created
             ]
           });
           logger.info(`Successfully created match channel with ID: ${matchChannel.id}`);
@@ -200,9 +199,31 @@ export class MatchService {
             categoryId: matchCategory.id
           });
           logger.info(`Updated match record with channel and category IDs`);
+          
+          // Now try to add permissions for each player after channel creation
+          for (const player of validPlayers) {
+            try {
+              if (player.discordId) {
+                // Use a safer method - edit permissions even if user isn't cached
+                await matchChannel.permissionOverwrites.create(
+                  player.discordId,
+                  {
+                    ViewChannel: true,
+                    SendMessages: true,
+                    ReadMessageHistory: true
+                  }
+                );
+                logger.info(`Added permission for player ${player.username} (${player.discordId}) to match channel`);
+              }
+            } catch (permError) {
+              logger.warn(`Could not set permissions for player ${player.username} (${player.discordId}): ${permError}`);
+              // Continue with other players even if one fails
+            }
+          }
         } catch (channelError) {
           logger.error(`Failed to create match channel: ${channelError}`);
-          throw new Error(`Failed to create match channel: ${channelError.message}`);
+          channelCreationFailed = true;
+          // Don't throw, continue with match creation even without a channel
         }
 
         // Get the team names from our created teams
@@ -270,7 +291,9 @@ export class MatchService {
         success: true, 
         message: matchChannel 
           ? `Match created! Check <#${matchChannel.id}> for details.`
-          : 'Match created successfully!',
+          : channelCreationFailed
+            ? 'Match created successfully, but channel creation failed. Players can still play.'
+            : 'Match created successfully!',
         matchId: match.id
       };
     } catch (error) {
