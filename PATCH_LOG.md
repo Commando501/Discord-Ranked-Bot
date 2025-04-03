@@ -1,6 +1,24 @@
 
 # Project Patch Log
 
+### 2025-04-05 15:30:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/bot/services/matchService.ts`
+- `server/bot/utils/helpers.ts`
+
+**Changes**:
+- Changed team names from "Alpha" and "Bravo" to "Eagle" and "Cobra"
+- Updated match embed to reflect new team names in command examples
+- Updated team name assignment in helper utilities
+- Maintained compatibility with existing functionality by preserving case-insensitive team name matching
+
+**Purpose**: Change team names to better reflect the actual team names from the game
+
+**Testing**: Verified that `/endmatch` command continues to work with the new team names
+
+**Dependencies Affected**: None
+
 ### 2025-04-05 12:15:00 UTC
 **Type**: Enhancement
 **Files Modified**: 

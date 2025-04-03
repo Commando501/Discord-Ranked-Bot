@@ -129,7 +129,7 @@ export class MatchService {
 
       // Create team records and assign players
       for (const [teamIndex, teamPlayers] of teamsData.teams.entries()) {
-        const teamName = teamIndex === 0 ? 'Alpha' : 'Bravo';
+        const teamName = teamIndex === 0 ? 'Eagle' : 'Cobra';
         const avgMMR = teamIndex === 0 ? teamsData.team1MMR : teamsData.team2MMR;
 
         const team = await this.storage.createTeam({
@@ -236,7 +236,7 @@ export class MatchService {
           const embed = new EmbedBuilder()
             .setColor('#5865F2')
             .setTitle(`Match #${match.id}`)
-            .setDescription(`Your match has been created! Good luck and have fun!\n\n**Admin Reference**\nMatch ID: \`${match.id}\` (Use \`/endmatch ${match.id} Alpha\` or \`/endmatch ${match.id} Bravo\` to end this match)`)
+            .setDescription(`Your match has been created! Good luck and have fun!\n\n**Admin Reference**\nMatch ID: \`${match.id}\` (Use \`/endmatch ${match.id} Eagle\` or \`/endmatch ${match.id} Cobra\` to end this match)`)
             .addFields(
               { 
                 name: `Team ${team1Name} (Avg MMR: ${teamsData.team1MMR})`, 

@@ -47,8 +47,8 @@ export function calculateTeamsMMR(players: Player[]): {
   
   // Special case for 2 players (1v1)
   if (namedPlayers.length === 2) {
-    namedPlayers[0].teamName = 'Alpha';
-    namedPlayers[1].teamName = 'Bravo';
+    namedPlayers[0].teamName = 'Eagle';
+    namedPlayers[1].teamName = 'Cobra';
     
     return {
       teams: [[namedPlayers[0]], [namedPlayers[1]]],
@@ -63,10 +63,10 @@ export function calculateTeamsMMR(players: Player[]): {
   // e.g., for 6 players ranked by MMR: [1,3,5] vs [2,4,6]
   for (let i = 0; i < namedPlayers.length; i++) {
     if (i % 2 === 0) {
-      namedPlayers[i].teamName = 'Alpha';
+      namedPlayers[i].teamName = 'Eagle';
       team1.push(namedPlayers[i]);
     } else {
-      namedPlayers[i].teamName = 'Bravo';
+      namedPlayers[i].teamName = 'Cobra';
       team2.push(namedPlayers[i]);
     }
   }
