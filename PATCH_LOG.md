@@ -3,6 +3,21 @@
 
 ## Recent Changes
 
+### 2024-03-22 18:10:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/queueService.ts`
+
+**Changes**:
+- Added missing `getInstance` static method to QueueService class
+- Implemented singleton pattern functionality that was referenced but not defined
+- Added static instance property to store the singleton instance
+- Fixed critical startup error preventing application from launching
+
+**Purpose**: Fix the application crash during startup due to missing method referenced in index.bot.ts
+
+**Dependencies Affected**: None
+
 ### 2024-03-22 17:20:00 UTC
 **Type**: Bug Fix Investigation
 **Files Modified**: 
