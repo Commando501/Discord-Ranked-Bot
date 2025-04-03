@@ -12,20 +12,6 @@ interface ActiveMatch {
 }
 
 export class QueueService {
-    private static instance: QueueService;
-    
-    /**
-     * Singleton pattern implementation for QueueService
-     * @param storage The storage implementation to use
-     * @returns The QueueService instance
-     */
-    public static getInstance(storage: any): QueueService {
-        if (!QueueService.instance) {
-            QueueService.instance = new QueueService(storage);
-        }
-        return QueueService.instance;
-    }
-    
     public client: BotClient;
     public queue: Collection<string, User>;
     public activeMatches: Collection<number, ActiveMatch>;
@@ -36,12 +22,7 @@ export class QueueService {
         this.queue = new Collection<string, User>();
         this.activeMatches = new Collection<number, ActiveMatch>();
         this.usersInActiveMatch = new Set<string>();
-        // Check if client and logger exist before using them
-        if (this.client && this.client.logger) {
-            this.client.logger.info("[QueueService] Initialized.");
-        } else {
-            console.log("[QueueService] Initialized with null client. Awaiting proper initialization.");
-        }
+        this.client.logger.info("[QueueService] Initialized.");
     }
 
     // --- Queue Management ---
