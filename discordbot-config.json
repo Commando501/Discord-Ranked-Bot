@@ -5,7 +5,7 @@
       "statusMessage": "Matchmaking"
     },
     "commandPrefix": "!",
-    "adminRoleIds": "1342910307164622978",
+    "adminRoleIds": ["1342910307164622978"],
     "loggingLevel": "info",
     "errorNotificationChannelId": "1350568833726943354",
     "logEventChannelId": "1350568898272952442",
