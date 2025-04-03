@@ -68,9 +68,15 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
     
     // Initialize the Discord bot after the server is started
+    log(`DISCORD_TOKEN present: ${!!process.env.DISCORD_TOKEN}`);
     if (process.env.DISCORD_TOKEN) {
-      initializeBot().catch(err => {
+      log("Attempting to initialize Discord bot...");
+      initializeBot().then(() => {
+        log("Discord bot initialized successfully");
+      }).catch(err => {
         log(`Failed to initialize Discord bot: ${err.message}`);
+        // Log full error details for debugging
+        console.error("Full Discord initialization error:", err);
       });
     } else {
       log("DISCORD_TOKEN not found in environment variables, bot will not start");
