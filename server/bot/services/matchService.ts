@@ -228,8 +228,8 @@ export class MatchService {
 
         // Get the team names from our created teams
         const matchTeams = await this.storage.getMatchTeams(match.id);
-        const team1Name = matchTeams[0]?.name || 'Alpha';
-        const team2Name = matchTeams[1]?.name || 'Bravo';
+        const team1Name = matchTeams[0]?.name || 'Eagle';
+        const team2Name = matchTeams[1]?.name || 'Cobra';
 
         // Send match details to the channel
         if (matchChannel) {
