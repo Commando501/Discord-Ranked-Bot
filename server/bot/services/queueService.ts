@@ -33,6 +33,9 @@ export class QueueService {
         return QueueService.instance;
     }
 
+    // Track if a queue check is already in progress
+    private queueCheckInProgress: boolean = false;
+    
     private async startQueueCheck() {
         // Clear existing interval if any
         if (this.queueCheckInterval) {
@@ -48,6 +51,15 @@ export class QueueService {
 
         // Start new interval
         this.queueCheckInterval = setInterval(async () => {
+            // If a check is already in progress, skip this iteration
+            if (this.queueCheckInProgress) {
+                logger.info("Queue check already in progress, skipping this interval");
+                return;
+            }
+            
+            // Set the check in progress flag
+            this.queueCheckInProgress = true;
+            
             try {
                 // Get queue size for logging/debugging
                 const queueSize = await this.getQueueSize();
@@ -95,6 +107,9 @@ export class QueueService {
                 }
             } catch (error) {
                 logger.error(`Error in queue check interval: ${error}`);
+            } finally {
+                // Always release the flag when done
+                this.queueCheckInProgress = false;
             }
         }, intervalMs);
     }
@@ -245,11 +260,24 @@ export class QueueService {
         logger.info("Queue has been cleared");
     }
 
+    // Use a class-level lock to prevent concurrent match creation
+    private matchCreationInProgress: boolean = false;
+
     async checkAndCreateMatch(
         guild: Guild,
         force: boolean = false,
     ): Promise<boolean> {
+        // Check if match creation is already in progress
+        if (this.matchCreationInProgress) {
+            logger.info("Match creation already in progress, skipping this check");
+            return false;
+        }
+
         try {
+            // Set the lock
+            this.matchCreationInProgress = true;
+            
+            // Get a fresh list of queued players
             const queuedPlayers = await this.storage.getQueuePlayers();
             const botConfig = await this.storage.getBotConfig();
             const minPlayersRequired =
@@ -274,6 +302,21 @@ export class QueueService {
             const matchPlayers = sortedPlayers
                 .slice(0, minPlayersRequired)
                 .map((entry) => entry.playerId);
+                
+            // Double-check that all players are still in queue (prevent race condition)
+            for (const playerId of matchPlayers) {
+                const stillInQueue = await this.isPlayerInQueue(playerId);
+                if (!stillInQueue) {
+                    logger.warn(`Player ${playerId} was in queue when checked but is no longer present. Aborting match creation.`);
+                    return false;
+                }
+            }
+
+            // Remove players from queue BEFORE creating the match to prevent race conditions
+            logger.info(`Removing ${matchPlayers.length} players from queue before match creation`);
+            for (const playerId of matchPlayers) {
+                await this.removePlayerFromQueue(playerId);
+            }
 
             // Create the match
             const result = await this.matchService.createMatchWithPlayers(
@@ -283,19 +326,22 @@ export class QueueService {
 
             if (!result.success) {
                 logger.error(`Failed to create match: ${result.message}`);
+                // If match creation fails, add players back to queue
+                logger.info("Match creation failed, re-adding players to queue");
+                for (const playerId of matchPlayers) {
+                    await this.addPlayerToQueue(playerId);
+                }
                 return false;
             }
 
-            // Remove players from queue
-            for (const playerId of matchPlayers) {
-                await this.removePlayerFromQueue(playerId);
-            }
-
-            logger.info(`Match created with ${matchPlayers.length} players`);
+            logger.info(`Match created with ${matchPlayers.length} players (Match ID: ${result.matchId})`);
             return true;
         } catch (error) {
             logger.error(`Error checking and creating match: ${error}`);
             return false;
+        } finally {
+            // Always release the lock when done
+            this.matchCreationInProgress = false;
         }
     }
 }
