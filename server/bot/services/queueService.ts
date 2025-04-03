@@ -12,6 +12,20 @@ interface ActiveMatch {
 }
 
 export class QueueService {
+    private static instance: QueueService;
+    
+    /**
+     * Singleton pattern implementation for QueueService
+     * @param storage The storage implementation to use
+     * @returns The QueueService instance
+     */
+    public static getInstance(storage: any): QueueService {
+        if (!QueueService.instance) {
+            QueueService.instance = new QueueService(storage);
+        }
+        return QueueService.instance;
+    }
+    
     public client: BotClient;
     public queue: Collection<string, User>;
     public activeMatches: Collection<number, ActiveMatch>;
@@ -592,21 +606,6 @@ export class QueueService {
                 `[QueueService] _updateElo DB Error: Failed fetching player data for match ${matchId}: ${dbError}. Aborting ELO update.`,
             );
             throw dbError; // Re-throw to signal failure upstream if necessary
-  }
-  
-  /**
-   * Singleton pattern implementation for QueueService
-   * @param storage The storage implementation to use
-   * @returns The QueueService instance
-   */
-  public static getInstance(storage: any): QueueService {
-    if (!QueueService.instance) {
-      QueueService.instance = new QueueService(storage);
-    }
-    return QueueService.instance;
-  }
-  
-  private static instance: QueueService;
         }
 
         const team1Data = playersData.filter((p) =>

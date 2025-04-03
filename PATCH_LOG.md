@@ -3,6 +3,21 @@
 
 ## Recent Changes
 
+### 2024-03-22 19:15:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/queueService.ts`
+
+**Changes**:
+- Fixed placement of `getInstance` static method and `instance` property in QueueService
+- Moved singleton implementation from being inside _updateElo method to proper class level
+- Resolved TypeScript error: "Expected ";" but found "static""
+- Fixed syntax error preventing application compilation and startup
+
+**Purpose**: Correct the implementation of the singleton pattern in QueueService to fix TypeScript compilation errors
+
+**Dependencies Affected**: None
+
 ### 2024-03-22 18:10:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
