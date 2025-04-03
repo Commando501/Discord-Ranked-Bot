@@ -3,6 +3,24 @@
 
 ## Recent Changes
 
+### 2025-03-22 01:15:00 UTC
+**Type**: Feature Implementation
+**Files Modified**: 
+- `server/discord/commands/adminqueue.ts`
+- `server/discord/commands/index.ts`
+
+**Changes**:
+- Implemented new admin-only command `/adminqueue` to add players to queue by Discord ID
+- Added permission checks to restrict the command to administrators only
+- Implemented player creation for non-existent Discord IDs
+- Registered the new command in the command collection
+- Added error handling for various edge cases
+- Enhanced testing capabilities for queue and matchmaking systems
+
+**Purpose**: Provide administrators with a testing tool to add players to the queue without requiring them to be in the Discord server
+
+**Dependencies Affected**: None
+
 ### 2025-03-22 00:38:00 UTC
 **Type**: Enhancement
 **Files Modified**: 

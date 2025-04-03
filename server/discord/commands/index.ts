@@ -8,6 +8,7 @@ import * as leaveCommand from './leave';
 import * as listCommand from './list';
 import * as profileCommand from './profile';
 import * as configCommand from './config';
+import * as adminQueueCommand from './adminqueue';
 // Match and admin commands are implemented directly in server/bot/commands.ts
 
 // Create a collection of all commands
@@ -19,6 +20,7 @@ commands.set(leaveCommand.data.name, leaveCommand);
 commands.set(listCommand.data.name, listCommand);
 commands.set(profileCommand.data.name, profileCommand);
 commands.set(configCommand.data.name, configCommand);
+commands.set(adminQueueCommand.data.name, adminQueueCommand);
 // Match and admin commands are accessed through server/bot/commands.ts
 
 // Get all slash command data for registration without immediate dependency on bot/commands
@@ -27,7 +29,8 @@ const commandsData = [
   leaveCommand.data.toJSON(),
   listCommand.data.toJSON(),
   profileCommand.data.toJSON(),
-  configCommand.data.toJSON()
+  configCommand.data.toJSON(),
+  adminQueueCommand.data.toJSON()
 ];
 
 // Function to register commands with Discord API
