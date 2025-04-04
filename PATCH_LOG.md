@@ -1,6 +1,23 @@
 
 # Project Patch Log
 
+### 2025-04-08 07:25:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/storage.ts`
+
+**Changes**:
+- Fixed MMR calculation error in the profile command
+- Updated `getPlayerMatches` method to use the loaded `botConfig` instance instead of trying to query a non-existent database table
+- Modified how winStreak is handled for historical match data display
+- Simplified the MMR change calculation to ensure it works properly in the profile command
+
+**Purpose**: Fix TypeError that was occurring when showing match history in the `/profile` command
+
+**Testing**: Verified that the `/profile` command now correctly displays MMR changes for completed matches
+
+**Dependencies Affected**: None
+
 ### 2025-04-08 05:10:00 UTC
 **Type**: Enhancement
 **Files Modified**: 
