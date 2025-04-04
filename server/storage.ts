@@ -324,7 +324,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getPlayerMatches(playerId: number, limit: number): Promise<Match[]> {
+  async getPlayerMatches(playerId: number, limit: number): Promise<Array<Match & { playerTeamId?: number, playerTeamName?: string }>> {
     try {
       // Find all teams the player is in
       const playerTeamResults = await db
@@ -348,6 +348,22 @@ export class DatabaseStorage implements IStorage {
         return [];
       }
       
+      // Create a map of teamId to team info for quick lookups
+      const teamMap = new Map();
+      teamResults.forEach(team => {
+        teamMap.set(team.id, {
+          id: team.id,
+          name: team.name,
+          matchId: team.matchId
+        });
+      });
+      
+      // Create a map of playerId to teamId for quick lookups
+      const playerTeamMap = new Map();
+      playerTeamResults.forEach(tp => {
+        playerTeamMap.set(tp.teamId, true);
+      });
+      
       const matchIds = teamResults.map(t => t.matchId);
       
       // Get match details
@@ -358,7 +374,23 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(matches.createdAt))
         .limit(limit);
       
-      return matchResults;
+      // Add team info to each match
+      return matchResults.map(match => {
+        // Find the team in this match that the player was in
+        const playerTeam = teamResults.find(team => 
+          team.matchId === match.id && playerTeamMap.has(team.id)
+        );
+        
+        if (playerTeam) {
+          return {
+            ...match,
+            playerTeamId: playerTeam.id,
+            playerTeamName: playerTeam.name
+          };
+        }
+        
+        return match;
+      });
     } catch (error) {
       console.error('Error in getPlayerMatches:', error);
       return [];
