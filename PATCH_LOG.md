@@ -1,6 +1,26 @@
 
 # Project Patch Log
 
+### 2025-04-08 01:00:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `client/src/pages/history.tsx`
+
+**Changes**:
+- Fixed match history to correctly display winners instead of showing "draw" when matches are ended via `/endmatch`
+- Updated the winner display logic in the match history table
+- Improved accuracy of match outcome representation in the web dashboard
+
+**Purpose**: Fix incorrect match outcome display in the web dashboard's match history section
+
+**Testing**: Verified that match history now correctly shows the winning team when matches are ended using the `/endmatch` command
+
+**Dependencies Affected**: None
+
+
+
+# Project Patch Log
+
 ### 2025-04-08 00:36:00 UTC
 **Type**: Enhancement
 **Files Modified**: 
