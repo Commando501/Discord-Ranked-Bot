@@ -374,23 +374,63 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(matches.createdAt))
         .limit(limit);
       
-      // Add team info to each match
-      return matchResults.map(match => {
+      // Add team info to each match and calculate approximate MMR changes
+      return Promise.all(matchResults.map(async match => {
         // Find the team in this match that the player was in
         const playerTeam = teamResults.find(team => 
           team.matchId === match.id && playerTeamMap.has(team.id)
         );
         
+        // Variables to calculate approximate MMR change
+        let mmrChange;
+        
+        // Only calculate MMR change for completed matches
+        if (match.status === "COMPLETED" && match.winningTeamId) {
+          try {
+            // Try to get the player's stats before and after this match
+            // For simplicity, we'll calculate the change based on match outcome
+            const botConfig = await db.query.botConfig.findFirst();
+            const kFactor = botConfig?.mmrSystem?.kFactor || 32; // Default to 32 if not configured
+            
+            const didWin = playerTeam && playerTeam.id === match.winningTeamId;
+            
+            if (didWin) {
+              // Winners gain MMR - use simplified calculation similar to matchService
+              mmrChange = Math.round(kFactor * 0.75);
+              
+              // Simplified streak bonus calculation
+              const streakThreshold = botConfig?.mmrSystem?.streakSettings?.threshold || 3;
+              const bonusPerWin = botConfig?.mmrSystem?.streakSettings?.bonusPerWin || 2;
+              const winStreak = player?.winStreak || 0;
+              
+              // Apply basic streak bonus if applicable
+              if (winStreak >= streakThreshold) {
+                const streakBonus = Math.min(
+                  botConfig?.mmrSystem?.streakSettings?.maxBonus || 10,
+                  Math.floor((winStreak - streakThreshold + 1) * bonusPerWin)
+                );
+                mmrChange += streakBonus;
+              }
+            } else if (match.winningTeamId) {
+              // Losers lose MMR
+              mmrChange = -Math.round(kFactor * 0.625);
+            }
+          } catch (error) {
+            console.error('Error calculating MMR change:', error);
+          }
+        }
+        
         if (playerTeam) {
           return {
             ...match,
             playerTeamId: playerTeam.id,
-            playerTeamName: playerTeam.name
+            playerTeamName: playerTeam.name,
+            mmrChange: mmrChange
           };
         }
         
         return match;
-      });
+      }));
     } catch (error) {
       console.error('Error in getPlayerMatches:', error);
       return [];
