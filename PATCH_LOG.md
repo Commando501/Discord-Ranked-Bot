@@ -1,6 +1,24 @@
 
 # Project Patch Log
 
+### 2025-04-08 05:10:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/storage.ts`
+
+**Changes**:
+- Enhanced `getPlayerMatches` method to include team name information
+- Modified the return type to include `playerTeamId` and `playerTeamName` properties
+- Added map structures for efficient team and player team lookups
+- Implemented logic to find which team the player was on for each match
+- Added team information to each match object in the return data
+
+**Purpose**: Improve match history display by showing which team the player was on for each match in their history
+
+**Testing**: Verified that the `/profile` command now correctly displays the team name for each match in the player's history
+
+**Dependencies Affected**: None
+
 ### 2025-04-08 03:15:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
