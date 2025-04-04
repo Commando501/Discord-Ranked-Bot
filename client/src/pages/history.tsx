@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, RefreshCcw, Search, ChevronDown, ChevronUp, Trophy } from "lucide-react";
 import { format } from "date-fns";
