@@ -1,6 +1,47 @@
 
 # Project Patch Log
 
+### 2025-04-07 00:00:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/commands.ts`
+- `server/index.bot.ts`
+- `server/bot/index.ts`
+
+**Changes**:
+- Fixed double registration of slash commands in Discord
+- Consolidated command registration logic to prevent duplicate command errors
+- Updated how commands from `server/bot/commands.ts` are registered with the Discord API
+- Ensured command collections don't have overlapping command names
+- Improved error handling during command registration process
+
+**Purpose**: Resolve the issue where slash commands were being registered twice, causing duplicates to appear in Discord's interface
+
+**Testing**: Verified that commands appear only once in Discord and execute properly
+
+**Dependencies Affected**: None
+
+### 2025-04-06 10:30:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/matchService.ts`
+- `server/bot/commands.ts`
+
+**Changes**:
+- Enhanced logging in the `endMatch` function to better diagnose team name matching issues
+- Updated command help text to clarify the expected team name format (Eagle or Cobra)
+- Added more detailed logging when executing the `/endmatch` command
+- Fixed edge cases in team name comparison
+
+**Purpose**: Resolve issue with the `/endmatch` command that reported "team not part of match" errors when using team names
+
+**Testing**: Verified that `/endmatch 46 Eagle` and `/endmatch 46 Cobra` work correctly by testing with actual match IDs
+
+**Dependencies Affected**: None
+
+
+# Project Patch Log
+
 ### 2025-04-06 10:30:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
