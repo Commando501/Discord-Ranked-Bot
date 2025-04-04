@@ -32,7 +32,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       const embed = new EmbedBuilder()
         .setColor('#ED4245') // Discord red
         .setTitle('Profile Not Found')
-        .setDescription(`${targetUser.tag} has not played any matches yet.`);
+        .setDescription(`${targetUser.username} has not played any matches yet.`);
       
       return interaction.editReply({ embeds: [embed] });
     }
@@ -41,8 +41,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const totalGames = player.wins + player.losses;
     const winRate = totalGames > 0 ? Math.round((player.wins / totalGames) * 100) : 0;
     
-    // Get recent match results
-    const matchResults = await matchService.getPlayerMatchResults(player.id, 5);
+    // Get recent matches for this player
+    const matches = await storage.getPlayerMatches(player.id, 5);
     
     // Create profile embed
     const embed = new EmbedBuilder()
@@ -57,13 +57,31 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       );
     
     // Add match history if available
-    if (matchResults.length > 0) {
+    if (matches.length > 0) {
       let historyText = '';
       
-      for (const result of matchResults) {
-        const icon = result.won ? '🟢 Win' : '🔴 Loss';
-        const mmrChange = result.mmrChange > 0 ? `+${result.mmrChange}` : result.mmrChange;
-        historyText += `${icon} | Match #${result.matchId} | MMR: ${mmrChange}\n`;
+      for (const match of matches) {
+        // Determine if player won the match
+        const playerWon = match.status === "COMPLETED" && match.winningTeamId === match.playerTeamId;
+        
+        // Determine match result text
+        let resultText = "🔄 In Progress";
+        if (match.status === "COMPLETED") {
+          resultText = playerWon ? "🟢 Win" : "🔴 Loss";
+        } else if (match.status === "CANCELLED") {
+          resultText = "⚫ Cancelled";
+        }
+        
+        // Format creation date
+        const matchDate = new Date(match.createdAt).toLocaleDateString();
+        
+        // Calculate MMR change - might be undefined in some match records
+        const mmrChangeText = match.mmrChange !== undefined ? 
+          (match.mmrChange > 0 ? `+${match.mmrChange}` : match.mmrChange) : 
+          '';
+        
+        // Build the match history line
+        historyText += `${resultText} | Match #${match.id} | ${matchDate}${mmrChangeText ? ` | MMR: ${mmrChangeText}` : ''}\n`;
       }
       
       embed.addFields({ name: 'Recent Matches', value: historyText });
@@ -71,7 +89,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       embed.addFields({ name: 'Recent Matches', value: 'No recent matches' });
     }
     
-    embed.setFooter({ text: `Player since ${player.createdAt.toLocaleDateString()}` });
+    embed.setFooter({ text: `Player since ${new Date(player.createdAt).toLocaleDateString()}` });
     
     await interaction.editReply({ embeds: [embed] });
     
