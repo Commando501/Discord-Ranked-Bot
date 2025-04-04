@@ -1423,6 +1423,306 @@ export class MatchService {
     }
   }
 
+  /**
+   * Cancels a match and cleans up Discord channels, returning all players except the excluded player to queue
+   * @param matchId The ID of the match to cancel
+   * @param excludePlayerId Player ID to exclude from re-queuing (the player who initiated the leave)
+   */
+  async handleMatchCancellationWithExclusion(
+    matchId: number,
+    excludePlayerId: number,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const match = await this.storage.getMatch(matchId);
+
+      if (!match) {
+        return { success: false, message: "Match not found" };
+      }
+
+      if (match.status === "COMPLETED" || match.status === "CANCELLED") {
+        return {
+          success: false,
+          message: `Match is already ${match.status.toLowerCase()}`,
+        };
+      }
+
+      // Get match players before updating status
+      const teams = await this.storage.getMatchTeams(matchId);
+      const players = teams.flatMap((team) => team.players);
+      
+      // Find the excluded player to include in logs
+      const excludedPlayer = players.find(player => player.id === excludePlayerId);
+      
+      // Update match status
+      await this.storage.updateMatch(matchId, {
+        status: "CANCELLED",
+        finishedAt: new Date(),
+      });
+
+      // Delete Discord channel
+      try {
+        const client = getDiscordClient();
+        if (!client) {
+          logger.error(
+            "Discord client not ready or authenticated for match cancellation",
+          );
+
+          // Even if channel cleanup fails, return players to queue except the excluded one
+          const queueService = QueueService.getInstance(this.storage);
+          for (const player of players) {
+            // Skip the player who left
+            if (player.id === excludePlayerId) continue;
+            
+            try {
+              const queueResult = await queueService.addPlayerToQueue(
+                player.id,
+              );
+              if (queueResult.success) {
+                logger.info(
+                  `Added player ${player.username} back to queue despite cleanup failure (player leave)`,
+                );
+              } else {
+                logger.warn(
+                  `Could not add player ${player.username} back to queue during player leave: ${queueResult.message}`,
+                );
+              }
+            } catch (queueError) {
+              logger.error(
+                `Failed to add player ${player.id} back to queue during player leave: ${queueError}`,
+              );
+            }
+          }
+
+          await this.logEvent(
+            "Player Left Match",
+            `Player ${excludedPlayer?.username || `ID: ${excludePlayerId}`} left match #${matchId}, but channel cleanup failed.`,
+            [
+              { name: "Match ID", value: matchId.toString(), inline: true },
+              {
+                name: "Players Returned",
+                value: (players.length - 1).toString(),
+                inline: true,
+              },
+              {
+                name: "Player Who Left",
+                value: excludedPlayer?.username || `ID: ${excludePlayerId}`,
+                inline: true,
+              },
+              {
+                name: "Issue",
+                value: "Discord client not ready",
+                inline: true,
+              },
+            ],
+          );
+
+          return {
+            success: true,
+            message: `Match #${matchId} cancelled due to player leaving. Note: Channel cleanup was skipped.`,
+          };
+        }
+
+        // Get config to find guild ID
+        const botConfig = await this.storage.getBotConfig();
+        const guildId = botConfig.general.guildId;
+
+        // First try to get the guild directly by ID from config
+        let guild = null;
+        if (guildId) {
+          guild = client.guilds.cache.get(guildId);
+          logger.info(
+            `Attempting to get guild for cancellation using configured ID: ${guildId}`,
+          );
+        }
+
+        // If not found by ID or no ID configured, try first guild in cache
+        if (!guild) {
+          guild = client.guilds.cache.first();
+          logger.info(
+            `Attempting to get first guild in cache for cancellation: ${guild?.id || "None found"}`,
+          );
+        }
+
+        // If still no guild, try to get guild based on match configuration
+        if (!guild) {
+          // Instead of attempting to fetch guilds, let's log all known guilds
+          logger.info(
+            "No guild found by ID for cancellation, logging all available guilds in cache",
+          );
+          const guildCount = client.guilds.cache.size;
+
+          if (guildCount > 0) {
+            client.guilds.cache.forEach((g) => {
+              logger.info(
+                `Available guild in cache for cancellation: ${g.name} (${g.id})`,
+              );
+            });
+            // Try first guild again now that we've logged all guilds
+            guild = client.guilds.cache.first();
+          } else {
+            logger.warn(
+              `No guilds available in cache for cancellation (count: ${guildCount})`,
+            );
+            // Don't try to fetch - that requires authentication which might not be ready
+          }
+        }
+
+        if (!guild) {
+          logger.error(
+            "No guild available for match cancellation after multiple attempts",
+          );
+          throw new Error("No guild available");
+        }
+
+        // First try to get the channel by stored ID
+        let matchChannel = match.channelId
+          ? guild.channels.cache.get(match.channelId)
+          : null;
+
+        // If not found by ID, try by name as fallback
+        if (!matchChannel) {
+          logger.warn(
+            `Channel ID ${match.channelId} not found, attempting to find by name...`,
+          );
+          matchChannel = guild.channels.cache.find(
+            (channel) => channel.name === `match-${matchId}`,
+          );
+        }
+
+        if (!matchChannel) {
+          logger.error(
+            `Match channel for match ${matchId} not found during cancellation`,
+          );
+          // We'll still add players back to queue even if channel isn't found
+        } else if (matchChannel.isTextBased()) {
+          logger.info(
+            `Found match channel ${matchChannel.name} (${matchChannel.id}) for cancellation cleanup`,
+          );
+
+          // Start countdown
+          const countdownSeconds = 10;
+          let secondsLeft = countdownSeconds;
+
+          try {
+            const countdownMessage = await matchChannel.send(
+              `Match cancelled - Player ${excludedPlayer?.username || `ID: ${excludePlayerId}`} left the match! Channel will be deleted in ${countdownSeconds} seconds...`,
+            );
+            logger.info(
+              `Sent cancellation countdown message to channel ${matchChannel.id}`,
+            );
+
+            const interval = setInterval(async () => {
+              try {
+                secondsLeft--;
+                if (secondsLeft > 0) {
+                  await countdownMessage.edit(
+                    `Match cancelled - Player ${excludedPlayer?.username || `ID: ${excludePlayerId}`} left the match! Channel will be deleted in ${secondsLeft} seconds...`,
+                  );
+                } else {
+                  clearInterval(interval);
+                  logger.info(
+                    `Cancellation countdown complete for match ${matchId}`,
+                  );
+
+                  // Delete the channel
+                  try {
+                    logger.info(
+                      `Attempting to delete channel ${matchChannel.name} (${matchChannel.id})`,
+                    );
+                    await matchChannel.delete();
+                    logger.info(
+                      `Successfully deleted channel for cancelled match ${matchId}`,
+                    );
+                  } catch (deleteError) {
+                    logger.error(
+                      `Failed to delete channel during cancellation: ${deleteError}`,
+                    );
+                  }
+                }
+              } catch (intervalError) {
+                logger.error(
+                  `Error in cancellation countdown interval: ${intervalError}`,
+                );
+                clearInterval(interval);
+              }
+            }, 1000);
+          } catch (messageError) {
+            logger.error(
+              `Failed to send cancellation countdown message: ${messageError}`,
+            );
+          }
+        }
+      } catch (error) {
+        logger.error(`Error handling match channel cancellation: ${error}`);
+      }
+
+      // Return players to queue - use the players we already retrieved at the beginning
+      try {
+        const queueService = QueueService.getInstance(this.storage);
+        const playerCount = players.length - 1; // Exclude the player who left
+        logger.info(
+          `Adding ${playerCount} players back to queue after player left match`,
+        );
+
+        for (const player of players) {
+          // Skip the player who initiated the leave
+          if (player.id === excludePlayerId) continue;
+          
+          try {
+            const queueResult = await queueService.addPlayerToQueue(player.id);
+            if (queueResult.success) {
+              logger.info(
+                `Added player ${player.username} (ID: ${player.id}) back to queue after player left match`,
+              );
+            } else {
+              logger.warn(
+                `Could not add player ${player.username} (ID: ${player.id}) back to queue after player left match: ${queueResult.message}`,
+              );
+            }
+          } catch (queueError) {
+            logger.error(
+              `Failed to add player ${player.id} back to queue during player leave: ${queueError}`,
+            );
+          }
+        }
+      } catch (playersError) {
+        logger.error(
+          `Failed to process players for queue reentry after player left: ${playersError}`,
+        );
+      }
+
+      // Log the cancellation due to player leaving
+      await this.logEvent(
+        "Player Left Match",
+        `Player ${excludedPlayer?.username || `ID: ${excludePlayerId}`} left match #${matchId}. The match has been cancelled.`,
+        [
+          { name: "Match ID", value: matchId.toString(), inline: true },
+          {
+            name: "Players Returned to Queue",
+            value: (players.length - 1).toString(),
+            inline: true,
+          },
+          {
+            name: "Player Who Left",
+            value: excludedPlayer?.username || `ID: ${excludePlayerId}`,
+            inline: true,
+          },
+        ],
+      );
+
+      return {
+        success: true,
+        message: `Match #${matchId} cancelled because a player left. ${players.length - 1} players returned to queue.`,
+      };
+    } catch (error) {
+      logger.error(`Error cancelling match due to player leaving: ${error}`);
+      return {
+        success: false,
+        message: "Failed to process player leaving match due to an error",
+      };
+    }
+  }
+
   private internalLogEvent = async (
     title: string,
     description: string,

@@ -1,6 +1,30 @@
 
 # Project Patch Log
 
+### 2025-04-08 02:00:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/discord/commands/leave.ts`
+- `server/bot/services/matchService.ts`
+
+**Changes**:
+- Enhanced the `/leave` command to allow players to leave active matches
+- Added `handleMatchCancellationWithExclusion` method to MatchService
+- Implemented match cancellation without re-queueing the player who initiated the leave
+- Added event logging for player-initiated match cancellations
+- Updated command feedback to properly indicate whether a player left the queue or a match
+- Preserved queue return functionality for other players in the match
+
+**Purpose**: Improve player experience by allowing them to leave active matches and preventing the leaving player from automatically rejoining the queue
+
+**Testing**: Verified that players can successfully leave active matches and other players are properly returned to queue
+
+**Dependencies Affected**: None
+
+
+
+# Project Patch Log
+
 ### 2025-04-08 01:00:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 

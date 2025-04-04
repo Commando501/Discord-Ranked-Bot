@@ -1,12 +1,14 @@
+
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 import { storage } from '../../storage';
 import { logger } from '../../bot/utils/logger';
 import { QueueService } from '../../bot/services/queueService';
 import { PlayerService } from '../../bot/services/playerService';
+import { MatchService } from '../../bot/services/matchService';
 
 export const data = new SlashCommandBuilder()
   .setName('leave')
-  .setDescription('Leave the matchmaking queue');
+  .setDescription('Leave the matchmaking queue or current match');
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
@@ -15,6 +17,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     // Get services
     const playerService = new PlayerService(storage);
     const queueService = new QueueService(storage);
+    const matchService = new MatchService(storage);
     
     // Get player
     const player = await playerService.getPlayerByDiscordId(interaction.user.id);
@@ -28,14 +31,65 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return interaction.editReply({ embeds: [embed] });
     }
     
-    // Check if player is in queue
+    // First check if player is in an active match
+    const isInMatch = await queueService.isPlayerInActiveMatch(player.id);
+    
+    if (isInMatch) {
+      // Find the match the player is in
+      const activeMatches = await matchService.getActiveMatches();
+      let playerMatch = null;
+      let playerTeam = null;
+      
+      // Find which match and team the player is in
+      for (const match of activeMatches) {
+        for (const team of match.teams) {
+          const isInTeam = team.players.some(p => p.id === player.id);
+          if (isInTeam) {
+            playerMatch = match;
+            playerTeam = team;
+            break;
+          }
+        }
+        if (playerMatch) break;
+      }
+      
+      if (playerMatch) {
+        // Use the handleMatchCancellationWithExclusion method to cancel the match
+        // This will prevent the leaving player from being added back to the queue
+        const result = await matchService.handleMatchCancellationWithExclusion(
+          playerMatch.id, 
+          player.id
+        );
+        
+        if (result.success) {
+          const embed = new EmbedBuilder()
+            .setColor('#5865F2') // Discord blurple
+            .setTitle('Left Match')
+            .setDescription(`You have left match #${playerMatch.id}. The match has been cancelled and other players returned to queue.`)
+            .setFooter({ text: 'Use /queue to join a new match' });
+          
+          await interaction.editReply({ embeds: [embed] });
+        } else {
+          const embed = new EmbedBuilder()
+            .setColor('#ED4245') // Discord red
+            .setTitle('Error')
+            .setDescription(`Failed to leave match: ${result.message}`);
+          
+          await interaction.editReply({ embeds: [embed] });
+        }
+        
+        return;
+      }
+    }
+    
+    // If not in match, check if player is in queue
     const queueEntry = await queueService.getPlayerQueueEntry(player.id);
     
     if (!queueEntry) {
       const embed = new EmbedBuilder()
         .setColor('#ED4245') // Discord red
-        .setTitle('Not in Queue')
-        .setDescription('You are not currently in the matchmaking queue.');
+        .setTitle('Not in Queue or Match')
+        .setDescription('You are not currently in the matchmaking queue or an active match.');
       
       return interaction.editReply({ embeds: [embed] });
     }
@@ -64,7 +118,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const errorEmbed = new EmbedBuilder()
       .setColor('#ED4245')
       .setTitle('Error')
-      .setDescription('There was an error removing you from the queue. Please try again later.');
+      .setDescription('There was an error processing your request. Please try again later.');
     
     await interaction.editReply({ embeds: [errorEmbed] });
   }
