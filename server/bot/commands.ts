@@ -590,7 +590,7 @@ export const commands = [
       .addStringOption((option) =>
         option
           .setName("winning_team")
-          .setDescription("The name of the winning team (e.g., Eagle or Cobra)")
+          .setDescription("The name of the winning team (Eagle or Cobra)")
           .setRequired(true),
       ),
     execute: async (interaction: CommandInteraction) => {
@@ -609,10 +609,11 @@ export const commands = [
 
         if (!matchId || !winningTeamName) {
           return interaction.followUp(
-            "❌ Please provide both match ID and winning team name (e.g., Eagle or Cobra).",
+            "❌ Please provide both match ID and winning team name (Eagle or Cobra).",
           );
         }
 
+        logger.info(`Attempting to end match ${matchId} with winning team "${winningTeamName}"`);
         const result = await matchService.endMatch(matchId, winningTeamName);
 
         if (result.success) {

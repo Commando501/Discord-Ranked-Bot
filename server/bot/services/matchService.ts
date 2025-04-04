@@ -328,6 +328,7 @@ export class MatchService {
       
       if (!winningTeam) {
         const validTeams = matchTeams.map(team => team.name).join(', ');
+        logger.info(`Team "${winningTeamName}" not found in match ${matchId}. Valid teams are: ${validTeams}`);
         return { success: false, message: `Team "${winningTeamName}" not found in this match. Valid teams are: ${validTeams}` };
       }
       

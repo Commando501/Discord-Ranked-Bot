@@ -1,6 +1,24 @@
 
 # Project Patch Log
 
+### 2025-04-06 10:30:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/matchService.ts`
+- `server/bot/commands.ts`
+
+**Changes**:
+- Enhanced logging in the `endMatch` function to better diagnose team name matching issues
+- Updated command help text to clarify the expected team name format (Eagle or Cobra)
+- Added more detailed logging when executing the `/endmatch` command
+- Fixed edge cases in team name comparison
+
+**Purpose**: Resolve issue with the `/endmatch` command that reported "team not part of match" errors when using team names
+
+**Testing**: Verified that `/endmatch 46 Eagle` and `/endmatch 46 Cobra` work correctly by testing with actual match IDs
+
+**Dependencies Affected**: None
+
 ### 2025-04-05 15:30:00 UTC
 **Type**: Enhancement
 **Files Modified**: 
