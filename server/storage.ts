@@ -387,10 +387,8 @@ export class DatabaseStorage implements IStorage {
         // Only calculate MMR change for completed matches
         if (match.status === "COMPLETED" && match.winningTeamId) {
           try {
-            // Try to get the player's stats before and after this match
-            // For simplicity, we'll calculate the change based on match outcome
-            const botConfig = await db.query.botConfig.findFirst();
-            const kFactor = botConfig?.mmrSystem?.kFactor || 32; // Default to 32 if not configured
+            // Use the already loaded botConfig instead of querying the database
+            const kFactor = this.botConfig?.mmrSystem?.kFactor || 32; // Default to 32 if not configured
             
             const didWin = playerTeam && playerTeam.id === match.winningTeamId;
             
@@ -399,14 +397,14 @@ export class DatabaseStorage implements IStorage {
               mmrChange = Math.round(kFactor * 0.75);
               
               // Simplified streak bonus calculation
-              const streakThreshold = botConfig?.mmrSystem?.streakSettings?.threshold || 3;
-              const bonusPerWin = botConfig?.mmrSystem?.streakSettings?.bonusPerWin || 2;
-              const winStreak = player?.winStreak || 0;
+              const streakThreshold = this.botConfig?.mmrSystem?.streakSettings?.threshold || 3;
+              const bonusPerWin = this.botConfig?.mmrSystem?.streakSettings?.bonusPerWin || 2;
+              const winStreak = 0; // We don't have player's winStreak here, just use default value
               
-              // Apply basic streak bonus if applicable
+              // Apply basic streak bonus if applicable (simplified for history view)
               if (winStreak >= streakThreshold) {
                 const streakBonus = Math.min(
-                  botConfig?.mmrSystem?.streakSettings?.maxBonus || 10,
+                  this.botConfig?.mmrSystem?.streakSettings?.maxBonus || 10,
                   Math.floor((winStreak - streakThreshold + 1) * bonusPerWin)
                 );
                 mmrChange += streakBonus;
