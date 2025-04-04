@@ -1,6 +1,27 @@
 
 # Project Patch Log
 
+### 2025-04-08 00:36:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/discord/commands/list.ts`
+
+**Changes**:
+- Enhanced the `/list` command to display more detailed information about active matches
+- Added team composition with player MMRs for each active match
+- Implemented separate embeds for each match for better readability
+- Added team average MMR display for balance comparison
+- Included match channel link for easy navigation
+- Added match duration information (how long the match has been active)
+- Improved error handling with graceful fallbacks when detailed match information can't be loaded
+- Added command reference in footer to help administrators end matches
+
+**Purpose**: Improve the visibility and usability of active match information for players and administrators
+
+**Testing**: Verified that the command correctly displays detailed match information with proper formatting
+
+**Dependencies Affected**: None
+
 ### 2025-04-07 00:00:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
