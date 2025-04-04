@@ -1,5 +1,5 @@
 import { Client, GatewayIntentBits, Events, TextChannel } from 'discord.js';
-import { registerCommands } from './bot/commands';
+import { setupCommandHandlers } from './bot/commands';
 import { logger } from './bot/utils/logger';
 import { config } from './bot/config';
 import { storage } from './storage';

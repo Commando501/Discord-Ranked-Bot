@@ -1,5 +1,4 @@
 import { Client, IntentsBitField, Events, Collection, GatewayIntentBits } from 'discord.js';
-import { registerCommands } from './commands';
 import { logger } from './utils/logger';
 import { storage } from '../storage';
 import { QueueService } from './services/queueService';
@@ -16,20 +15,20 @@ export class DiscordBot {
   private reconnectAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 5;
   private readonly RECONNECT_INTERVAL = 15000; // 15 seconds
-  
+
   constructor() {
     this.queueService = new QueueService(storage);
     this.playerService = new PlayerService(storage);
     this.matchService = new MatchService(storage);
   }
-  
+
   private setupEventHandlers(client: Client) {
     client.on(Events.InteractionCreate, async (interaction) => {
       if (!interaction.isCommand()) return;
-      
+
       try {
         const { commandName } = interaction;
-        
+
         // Quick registration of new players if needed
         if (!interaction.user.bot) {
           await this.playerService.ensurePlayerExists({
@@ -39,18 +38,22 @@ export class DiscordBot {
             avatar: interaction.user.avatar
           });
         }
-        
-        // Handle slash commands
+
+        // Add our commands to the collection for handling
+        // Import the commands dynamically to avoid potential circular dependencies
+        const botCommands = await import('./commands');
+        await botCommands.setupCommandHandlers(client);
+
         const command = (client as any).commands?.get(commandName);
         if (!command) {
           logger.warn(`Command not found in bot handler: ${commandName}`);
           return;
         }
-        
+
         await command.execute(interaction, client);
       } catch (error) {
         logger.error(`Error executing command: ${error}`);
-        
+
         if (interaction.replied || interaction.deferred) {
           await interaction.followUp({ 
             content: 'An error occurred while executing this command.',
@@ -64,36 +67,36 @@ export class DiscordBot {
         }
       }
     });
-    
+
     client.on(Events.Error, (error) => {
       logger.error(`Discord client error in bot handler: ${error}`);
     });
   }
-  
+
   public async start() {
     try {
       // Use the enhanced client from discord/bot.ts which has reconnection logic
       await initializeEnhancedBot();
       this.client = getEnhancedClient();
-      
+
       if (!this.client) {
         throw new Error('Failed to initialize Discord client');
       }
-      
+
       // Set up our event handlers
       this.setupEventHandlers(this.client);
       logger.info('Discord bot started successfully');
-      
+
       // Start a periodic connection check
       this.startConnectionHealthCheck();
-      
+
       return this.client;
     } catch (error) {
       logger.error(`Failed to start bot: ${error}`);
       throw error;
     }
   }
-  
+
   private startConnectionHealthCheck() {
     setInterval(() => {
       // Check if we have a working client from the enhanced module
@@ -108,7 +111,7 @@ export class DiscordBot {
       }
     }, 30000); // Check every 30 seconds
   }
-  
+
   public async stop() {
     // We don't need to destroy the client here since the enhanced version handles that
     logger.info('Discord bot stop requested (handled by enhanced client)');

@@ -661,16 +661,11 @@ export const commands = [
   },
 ];
 
-export async function registerCommands(client: Client) {
+export async function setupCommandHandlers(client: Client) {
   try {
-    // Don't register commands directly to Discord API
-    // This is now handled in server/discord/commands/index.ts
+    logger.info("Setting up local command handling only");
 
-    logger.info(
-      "Setting up local command handling only (registration handled elsewhere)",
-    );
-
-    // Still setup the local Collection for handling commands
+    // Create a collection on client for handling commands
     (client as any).commands = new Collection();
 
     // Add our commands to the collection for handling
@@ -678,9 +673,7 @@ export async function registerCommands(client: Client) {
       (client as any).commands.set(command.data.name, command);
     });
 
-    logger.info(
-      "Command handlers registered in the client (API registration handled by enhanced bot)",
-    );
+    logger.info("Command handlers registered in the client");
   } catch (error) {
     logger.error(`Error setting up command handlers: ${error}`);
   }
