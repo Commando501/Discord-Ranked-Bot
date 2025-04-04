@@ -1,6 +1,26 @@
 
 # Project Patch Log
 
+### 2025-04-08 03:15:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/discord/commands/profile.ts`
+
+**Changes**:
+- Fixed match history display in the `/profile` command
+- Updated how matches are fetched using `storage.getPlayerMatches` instead of `matchService.getPlayerMatchResults`
+- Improved match status display with proper visual indicators (🟢 Win, 🔴 Loss, 🔄 In Progress, ⚫ Cancelled)
+- Added match date information for each match entry
+- Made MMR change display conditional (only shown when available)
+- Fixed date formatting for player creation date
+- Updated user reference from `targetUser.tag` to `targetUser.username` for consistent display
+
+**Purpose**: Fix the profile command to properly show recent match history information instead of showing "undefined" values
+
+**Testing**: Verified that the command now correctly displays match history with proper formatting and information
+
+**Dependencies Affected**: None
+
 ### 2025-04-08 02:00:00 UTC
 **Type**: Enhancement
 **Files Modified**: 
