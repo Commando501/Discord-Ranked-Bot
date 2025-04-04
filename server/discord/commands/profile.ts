@@ -103,7 +103,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             : "";
 
         // Build the match history line
-        historyText += `${resultText} | Match #${match.id} | ${match.playerTeamName || "Unknown"} | ${matchDate}${mmrChangeText ? ` | MMR: ${mmrChangeText}` : "" }\n`;
+        historyText += `${resultText} | Match #${match.id} | ${match.playerTeamName || "Unknown"}${mmrChangeText ? ` | MMR: ${mmrChangeText}` : "" } | ${matchDate}\n`;
       }
 
       embed.addFields({ name: "Recent Matches", value: historyText });
