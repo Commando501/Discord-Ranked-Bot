@@ -32,13 +32,14 @@ interface Match {
   teams: Team[];
   map?: string;
   server?: string;
+  winningTeamId?: number; // Added winningTeamId
 }
 
 export default function HistoryPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedMatch, setExpandedMatch] = useState<number | null>(null);
-  
+
   const { data: matchHistory, isLoading, refetch } = useQuery<Match[]>({
     queryKey: ['/api/matches/history'],
   });
@@ -57,11 +58,11 @@ export default function HistoryPage() {
 
   const getMatchDuration = (startDate: string, endDate: string | null) => {
     if (!endDate) return "In progress";
-    
+
     const start = new Date(startDate).getTime();
     const end = new Date(endDate).getTime();
     const durationMs = end - start;
-    
+
     const minutes = Math.floor(durationMs / (1000 * 60));
     if (minutes < 60) {
       return `${minutes} minute${minutes === 1 ? '' : 's'}`;
@@ -84,7 +85,7 @@ export default function HistoryPage() {
         return <Badge className="bg-[#5865F2]/20 text-[#5865F2] border-[#5865F2]/30">{status}</Badge>;
     }
   };
-  
+
   const toggleExpandMatch = (matchId: number) => {
     if (expandedMatch === matchId) {
       setExpandedMatch(null);
@@ -95,7 +96,7 @@ export default function HistoryPage() {
 
   const filteredMatches = matchHistory?.filter(match => {
     if (!searchQuery) return true;
-    
+
     const query = searchQuery.toLowerCase();
     return (
       match.id.toString().includes(query) ||
@@ -122,7 +123,7 @@ export default function HistoryPage() {
             Refresh
           </Button>
         </div>
-        
+
         <div className="mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#B9BBBE]" />
@@ -183,8 +184,8 @@ export default function HistoryPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredMatches?.map(match => (
-                    <>
-                      <TableRow key={match.id} className="border-b border-black/10 hover:bg-[#36393F]">
+                    <React.Fragment key={match.id}> {/* Added key */}
+                      <TableRow className="border-b border-black/10 hover:bg-[#36393F]">
                         <TableCell className="font-medium text-white">{match.id}</TableCell>
                         <TableCell className="text-[#B9BBBE]">{formatDate(match.createdAt)}</TableCell>
                         <TableCell className="text-[#B9BBBE]">
@@ -193,12 +194,14 @@ export default function HistoryPage() {
                         <TableCell>{getStatusBadge(match.status)}</TableCell>
                         <TableCell>
                           {match.status === 'COMPLETED' ? (
-                            match.teams.find(team => team.winner)?.name ? (
-                              <div className="flex items-center">
-                                <Trophy className="h-4 w-4 mr-1 text-amber-500" />
-                                <span className="text-white">Team {match.teams.find(team => team.winner)?.name}</span>
-                              </div>
-                            ) : "Draw"
+                            match.winningTeamId ? ( // Use winningTeamId
+                              match.teams.find(team => team.id === match.winningTeamId)?.name ? ( // Find winner by ID
+                                <div className="flex items-center">
+                                  <Trophy className="h-4 w-4 mr-1 text-amber-500" />
+                                  <span className="text-white">Team {match.teams.find(team => team.id === match.winningTeamId)?.name}</span>
+                                </div>
+                              ) : "Draw" //Should not happen ideally
+                            ) : "—"
                           ) : "—"}
                         </TableCell>
                         <TableCell className="text-right">
@@ -215,7 +218,7 @@ export default function HistoryPage() {
                           </Button>
                         </TableCell>
                       </TableRow>
-                      
+
                       {expandedMatch === match.id && (
                         <TableRow className="hover:bg-[#36393F] bg-[#36393F]/50">
                           <TableCell colSpan={6} className="p-4">
@@ -246,7 +249,7 @@ export default function HistoryPage() {
                                   </div>
                                 </div>
                               </div>
-                              
+
                               <div>
                                 <h4 className="text-sm font-medium text-[#B9BBBE] mb-2">Teams</h4>
                                 <div className="space-y-2">
@@ -254,12 +257,12 @@ export default function HistoryPage() {
                                     <div 
                                       key={team.id} 
                                       className={`bg-[#40444B] rounded-md p-3 text-sm ${
-                                        team.winner ? 'border-l-2 border-amber-500' : ''
+                                        team.id === match.winningTeamId ? 'border-l-2 border-amber-500' : '' //Use winningTeamId for highlighting
                                       }`}
                                     >
                                       <div className="flex justify-between items-center">
                                         <div className="text-white font-medium flex items-center">
-                                          {team.winner && <Trophy className="h-3 w-3 mr-1 text-amber-500" />}
+                                          {team.id === match.winningTeamId && <Trophy className="h-3 w-3 mr-1 text-amber-500" />}
                                           Team {team.name}
                                         </div>
                                         <div className="text-xs bg-[#5865F2]/20 text-[#5865F2] px-2 py-0.5 rounded">
@@ -274,7 +277,7 @@ export default function HistoryPage() {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
