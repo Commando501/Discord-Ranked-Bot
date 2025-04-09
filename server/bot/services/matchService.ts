@@ -661,8 +661,12 @@ export class MatchService {
                 `Adding ${winningPlayers.length + losingPlayers.length} players back to queue`,
               );
 
+              // Process players sequentially to avoid race conditions
               for (const player of [...winningPlayers, ...losingPlayers]) {
                 try {
+                  // Mark player as being processed to prevent race conditions
+                  queueService.markPlayerAsProcessing(player.id);
+                  
                   const queueResult = await queueService.addPlayerToQueue(
                     player.id,
                   );
@@ -674,11 +678,15 @@ export class MatchService {
                     logger.warn(
                       `Could not add player ${player.username} (ID: ${player.id}) back to queue: ${queueResult.message}`,
                     );
+                    // Make sure we unmark the player if adding to queue failed
+                    queueService.unmarkPlayerAsProcessing(player.id);
                   }
                 } catch (queueError) {
                   logger.error(
                     `Failed to add player ${player.id} back to queue: ${queueError}`,
                   );
+                  // Make sure we unmark the player if an error occurred
+                  queueService.unmarkPlayerAsProcessing(player.id);
                   // Continue with other players
                 }
               }
@@ -1150,8 +1158,14 @@ export class MatchService {
           `Adding ${players.length} players back to queue after match cancellation`,
         );
 
+        // Process player re-queueing sequentially with proper tracking
+        // This prevents race conditions when multiple players from the same match 
+        // may be processed simultaneously
         for (const player of players) {
           try {
+            // Mark player as being processed before queueing to prevent race conditions
+            queueService.markPlayerAsProcessing(player.id);
+            
             const queueResult = await queueService.addPlayerToQueue(player.id);
             if (queueResult.success) {
               logger.info(
@@ -1161,17 +1175,31 @@ export class MatchService {
               logger.warn(
                 `Could not add player ${player.username} (ID: ${player.id}) back to queue after cancellation: ${queueResult.message}`,
               );
+              // Unmark player if addition to queue failed (they won't be unmarked by addPlayerToQueue)
+              queueService.unmarkPlayerAsProcessing(player.id);
             }
           } catch (queueError) {
             logger.error(
               `Failed to add player ${player.id} back to queue during cancellation: ${queueError}`,
             );
+            // Ensure player is unmarked even if an error occurred
+            queueService.unmarkPlayerAsProcessing(player.id);
           }
         }
       } catch (playersError) {
         logger.error(
           `Failed to process players for queue reentry: ${playersError}`,
         );
+        
+        // If we had a catastrophic failure, try to clean up any players that might still be marked
+        try {
+          const queueService = QueueService.getInstance(this.storage);
+          for (const player of players) {
+            queueService.unmarkPlayerAsProcessing(player.id);
+          }
+        } catch (cleanupError) {
+          logger.error(`Failed to clean up player processing markers: ${cleanupError}`);
+        }
       }
 
       // Log the cancellation
@@ -1664,12 +1692,21 @@ export class MatchService {
           `Adding ${playerCount} players back to queue after player left match`,
         );
 
+        // Process player re-queueing sequentially with proper tracking
+        // This prevents race conditions where multiple players from the same match
+        // are all being processed at once, potentially creating multiple new matches
         for (const player of players) {
           // Skip the player who initiated the leave
           if (player.id === excludePlayerId) continue;
           
           try {
+            // Mark player as being processed BEFORE queue service processes them
+            // This helps prevent the player from being selected for another match in a race condition
+            queueService.markPlayerAsProcessing(player.id);
+            
+            // Add to queue with proper error handling
             const queueResult = await queueService.addPlayerToQueue(player.id);
+            
             if (queueResult.success) {
               logger.info(
                 `Added player ${player.username} (ID: ${player.id}) back to queue after player left match`,
@@ -1678,17 +1715,33 @@ export class MatchService {
               logger.warn(
                 `Could not add player ${player.username} (ID: ${player.id}) back to queue after player left match: ${queueResult.message}`,
               );
+              // Even if adding to queue failed, make sure player is unmarked
+              queueService.unmarkPlayerAsProcessing(player.id);
             }
           } catch (queueError) {
             logger.error(
               `Failed to add player ${player.id} back to queue during player leave: ${queueError}`,
             );
+            // Ensure player is unmarked even if an error occurred
+            queueService.unmarkPlayerAsProcessing(player.id);
           }
         }
       } catch (playersError) {
         logger.error(
           `Failed to process players for queue reentry after player left: ${playersError}`,
         );
+        
+        // If we had a catastrophic failure, try to clean up any players that might still be marked as processing
+        try {
+          const queueService = QueueService.getInstance(this.storage);
+          for (const player of players) {
+            if (player.id !== excludePlayerId) {
+              queueService.unmarkPlayerAsProcessing(player.id);
+            }
+          }
+        } catch (cleanupError) {
+          logger.error(`Failed to clean up player processing markers: ${cleanupError}`);
+        }
       }
 
       // Log the cancellation due to player leaving

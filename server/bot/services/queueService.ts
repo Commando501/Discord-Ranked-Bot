@@ -153,44 +153,55 @@ export class QueueService {
         playerId: number,
     ): Promise<{ success: boolean; message: string }> {
         try {
-            // Check if player is already in queue
-            const isInQueue = await this.isPlayerInQueue(playerId);
-            if (isInQueue) {
+            // Mark player as being processed to prevent race conditions
+            // This prevents the player from being selected for another match while we're adding them to queue
+            this.markPlayerAsProcessing(playerId);
+            
+            try {
+                // Check if player is already in queue
+                const isInQueue = await this.isPlayerInQueue(playerId);
+                if (isInQueue) {
+                    return {
+                        success: false,
+                        message: "You are already in the queue.",
+                    };
+                }
+
+                // Check if player is in an active match
+                const isInMatch = await this.isPlayerInActiveMatch(playerId);
+                if (isInMatch) {
+                    return {
+                        success: false,
+                        message:
+                            "You cannot join the queue while in an active match.",
+                    };
+                }
+
+                // Add player to queue
+                await this.storage.addPlayerToQueue({
+                    playerId,
+                    priority: 0,
+                });
+
+                logger.info(`Player ${playerId} added to queue`);
+
+                // Ensure queue check is running
+                if (!this.queueCheckInterval) {
+                    this.startQueueCheck();
+                }
+
                 return {
-                    success: false,
-                    message: "You are already in the queue.",
+                    success: true,
+                    message: "You have been added to the queue.",
                 };
+            } finally {
+                // Make sure we unmark the player as being processed whether or not the operation succeeded
+                this.unmarkPlayerAsProcessing(playerId);
             }
-
-            // Check if player is in an active match
-            const isInMatch = await this.isPlayerInActiveMatch(playerId);
-            if (isInMatch) {
-                return {
-                    success: false,
-                    message:
-                        "You cannot join the queue while in an active match.",
-                };
-            }
-
-            // Add player to queue
-            await this.storage.addPlayerToQueue({
-                playerId,
-                priority: 0,
-            });
-
-            logger.info(`Player ${playerId} added to queue`);
-
-            // Ensure queue check is running
-            if (!this.queueCheckInterval) {
-                this.startQueueCheck();
-            }
-
-            return {
-                success: true,
-                message: "You have been added to the queue.",
-            };
         } catch (error) {
             logger.error(`Error adding player to queue: ${error}`);
+            // Make sure we unmark the player if there's an exception
+            this.unmarkPlayerAsProcessing(playerId);
             return {
                 success: false,
                 message:
@@ -266,6 +277,31 @@ export class QueueService {
     // Track players being processed to prevent duplicate match creation
     private playersBeingProcessed: Set<number> = new Set();
 
+    /**
+     * Mark a player as being processed when they're about to be added to the queue
+     * This helps prevent race conditions when players are leaving matches and being re-queued
+     * @param playerId The ID of the player to mark as being processed
+     */
+    markPlayerAsProcessing(playerId: number): void {
+        if (this.playersBeingProcessed.has(playerId)) {
+            logger.info(`Player ${playerId} is already marked as being processed`);
+        } else {
+            this.playersBeingProcessed.add(playerId);
+            logger.debug(`Marked player ${playerId} as being processed`);
+        }
+    }
+
+    /**
+     * Unmark a player as being processed when they're done being added to the queue
+     * @param playerId The ID of the player to unmark
+     */
+    unmarkPlayerAsProcessing(playerId: number): void {
+        if (this.playersBeingProcessed.has(playerId)) {
+            this.playersBeingProcessed.delete(playerId);
+            logger.debug(`Unmarked player ${playerId} as being processed`);
+        }
+    }
+
     async checkAndCreateMatch(
         guild: Guild,
         force: boolean = false,
@@ -317,7 +353,7 @@ export class QueueService {
             
             // Mark these players as being processed
             for (const playerId of matchPlayers) {
-                this.playersBeingProcessed.add(playerId);
+                this.markPlayerAsProcessing(playerId);
             }
             
             logger.info(`Selected ${matchPlayers.length} players for match creation: ${matchPlayers.join(', ')}`);
@@ -336,7 +372,7 @@ export class QueueService {
             if (!allPlayersAvailable) {
                 // Release these players from being processed
                 for (const playerId of matchPlayers) {
-                    this.playersBeingProcessed.delete(playerId);
+                    this.unmarkPlayerAsProcessing(playerId);
                 }
                 return false;
             }
@@ -372,7 +408,7 @@ export class QueueService {
                 
                 // Release these players from being processed
                 for (const playerId of matchPlayers) {
-                    this.playersBeingProcessed.delete(playerId);
+                    this.unmarkPlayerAsProcessing(playerId);
                 }
                 return false;
             }
@@ -381,7 +417,7 @@ export class QueueService {
             
             // Release these players from being processed
             for (const playerId of matchPlayers) {
-                this.playersBeingProcessed.delete(playerId);
+                this.unmarkPlayerAsProcessing(playerId);
             }
             
             return true;

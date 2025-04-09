@@ -76,6 +76,24 @@
 
 **Testing**: Verified that the command now correctly displays match history with proper formatting and information
 
+**Dependencies Affecte### 2025-04-09 04:30:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/queueService.ts`
+- `server/bot/services/matchService.ts`
+
+**Changes**:
+- Added enhanced player tracking to prevent race conditions when multiple players leave or are kicked from matches
+- Created `markPlayerAsProcessing` and `unmarkPlayerAsProcessing` methods in QueueService
+- Updated match cancellation functions to use proper player tracking
+- Improved error handling and cleanup for player processing state
+- Added defensive checks to prevent players from being processed multiple times simultaneously
+- Enhanced all re-queuing operations to handle race conditions
+
+**Purpose**: Fix race conditions that could result in multiple lobbies being created from the same group of players, especially during match cancellations when multiple players are returned to queue simultaneously
+
+**Testing**: Verified that player state is properly tracked during queue transitions
+
 **Dependencies Affected**: None
 
 ### 2025-04-08 02:00:00 UTC
