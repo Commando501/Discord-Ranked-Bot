@@ -187,9 +187,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Queue operations
-  async addPlayerToQueue(queueEntry: InsertQueue): Promise<Queue> {
+  async addPlayerToQueue(queueEntry: InsertQueue, tx?: typeof db): Promise<Queue> {
     try {
-      const [entry] = await db.insert(queue).values(queueEntry).returning();
+      const dbClient = tx || db;
+      const [entry] = await dbClient.insert(queue).values(queueEntry).returning();
       return entry;
     } catch (error) {
       console.error('Error in addPlayerToQueue:', error);
@@ -197,10 +198,11 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async removePlayerFromQueue(playerId: number): Promise<boolean> {
+  async removePlayerFromQueue(playerId: number, tx?: typeof db): Promise<boolean> {
     try {
+      const dbClient = tx || db;
       // First check if the player is in the queue
-      const [entry] = await db
+      const [entry] = await dbClient
         .select()
         .from(queue)
         .where(eq(queue.playerId, playerId));
@@ -210,7 +212,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       // Delete the entry
-      await db
+      await dbClient
         .delete(queue)
         .where(eq(queue.playerId, playerId));
       
@@ -221,24 +223,55 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getQueuePlayers(): Promise<Array<Queue & { player: Player }>> {
+  async getQueuePlayers(tx?: typeof db): Promise<Array<Queue & { player: Player }>> {
     try {
-      const queueWithPlayers = await db.query.queue.findMany({
-        with: {
-          player: true
-        },
-        orderBy: (queue, { asc }) => [asc(queue.joinedAt)]
-      });
-      return queueWithPlayers;
+      const dbClient = tx || db;
+      
+      // Use the query builder directly since the relations functionality isn't 
+      // directly available with the transaction object in the same way
+      if (tx) {
+        const queueEntries = await dbClient.select().from(queue).orderBy(queue.joinedAt);
+        // If we have queue entries, fetch the related players
+        if (queueEntries.length > 0) {
+          const playerIds = queueEntries.map(entry => entry.playerId);
+          const playersResult = await dbClient
+            .select()
+            .from(players)
+            .where(inArray(players.id, playerIds));
+          
+          // Create a map of player IDs to player objects
+          const playerMap = new Map();
+          playersResult.forEach(player => {
+            playerMap.set(player.id, player);
+          });
+          
+          // Join the players with their queue entries
+          return queueEntries.map(entry => ({
+            ...entry,
+            player: playerMap.get(entry.playerId)
+          }));
+        }
+        return [];
+      } else {
+        // Use the relation query if we're not in a transaction
+        const queueWithPlayers = await db.query.queue.findMany({
+          with: {
+            player: true
+          },
+          orderBy: (queue, { asc }) => [asc(queue.joinedAt)]
+        });
+        return queueWithPlayers;
+      }
     } catch (error) {
       console.error('Error in getQueuePlayers:', error);
       return [];
     }
   }
 
-  async isPlayerInQueue(playerId: number): Promise<boolean> {
+  async isPlayerInQueue(playerId: number, tx?: typeof db): Promise<boolean> {
     try {
-      const [entry] = await db
+      const dbClient = tx || db;
+      const [entry] = await dbClient
         .select()
         .from(queue)
         .where(eq(queue.playerId, playerId));
@@ -249,18 +282,20 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async clearQueue(): Promise<void> {
+  async clearQueue(tx?: typeof db): Promise<void> {
     try {
-      await db.delete(queue);
+      const dbClient = tx || db;
+      await dbClient.delete(queue);
     } catch (error) {
       console.error('Error in clearQueue:', error);
     }
   }
 
   // Match operations
-  async createMatch(match: InsertMatch): Promise<Match> {
+  async createMatch(match: InsertMatch, tx?: typeof db): Promise<Match> {
     try {
-      const [newMatch] = await db.insert(matches).values(match).returning();
+      const dbClient = tx || db;
+      const [newMatch] = await dbClient.insert(matches).values(match).returning();
       return newMatch;
     } catch (error) {
       console.error('Error in createMatch:', error);
@@ -310,9 +345,10 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateMatch(id: number, data: Partial<Match>): Promise<Match | undefined> {
+  async updateMatch(id: number, data: Partial<Match>, tx?: typeof db): Promise<Match | undefined> {
     try {
-      const [updatedMatch] = await db
+      const dbClient = tx || db;
+      const [updatedMatch] = await dbClient
         .update(matches)
         .set(data)
         .where(eq(matches.id, id))
@@ -466,9 +502,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Team operations
-  async createTeam(team: InsertTeam): Promise<Team> {
+  async createTeam(team: InsertTeam, tx?: typeof db): Promise<Team> {
     try {
-      const [newTeam] = await db.insert(teams).values(team).returning();
+      const dbClient = tx || db;
+      const [newTeam] = await dbClient.insert(teams).values(team).returning();
       return newTeam;
     } catch (error) {
       console.error('Error in createTeam:', error);
@@ -476,9 +513,10 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getTeam(id: number): Promise<Team | undefined> {
+  async getTeam(id: number, tx?: typeof db): Promise<Team | undefined> {
     try {
-      const [team] = await db
+      const dbClient = tx || db;
+      const [team] = await dbClient
         .select()
         .from(teams)
         .where(eq(teams.id, id));
@@ -489,19 +527,21 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async addPlayerToTeam(teamPlayer: InsertTeamPlayer): Promise<void> {
+  async addPlayerToTeam(teamPlayer: InsertTeamPlayer, tx?: typeof db): Promise<void> {
     try {
-      await db.insert(teamPlayers).values(teamPlayer);
+      const dbClient = tx || db;
+      await dbClient.insert(teamPlayers).values(teamPlayer);
     } catch (error) {
       console.error('Error in addPlayerToTeam:', error);
       throw error;
     }
   }
 
-  async getTeamPlayers(teamId: number): Promise<Player[]> {
+  async getTeamPlayers(teamId: number, tx?: typeof db): Promise<Player[]> {
     try {
+      const dbClient = tx || db;
       // Get all player IDs in the team
-      const teamPlayerResults = await db
+      const teamPlayerResults = await dbClient
         .select()
         .from(teamPlayers)
         .where(eq(teamPlayers.teamId, teamId));
@@ -513,7 +553,7 @@ export class DatabaseStorage implements IStorage {
       const playerIds = teamPlayerResults.map(tp => tp.playerId);
       
       // Get player details
-      const playerResults = await db
+      const playerResults = await dbClient
         .select()
         .from(players)
         .where(inArray(players.id, playerIds));
@@ -525,9 +565,10 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getMatchTeams(matchId: number): Promise<Array<Team & { players: Player[] }>> {
+  async getMatchTeams(matchId: number, tx?: typeof db): Promise<Array<Team & { players: Player[] }>> {
     try {
-      const teamResults = await db
+      const dbClient = tx || db;
+      const teamResults = await dbClient
         .select()
         .from(teams)
         .where(eq(teams.matchId, matchId));
@@ -535,7 +576,7 @@ export class DatabaseStorage implements IStorage {
       const result: Array<Team & { players: Player[] }> = [];
       
       for (const team of teamResults) {
-        const players = await this.getTeamPlayers(team.id);
+        const players = await this.getTeamPlayers(team.id, tx);
         result.push({
           ...team,
           players

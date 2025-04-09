@@ -357,70 +357,75 @@ export class QueueService {
             }
             
             logger.info(`Selected ${matchPlayers.length} players for match creation: ${matchPlayers.join(', ')}`);
-            
-            // Double-check that all players are still in queue
-            let allPlayersAvailable = true;
-            for (const playerId of matchPlayers) {
-                const stillInQueue = await this.isPlayerInQueue(playerId);
-                if (!stillInQueue) {
-                    logger.warn(`Player ${playerId} was in queue when checked but is no longer present. Aborting match creation.`);
-                    allPlayersAvailable = false;
-                    break;
-                }
-            }
 
-            if (!allPlayersAvailable) {
-                // Release these players from being processed
-                for (const playerId of matchPlayers) {
-                    this.unmarkPlayerAsProcessing(playerId);
+            // Import the transaction utility
+            const { withTransaction } = require('../../db');
+            
+            // Perform the entire match creation within a transaction
+            return await withTransaction(async (tx) => {
+                try {
+                    // Double-check that all players are still in queue WITHIN the transaction
+                    for (const playerId of matchPlayers) {
+                        const stillInQueue = await this.storage.isPlayerInQueue(playerId, tx);
+                        if (!stillInQueue) {
+                            logger.warn(`Player ${playerId} was in queue when checked but is no longer present. Aborting match creation.`);
+                            // Transaction will be rolled back, no need to clean up manually
+                            throw new Error(`Player ${playerId} is no longer in queue`);
+                        }
+                    }
+                    
+                    logger.info(`All ${matchPlayers.length} players confirmed to be in queue within transaction`);
+
+                    // Log the selected players with their details for debugging
+                    const playerDetails = await Promise.all(
+                        matchPlayers.map(async id => {
+                            const player = await this.storage.getPlayer(id);
+                            return `${player?.username || "Unknown"} (ID: ${id})`;
+                        })
+                    );
+                    logger.info(`Creating match with players: ${playerDetails.join(", ")}`);
+
+                    // Remove players from queue WITHIN the transaction - this ensures atomicity
+                    logger.info(`Removing ${matchPlayers.length} players from queue within transaction`);
+                    for (const playerId of matchPlayers) {
+                        const removed = await this.storage.removePlayerFromQueue(playerId, tx);
+                        if (!removed) {
+                            logger.warn(`Failed to remove player ${playerId} from queue within transaction`);
+                            throw new Error(`Failed to remove player ${playerId} from queue`);
+                        }
+                    }
+
+                    // Create the match - passing the transaction to ensure everything is in the same transaction
+                    // Modify the matchService to accept transactions
+                    const matchResult = await this.matchService.createMatchWithPlayersTransaction(
+                        matchPlayers,
+                        guild,
+                        tx
+                    );
+                    
+                    if (!matchResult.success) {
+                        logger.error(`Failed to create match within transaction: ${matchResult.message}`);
+                        throw new Error(`Match creation failed: ${matchResult.message}`);
+                    }
+                    
+                    logger.info(`Match created with ${matchPlayers.length} players (Match ID: ${matchResult.matchId})`);
+                    
+                    // If we get here, the transaction will commit automatically
+                    return true;
+                } catch (error) {
+                    // The transaction will be rolled back automatically
+                    logger.error(`Transaction failed during match creation: ${error}`);
+                    throw error; // Re-throw to roll back the transaction
+                } finally {
+                    // Even with a transaction, we need to release the player processing markers
+                    for (const playerId of matchPlayers) {
+                        this.unmarkPlayerAsProcessing(playerId);
+                    }
                 }
+            }).catch(error => {
+                logger.error(`Match creation transaction failed: ${error}`);
                 return false;
-            }
-
-            // Log the selected players with their details for debugging
-            const playerDetails = await Promise.all(
-                matchPlayers.map(async id => {
-                    const player = await this.storage.getPlayer(id);
-                    return `${player?.username || "Unknown"} (ID: ${id})`;
-                })
-            );
-            logger.info(`Creating match with players: ${playerDetails.join(", ")}`);
-
-            // Remove players from queue BEFORE creating the match to prevent race conditions
-            logger.info(`Removing ${matchPlayers.length} players from queue before match creation`);
-            for (const playerId of matchPlayers) {
-                await this.removePlayerFromQueue(playerId);
-            }
-
-            // Create the match
-            const result = await this.matchService.createMatchWithPlayers(
-                matchPlayers,
-                guild,
-            );
-
-            if (!result.success) {
-                logger.error(`Failed to create match: ${result.message}`);
-                // If match creation fails, add players back to queue
-                logger.info("Match creation failed, re-adding players to queue");
-                for (const playerId of matchPlayers) {
-                    await this.addPlayerToQueue(playerId);
-                }
-                
-                // Release these players from being processed
-                for (const playerId of matchPlayers) {
-                    this.unmarkPlayerAsProcessing(playerId);
-                }
-                return false;
-            }
-
-            logger.info(`Match created with ${matchPlayers.length} players (Match ID: ${result.matchId})`);
-            
-            // Release these players from being processed
-            for (const playerId of matchPlayers) {
-                this.unmarkPlayerAsProcessing(playerId);
-            }
-            
-            return true;
+            });
         } catch (error) {
             logger.error(`Error checking and creating match: ${error}`);
             

@@ -1863,3 +1863,252 @@ export class MatchService {
     }
   };
 }
+
+
+/**
+ * Creates a match with players using a database transaction for atomicity
+ * @param playerIds Array of player IDs to include in the match
+ * @param guild Discord guild where the match will be created
+ * @param tx Optional transaction object for database operations
+ * @returns Result object with success status and match ID
+ */
+async createMatchWithPlayersTransaction(
+  playerIds: number[],
+  guild: Guild,
+  tx?: any
+): Promise<{ success: boolean; message: string; matchId?: number }> {
+  try {
+    if (playerIds.length < 2) {
+      return {
+        success: false,
+        message: "Need at least 2 players to create a match",
+      };
+    }
+
+    // Create match record within the transaction if provided
+    const match = await this.storage.createMatch({
+      status: "WAITING",
+    }, tx);
+
+    // Divide players into balanced teams
+    const players = await Promise.all(
+      playerIds.map((id) => this.storage.getPlayer(id)),
+    );
+    const validPlayers = players.filter(Boolean) as any[];
+
+    if (validPlayers.length < 2) {
+      return { success: false, message: "Not enough valid players found" };
+    }
+
+    const teamsData = calculateTeamsMMR(validPlayers);
+
+    // Create team records and assign players within the transaction
+    for (const [teamIndex, teamPlayers] of teamsData.teams.entries()) {
+      const teamName = teamIndex === 0 ? "Eagle" : "Cobra";
+      const avgMMR =
+        teamIndex === 0 ? teamsData.team1MMR : teamsData.team2MMR;
+
+      const team = await this.storage.createTeam({
+        matchId: match.id,
+        name: teamName,
+        avgMMR,
+      }, tx);
+
+      // Add players to team within the transaction
+      for (const player of teamPlayers) {
+        await this.storage.addPlayerToTeam({
+          teamId: team.id,
+          playerId: player.id,
+        }, tx);
+      }
+    }
+
+    // Update match status within the transaction
+    await this.storage.updateMatch(match.id, { status: "ACTIVE" }, tx);
+
+    // Try to create a match channel if possible
+    // Note: Discord channel creation happens outside the DB transaction
+    // since it's a separate system
+    let matchChannel: TextChannel | null = null;
+    let channelCreationFailed = false;
+    
+    try {
+      // [The channel creation code remains the same as in createMatchWithPlayers]
+      // Find or create a category for matches
+      let matchCategory = guild.channels.cache.find(
+        (channel) =>
+          channel.type === ChannelType.GuildCategory &&
+          channel.name === "Matches",
+      );
+
+      if (!matchCategory) {
+        logger.info("Creating new Matches category");
+        try {
+          matchCategory = await guild.channels.create({
+            name: "Matches",
+            type: ChannelType.GuildCategory,
+          });
+          logger.info(
+            `Successfully created Matches category with ID: ${matchCategory.id}`,
+          );
+        } catch (categoryError) {
+          logger.error(`Failed to create Matches category: ${categoryError}`);
+          throw new Error(
+            `Failed to create match category: ${categoryError.message}`,
+          );
+        }
+      } else {
+        logger.info(
+          `Found existing Matches category with ID: ${matchCategory.id}`,
+        );
+      }
+
+      // Create a text channel for this match
+      logger.info(`Creating match channel for match #${match.id}`);
+      try {
+        matchChannel = await guild.channels.create({
+          name: `match-${match.id}`,
+          type: ChannelType.GuildText,
+          parent: matchCategory.id,
+          permissionOverwrites: [
+            {
+              id: guild.roles.everyone.id,
+              deny: ["ViewChannel"],
+            },
+          ],
+        });
+        logger.info(
+          `Successfully created match channel with ID: ${matchChannel.id}`,
+        );
+
+        // Store channel and category IDs in the match record
+        // Use the transaction if provided
+        await this.storage.updateMatch(match.id, {
+          channelId: matchChannel.id,
+          categoryId: matchCategory.id,
+        }, tx);
+        logger.info(`Updated match record with channel and category IDs`);
+
+        // Now try to add permissions for each player after channel creation
+        for (const player of validPlayers) {
+          try {
+            if (player.discordId) {
+              await matchChannel.permissionOverwrites.create(
+                player.discordId,
+                {
+                  ViewChannel: true,
+                  SendMessages: true,
+                  ReadMessageHistory: true,
+                },
+              );
+              logger.info(
+                `Added permission for player ${player.username} (${player.discordId}) to match channel`,
+              );
+            }
+          } catch (permError) {
+            logger.warn(
+              `Could not set permissions for player ${player.username} (${player.discordId}): ${permError}`,
+            );
+          }
+        }
+      } catch (channelError) {
+        logger.error(`Failed to create match channel: ${channelError}`);
+        channelCreationFailed = true;
+      }
+
+      // Get the team names from our created teams - use the transaction if provided
+      const matchTeams = await this.storage.getMatchTeams(match.id, tx);
+      const team1Name = matchTeams[0]?.name || "Eagle";
+      const team2Name = matchTeams[1]?.name || "Cobra";
+
+      // Send match details to the channel
+      if (matchChannel) {
+        const embed = new EmbedBuilder()
+          .setColor("#5865F2")
+          .setTitle(`Match #${match.id}`)
+          .setDescription(
+            `Your match has been created! Good luck and have fun!\n\n**Admin Reference**\nMatch ID: \`${match.id}\` (Use \`/endmatch ${match.id} Eagle\` or \`/endmatch ${match.id} Cobra\` to end this match)`,
+          )
+          .addFields(
+            {
+              name: `Team ${team1Name} (Avg MMR: ${teamsData.team1MMR})`,
+              value: teamsData.teams[0]
+                .map((p) => `<@${p.discordId}> (${p.mmr})`)
+                .join("\n"),
+              inline: true,
+            },
+            {
+              name: `Team ${team2Name} (Avg MMR: ${teamsData.team2MMR})`,
+              value: teamsData.teams[1]
+                .map((p) => `<@${p.discordId}> (${p.mmr})`)
+                .join("\n"),
+              inline: true,
+            },
+          )
+          .setTimestamp();
+
+        // Create vote buttons
+        const team1Button = new ButtonBuilder()
+          .setCustomId(`vote_${match.id}_team1`)
+          .setLabel(`Team ${team1Name} Won`)
+          .setStyle(ButtonStyle.Primary);
+
+        const team2Button = new ButtonBuilder()
+          .setCustomId(`vote_${match.id}_team2`)
+          .setLabel(`Team ${team2Name} Won`)
+          .setStyle(ButtonStyle.Danger);
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          team1Button,
+          team2Button,
+        );
+
+        await matchChannel.send({
+          content: playerIds
+            .map((id) => `<@${players.find((p) => p?.id === id)?.discordId}>`)
+            .join(" "),
+          embeds: [embed],
+          components: [row],
+        });
+      }
+    } catch (error) {
+      logger.error(`Error creating match channel: ${error}`);
+      // Continue without channel creation if it fails
+    }
+
+    // Log the match creation event
+    await this.logEvent(
+      "Match Created",
+      `Match #${match.id} has been created successfully.`,
+      [
+        { name: "Match ID", value: match.id.toString(), inline: true },
+        {
+          name: "Players",
+          value: validPlayers.length.toString(),
+          inline: true,
+        },
+        {
+          name: "Channel",
+          value: matchChannel ? `<#${matchChannel.id}>` : "None",
+          inline: true,
+        },
+      ],
+    );
+
+    return {
+      success: true,
+      message: matchChannel
+        ? `Match created! Check <#${matchChannel.id}> for details.`
+        : channelCreationFailed
+          ? "Match created successfully, but channel creation failed. Players can still play."
+          : "Match created successfully!",
+      matchId: match.id,
+    };
+  } catch (error) {
+    logger.error(`Error creating match with transaction: ${error}`);
+    return {
+      success: false,
+      message: "Failed to create match due to an error",
+    };
+  }
+}
