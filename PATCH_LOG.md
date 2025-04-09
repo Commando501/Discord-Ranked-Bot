@@ -1,6 +1,28 @@
 
 # Project Patch Log
 
+### 2025-04-09 00:00:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/bot/services/queueService.ts`
+
+**Changes**:
+- Added player-level locking mechanism to prevent duplicate match creation
+- Implemented a `playersBeingProcessed` set to track which players are currently being assigned to matches
+- Enhanced logging to capture detailed player information during match creation
+- Improved race condition handling during the player selection process
+- Fixed the issue where multiple matches could be created from the same pool of players
+
+**Purpose**: Fix the critical bug where multiple concurrent match lobbies were being generated using the same players
+
+**Testing**: Verified that only one match is created when multiple queue checks happen simultaneously with the same players
+
+**Dependencies Affected**: None
+
+
+
+# Project Patch Log
+
 ### 2025-04-08 07:25:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 

@@ -263,6 +263,9 @@ export class QueueService {
     // Use a class-level lock to prevent concurrent match creation
     private matchCreationInProgress: boolean = false;
 
+    // Track players being processed to prevent duplicate match creation
+    private playersBeingProcessed: Set<number> = new Set();
+
     async checkAndCreateMatch(
         guild: Guild,
         force: boolean = false,
@@ -298,19 +301,54 @@ export class QueueService {
                 return a.joinedAt.getTime() - b.joinedAt.getTime(); // Earlier join time first
             });
 
-            // Take the required number of players (using config from JSON file)
-            const matchPlayers = sortedPlayers
-                .slice(0, minPlayersRequired)
-                .map((entry) => entry.playerId);
-                
-            // Double-check that all players are still in queue (prevent race condition)
+            // Filter out players that are already being processed in another concurrent match creation
+            const availablePlayers = sortedPlayers.filter(player => !this.playersBeingProcessed.has(player.playerId));
+            
+            if (availablePlayers.length < minPlayersRequired && !force) {
+                logger.info(
+                    `Not enough available players in queue (some are already being processed): ${availablePlayers.length}/${minPlayersRequired}`,
+                );
+                return false;
+            }
+
+            // Take the required number of players
+            const matchPlayerEntries = availablePlayers.slice(0, minPlayersRequired);
+            const matchPlayers = matchPlayerEntries.map(entry => entry.playerId);
+            
+            // Mark these players as being processed
+            for (const playerId of matchPlayers) {
+                this.playersBeingProcessed.add(playerId);
+            }
+            
+            logger.info(`Selected ${matchPlayers.length} players for match creation: ${matchPlayers.join(', ')}`);
+            
+            // Double-check that all players are still in queue
+            let allPlayersAvailable = true;
             for (const playerId of matchPlayers) {
                 const stillInQueue = await this.isPlayerInQueue(playerId);
                 if (!stillInQueue) {
                     logger.warn(`Player ${playerId} was in queue when checked but is no longer present. Aborting match creation.`);
-                    return false;
+                    allPlayersAvailable = false;
+                    break;
                 }
             }
+
+            if (!allPlayersAvailable) {
+                // Release these players from being processed
+                for (const playerId of matchPlayers) {
+                    this.playersBeingProcessed.delete(playerId);
+                }
+                return false;
+            }
+
+            // Log the selected players with their details for debugging
+            const playerDetails = await Promise.all(
+                matchPlayers.map(async id => {
+                    const player = await this.storage.getPlayer(id);
+                    return `${player?.username || "Unknown"} (ID: ${id})`;
+                })
+            );
+            logger.info(`Creating match with players: ${playerDetails.join(", ")}`);
 
             // Remove players from queue BEFORE creating the match to prevent race conditions
             logger.info(`Removing ${matchPlayers.length} players from queue before match creation`);
@@ -331,13 +369,28 @@ export class QueueService {
                 for (const playerId of matchPlayers) {
                     await this.addPlayerToQueue(playerId);
                 }
+                
+                // Release these players from being processed
+                for (const playerId of matchPlayers) {
+                    this.playersBeingProcessed.delete(playerId);
+                }
                 return false;
             }
 
             logger.info(`Match created with ${matchPlayers.length} players (Match ID: ${result.matchId})`);
+            
+            // Release these players from being processed
+            for (const playerId of matchPlayers) {
+                this.playersBeingProcessed.delete(playerId);
+            }
+            
             return true;
         } catch (error) {
             logger.error(`Error checking and creating match: ${error}`);
+            
+            // If we have set any players as being processed, we need to clear them
+            this.playersBeingProcessed.clear();
+            
             return false;
         } finally {
             // Always release the lock when done
