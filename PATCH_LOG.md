@@ -1,5 +1,28 @@
 # Project Patch Log
 
+### 2025-04-11 05:30:00 UTC
+**Type**: Enhancement
+**Files Modified**: 
+- `server/db.ts`
+- `server/storage.ts`
+- `server/bot/services/queueService.ts`
+- `server/bot/services/matchService.ts`
+
+**Changes**:
+- Implemented transaction-based operations for critical database operations
+- Added transaction support functions in the database layer
+- Modified storage methods to accept optional transaction objects
+- Updated match creation process to use transactions for atomicity
+- Enhanced queue and match services to utilize transactions for related operations
+- Refactored player processing to ensure database consistency across operations
+- Added proper error handling and rollback for database transactions
+
+**Purpose**: Eliminate race conditions by ensuring that related database operations either all succeed or all fail together, particularly during match creation and player queue management
+
+**Testing**: Verified that concurrent match creation no longer creates duplicate matches with the same players
+
+**Dependencies Affected**: None
+
 ### 2025-04-10 04:15:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
