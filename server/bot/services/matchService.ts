@@ -934,6 +934,80 @@ export class MatchService {
       };
     }
   }
+  
+  /**
+   * Handles a successful vote kick, removing the player from the match
+   * and performing necessary cleanup, similar to a player leaving
+   * @param voteKickId The ID of the successful vote kick
+   * @param guildId Optional guild ID for finding the Discord guild
+   */
+  async handleSuccessfulVoteKick(
+    voteKickId: number,
+    guildId?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      // Get the vote kick details
+      const voteKick = await this.storage.getVoteKick(voteKickId);
+      
+      if (!voteKick) {
+        return { success: false, message: "Vote kick not found" };
+      }
+      
+      if (voteKick.status !== "PENDING") {
+        return { 
+          success: false, 
+          message: `Vote kick is already ${voteKick.status.toLowerCase()}` 
+        };
+      }
+      
+      // Get player information
+      const kickedPlayer = await this.storage.getPlayer(voteKick.targetPlayerId);
+      
+      if (!kickedPlayer) {
+        return { success: false, message: "Kicked player not found" };
+      }
+      
+      // Update vote kick status
+      await this.storage.updateVoteKick(voteKickId, { status: "APPROVED" });
+      
+      // Log the event
+      await this.logEvent(
+        "Player Kicked",
+        `Player ${kickedPlayer.username} (ID: ${kickedPlayer.id}) has been kicked from match #${voteKick.matchId} by vote.`,
+        [
+          { name: "Match ID", value: voteKick.matchId.toString(), inline: true },
+          { name: "Kicked Player", value: kickedPlayer.username, inline: true },
+          { name: "Vote Kick ID", value: voteKickId.toString(), inline: true },
+        ]
+      );
+      
+      // Use the existing match cancellation flow to handle the kicked player properly
+      // This will return other players to queue but not the kicked player
+      const result = await this.handleMatchCancellationWithExclusion(
+        voteKick.matchId,
+        kickedPlayer.id
+      );
+      
+      if (!result.success) {
+        logger.error(`Failed to handle match cancellation after vote kick: ${result.message}`);
+        return {
+          success: false,
+          message: `Player was kicked but there was an error cancelling the match: ${result.message}`
+        };
+      }
+      
+      return {
+        success: true,
+        message: `${kickedPlayer.username} has been kicked from match #${voteKick.matchId}. Match cancelled and other players returned to queue.`
+      };
+    } catch (error) {
+      logger.error(`Error handling successful vote kick: ${error}`);
+      return {
+        success: false,
+        message: "Failed to process vote kick due to an error"
+      };
+    }
+  }
 
   async handleMatchCancellation(
     matchId: number,
