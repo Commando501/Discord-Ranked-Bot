@@ -1872,11 +1872,11 @@ export class MatchService {
  * @param tx Optional transaction object for database operations
  * @returns Result object with success status and match ID
  */
-async createMatchWithPlayersTransaction(
+async createMatchWithPlayersTransaction = async (
   playerIds: number[],
   guild: Guild,
   tx?: any
-): Promise<{ success: boolean; message: string; matchId?: number }> {
+): Promise<{ success: boolean; message: string; matchId?: number }> => {
   try {
     if (playerIds.length < 2) {
       return {
