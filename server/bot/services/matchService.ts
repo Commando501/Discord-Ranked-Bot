@@ -1872,7 +1872,7 @@ export class MatchService {
  * @param tx Optional transaction object for database operations
  * @returns Result object with success status and match ID
  */
-async createMatchWithPlayersTransaction(
+async function createMatchWithPlayersTransaction(
   playerIds: number[],
   guild: Guild,
   tx?: any
