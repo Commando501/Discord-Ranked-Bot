@@ -660,6 +660,36 @@ export class MatchService {
               logger.info(
                 `Adding ${winningPlayers.length + losingPlayers.length} players back to queue`,
               );
+              
+              // Get all player IDs from this match
+              const allPlayerIds = [...winningPlayers, ...losingPlayers].map(p => p.id);
+              
+              // Get or create group for these players
+              let groupId: string;
+              if (queueService.currentActiveGroup) {
+                // Check if all players from this match are in the current active group
+                const currentGroupPlayers = Array.from(queueService.playerGroups.get(queueService.currentActiveGroup)?.keys() || []);
+                const allPlayersInGroup = allPlayerIds.every(id => currentGroupPlayers.includes(id));
+                
+                if (allPlayersInGroup && allPlayerIds.length === currentGroupPlayers.length) {
+                  groupId = queueService.currentActiveGroup;
+                  logger.info(`Using existing player group ${groupId} for match ${matchId}`);
+                } else {
+                  groupId = queueService.createPlayerGroup(allPlayerIds);
+                  logger.info(`Created new player group ${groupId} for match ${matchId}`);
+                }
+              } else {
+                groupId = queueService.createPlayerGroup(allPlayerIds);
+                logger.info(`Created new player group ${groupId} for match ${matchId}`);
+              }
+              
+              // Record losses for losing players
+              for (const player of losingPlayers) {
+                const hitLossLimit = queueService.recordPlayerLoss(player.id, groupId);
+                if (hitLossLimit) {
+                  logger.info(`Player ${player.username} (ID: ${player.id}) has hit the loss limit in group ${groupId}`);
+                }
+              }
 
               // Process players sequentially to avoid race conditions
               for (const player of [...winningPlayers, ...losingPlayers]) {
@@ -667,12 +697,26 @@ export class MatchService {
                   // Mark player as being processed to prevent race conditions
                   queueService.markPlayerAsProcessing(player.id);
                   
+                  // Set priority based on win/loss status
+                  // Winners get highest priority, players with 1 loss get medium priority, players with 2 losses get lowest priority
+                  let priority = 0;
+                  const isWinner = winningPlayers.some(p => p.id === player.id);
+                  const losses = queueService.getPlayerLosses(player.id, groupId);
+                  
+                  if (isWinner) {
+                    priority = 100; // Highest priority for winners
+                  } else if (losses < 2) {
+                    priority = 50;  // Medium priority for players with 1 loss
+                  }
+                  
                   const queueResult = await queueService.addPlayerToQueue(
                     player.id,
+                    priority,
+                    groupId
                   );
                   if (queueResult.success) {
                     logger.info(
-                      `Added player ${player.username} (ID: ${player.id}) back to queue`,
+                      `Added player ${player.username} (ID: ${player.id}) back to queue with priority ${priority}`,
                     );
                   } else {
                     logger.warn(

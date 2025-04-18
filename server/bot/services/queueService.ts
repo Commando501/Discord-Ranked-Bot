@@ -10,6 +10,10 @@ export class QueueService {
     private matchService: MatchService;
     private queueCheckInterval: NodeJS.Timeout | null = null;
     private static instance: QueueService | null = null;
+    
+    // Make these accessible to MatchService for queueing players with priorities based on group status
+    public playerGroups: Map<string, Map<number, number>> = new Map();
+    public currentActiveGroup: string | null = null;
 
     constructor(storage: IStorage) {
         this.storage = storage;
@@ -149,8 +153,17 @@ export class QueueService {
         }
     }
 
+    /**
+     * Add a player to the queue with optional priority and group information
+     * @param playerId The player ID to add to queue
+     * @param priority Optional priority level (higher = prioritized)
+     * @param groupId Optional group ID for group tracking
+     * @returns Success status and message
+     */
     async addPlayerToQueue(
         playerId: number,
+        priority: number = 0,
+        groupId?: string,
     ): Promise<{ success: boolean; message: string }> {
         try {
             // Mark player as being processed to prevent race conditions
@@ -176,14 +189,24 @@ export class QueueService {
                             "You cannot join the queue while in an active match.",
                     };
                 }
+                
+                // Check if player has 2 losses in their group - if so, reset priority
+                if (groupId && this.playerGroups.has(groupId)) {
+                    const losses = this.getPlayerLosses(playerId, groupId);
+                    if (losses >= 2) {
+                        // Player has lost twice, put them at the back of the queue
+                        priority = 0;
+                        logger.info(`Player ${playerId} has lost twice in group ${groupId}, queueing with priority 0`);
+                    }
+                }
 
                 // Add player to queue
                 await this.storage.addPlayerToQueue({
                     playerId,
-                    priority: 0,
+                    priority,
                 });
 
-                logger.info(`Player ${playerId} added to queue`);
+                logger.info(`Player ${playerId} added to queue with priority ${priority}`);
 
                 // Ensure queue check is running
                 if (!this.queueCheckInterval) {
@@ -276,6 +299,10 @@ export class QueueService {
 
     // Track players being processed to prevent duplicate match creation
     private playersBeingProcessed: Set<number> = new Set();
+    
+    // Track player groups and their loss counts
+    private playerGroups: Map<string, Map<number, number>> = new Map();
+    private currentActiveGroup: string | null = null;
 
     /**
      * Mark a player as being processed when they're about to be added to the queue
@@ -300,6 +327,84 @@ export class QueueService {
             this.playersBeingProcessed.delete(playerId);
             logger.debug(`Unmarked player ${playerId} as being processed`);
         }
+    }
+    
+    /**
+     * Generate a unique group ID for a set of players
+     * @param playerIds Array of player IDs
+     * @returns String group ID
+     */
+    private generateGroupId(playerIds: number[]): string {
+        return playerIds.sort().join('-');
+    }
+    
+    /**
+     * Create or update a player group
+     * @param playerIds Array of player IDs
+     * @returns The group ID string
+     */
+    createPlayerGroup(playerIds: number[]): string {
+        const groupId = this.generateGroupId(playerIds);
+        if (!this.playerGroups.has(groupId)) {
+            const playerLosses = new Map<number, number>();
+            playerIds.forEach(id => playerLosses.set(id, 0));
+            this.playerGroups.set(groupId, playerLosses);
+        }
+        this.currentActiveGroup = groupId;
+        logger.info(`Created/updated player group ${groupId} with ${playerIds.length} players`);
+        return groupId;
+    }
+    
+    /**
+     * Record a loss for a player in their group and check if they've hit the loss limit
+     * @param playerId The player ID
+     * @param groupId The group ID
+     * @returns True if the player has hit the loss limit (2 losses)
+     */
+    recordPlayerLoss(playerId: number, groupId: string): boolean {
+        if (!this.playerGroups.has(groupId)) {
+            logger.warn(`Tried to record loss for player ${playerId} in non-existent group ${groupId}`);
+            return false;
+        }
+        
+        const playerLosses = this.playerGroups.get(groupId)!;
+        const currentLosses = playerLosses.get(playerId) || 0;
+        const newLosses = currentLosses + 1;
+        playerLosses.set(playerId, newLosses);
+        
+        logger.info(`Player ${playerId} now has ${newLosses} losses in group ${groupId}`);
+        
+        return newLosses >= 2; // Return true if player has hit the loss limit
+    }
+    
+    /**
+     * Get current losses for a player in a group
+     * @param playerId The player ID
+     * @param groupId The group ID
+     * @returns Number of losses, or 0 if not found
+     */
+    getPlayerLosses(playerId: number, groupId: string): number {
+        if (!this.playerGroups.has(groupId)) {
+            return 0;
+        }
+        
+        const playerLosses = this.playerGroups.get(groupId)!;
+        return playerLosses.get(playerId) || 0;
+    }
+    
+    /**
+     * Check if a group of players is still active (all players have fewer than 2 losses)
+     * @param groupId The group ID
+     * @returns True if the group is still active
+     */
+    isGroupActive(groupId: string): boolean {
+        if (!this.playerGroups.has(groupId)) {
+            return false;
+        }
+        
+        const playerLosses = this.playerGroups.get(groupId)!;
+        // Group is active if all players have fewer than 2 losses
+        return Array.from(playerLosses.values()).every(losses => losses < 2);
     }
 
     async checkAndCreateMatch(
@@ -329,16 +434,8 @@ export class QueueService {
                 return false;
             }
 
-            // Sort by priority and join time
-            const sortedPlayers = queuedPlayers.sort((a, b) => {
-                if (a.priority !== b.priority) {
-                    return b.priority - a.priority; // Higher priority first
-                }
-                return a.joinedAt.getTime() - b.joinedAt.getTime(); // Earlier join time first
-            });
-
             // Filter out players that are already being processed in another concurrent match creation
-            const availablePlayers = sortedPlayers.filter(player => !this.playersBeingProcessed.has(player.playerId));
+            const availablePlayers = queuedPlayers.filter(player => !this.playersBeingProcessed.has(player.playerId));
             
             if (availablePlayers.length < minPlayersRequired && !force) {
                 logger.info(
@@ -346,10 +443,54 @@ export class QueueService {
                 );
                 return false;
             }
-
-            // Take the required number of players
-            const matchPlayerEntries = availablePlayers.slice(0, minPlayersRequired);
-            const matchPlayers = matchPlayerEntries.map(entry => entry.playerId);
+            
+            let matchPlayers: number[] = [];
+            
+            // Check if we have an active group with all members in the queue
+            if (this.currentActiveGroup) {
+                const groupPlayers = Array.from(this.playerGroups.get(this.currentActiveGroup)!.keys());
+                
+                // Check if all group players are in the queue
+                const groupPlayersInQueue = groupPlayers.filter(
+                    playerId => availablePlayers.some(qp => qp.playerId === playerId)
+                );
+                
+                if (groupPlayersInQueue.length === minPlayersRequired && this.isGroupActive(this.currentActiveGroup)) {
+                    logger.info(`Found active group ${this.currentActiveGroup} with all ${minPlayersRequired} players in queue`);
+                    
+                    // Use the entire group for the match
+                    matchPlayers = groupPlayersInQueue;
+                    
+                    // Log player details
+                    const playerDetails = await Promise.all(
+                        matchPlayers.map(async id => {
+                            const player = await this.storage.getPlayer(id);
+                            const losses = this.getPlayerLosses(id, this.currentActiveGroup!);
+                            return `${player?.username || "Unknown"} (ID: ${id}, Losses: ${losses})`;
+                        })
+                    );
+                    logger.info(`Using group players for match: ${playerDetails.join(", ")}`);
+                }
+            }
+            
+            // If we don't have a full group, select players normally
+            if (matchPlayers.length < minPlayersRequired) {
+                // Sort by priority and join time
+                const sortedPlayers = availablePlayers.sort((a, b) => {
+                    if (a.priority !== b.priority) {
+                        return b.priority - a.priority; // Higher priority first
+                    }
+                    return a.joinedAt.getTime() - b.joinedAt.getTime(); // Earlier join time first
+                });
+                
+                // Take the required number of players
+                const matchPlayerEntries = sortedPlayers.slice(0, minPlayersRequired);
+                matchPlayers = matchPlayerEntries.map(entry => entry.playerId);
+                
+                // Create a new player group for these players
+                const groupId = this.createPlayerGroup(matchPlayers);
+                logger.info(`Created new player group ${groupId} for match`);
+            }
             
             // Mark these players as being processed
             for (const playerId of matchPlayers) {
@@ -396,7 +537,6 @@ export class QueueService {
                     }
 
                     // Create the match - passing the transaction to ensure everything is in the same transaction
-                    // Modify the matchService to accept transactions
                     const matchResult = await this.matchService.createMatchWithPlayersTransaction(
                         matchPlayers,
                         guild,
