@@ -4,6 +4,9 @@ import { logger } from "../utils/logger";
 import { MatchService } from "./matchService";
 import { BotConfig } from "@shared/botConfig";
 import { getBot as getDiscordBot } from "../../index.bot";
+import { db } from "../../db";
+import { eq, inArray } from "drizzle-orm";
+import { queue } from "@shared/schema";
 
 export class QueueService {
     private storage: IStorage;
@@ -526,14 +529,17 @@ export class QueueService {
                     );
                     logger.info(`Creating match with players: ${playerDetails.join(", ")}`);
 
-                    // Remove players from queue WITHIN the transaction - this ensures atomicity
-                    logger.info(`Removing ${matchPlayers.length} players from queue within transaction`);
-                    for (const playerId of matchPlayers) {
-                        const removed = await this.storage.removePlayerFromQueue(playerId, tx);
-                        if (!removed) {
-                            logger.warn(`Failed to remove player ${playerId} from queue within transaction`);
-                            throw new Error(`Failed to remove player ${playerId} from queue`);
+                    // Batch remove players from queue WITHIN the transaction - this ensures atomicity
+                    logger.info(`Batch removing ${matchPlayers.length} players from queue within transaction`);
+                    try {
+                        const batchRemoveResult = await this.batchRemovePlayersFromQueue(matchPlayers, tx);
+                        if (!batchRemoveResult.success) {
+                            logger.warn(`Failed to batch remove players from queue: ${batchRemoveResult.message}`);
+                            throw new Error(`Failed to batch remove players from queue: ${batchRemoveResult.message}`);
                         }
+                    } catch (error) {
+                        logger.error(`Error in batch player removal: ${error}`);
+                        throw error;
                     }
 
                     // Create the match - passing the transaction to ensure everything is in the same transaction
@@ -581,3 +587,54 @@ export class QueueService {
 }
 
 // We now use getDiscordBot imported from '../../index.bot' instead of this placeholder
+
+
+    /**
+     * Batch remove multiple players from the queue in a single operation
+     * @param playerIds Array of player IDs to remove from queue
+     * @param tx Optional transaction object
+     * @returns Success status and message
+     */
+    async batchRemovePlayersFromQueue(
+        playerIds: number[],
+        tx?: any
+    ): Promise<{ success: boolean; message: string }> {
+        try {
+            if (playerIds.length === 0) {
+                return { success: true, message: "No players to remove" };
+            }
+            
+            // Use storage's direct DB access to perform a batch delete
+            // This reduces multiple single-row deletes to one operation
+            const dbClient = tx || db;
+            
+            // First verify all players are in queue
+            for (const playerId of playerIds) {
+                const [entry] = await dbClient
+                    .select()
+                    .from(queue)
+                    .where(eq(queue.playerId, playerId));
+                
+                if (!entry) {
+                    return { 
+                        success: false, 
+                        message: `Player ${playerId} not found in queue during batch removal verification`
+                    };
+                }
+            }
+            
+            // Then perform a single batch delete operation for all players
+            await dbClient
+                .delete(queue)
+                .where(inArray(queue.playerId, playerIds));
+            
+            logger.info(`Successfully batch removed ${playerIds.length} players from queue`);
+            return { success: true, message: `Removed ${playerIds.length} players from queue` };
+        } catch (error) {
+            logger.error(`Error in batch queue removal: ${error}`);
+            return { 
+                success: false, 
+                message: `Database error during batch removal: ${error}`
+            };
+        }
+    }

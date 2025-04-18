@@ -691,14 +691,18 @@ export class MatchService {
                 }
               }
 
-              // Process players sequentially to avoid race conditions
+              // First, prepare players with their priorities before batch processing
+              const playersToRequeue = [];
+              
+              // Mark all players as being processed at once
               for (const player of [...winningPlayers, ...losingPlayers]) {
-                try {
-                  // Mark player as being processed to prevent race conditions
-                  queueService.markPlayerAsProcessing(player.id);
-                  
+                queueService.markPlayerAsProcessing(player.id);
+              }
+              
+              try {
+                // Calculate priorities for all players
+                for (const player of [...winningPlayers, ...losingPlayers]) {
                   // Set priority based on win/loss status
-                  // Winners get highest priority, players with 1 loss get medium priority, players with 2 losses get lowest priority
                   let priority = 0;
                   const isWinner = winningPlayers.some(p => p.id === player.id);
                   const losses = queueService.getPlayerLosses(player.id, groupId);
@@ -709,29 +713,53 @@ export class MatchService {
                     priority = 50;  // Medium priority for players with 1 loss
                   }
                   
-                  const queueResult = await queueService.addPlayerToQueue(
-                    player.id,
+                  playersToRequeue.push({
+                    player,
                     priority,
                     groupId
-                  );
-                  if (queueResult.success) {
-                    logger.info(
-                      `Added player ${player.username} (ID: ${player.id}) back to queue with priority ${priority}`,
-                    );
-                  } else {
-                    logger.warn(
-                      `Could not add player ${player.username} (ID: ${player.id}) back to queue: ${queueResult.message}`,
-                    );
-                    // Make sure we unmark the player if adding to queue failed
-                    queueService.unmarkPlayerAsProcessing(player.id);
+                  });
+                }
+                
+                // Use a transaction for batch re-queuing
+                await withTransaction(async (tx) => {
+                  // Perform batch inserts grouped by priority level for efficiency
+                  const batchInserts = {};
+                  
+                  // Group players by priority
+                  for (const entry of playersToRequeue) {
+                    if (!batchInserts[entry.priority]) {
+                      batchInserts[entry.priority] = [];
+                    }
+                    batchInserts[entry.priority].push(entry.player.id);
                   }
-                } catch (queueError) {
-                  logger.error(
-                    `Failed to add player ${player.id} back to queue: ${queueError}`,
-                  );
-                  // Make sure we unmark the player if an error occurred
-                  queueService.unmarkPlayerAsProcessing(player.id);
-                  // Continue with other players
+                  
+                  // Insert each priority group in a single batch operation
+                  for (const [priority, playerIds] of Object.entries(batchInserts)) {
+                    try {
+                      logger.info(`Batch adding ${playerIds.length} players with priority ${priority}`);
+                      for (const playerId of playerIds) {
+                        await this.storage.addPlayerToQueue({
+                          playerId,
+                          priority: parseInt(priority),
+                        }, tx);
+                      }
+                    } catch (batchError) {
+                      logger.error(`Error in batch queue addition for priority ${priority}: ${batchError}`);
+                      throw batchError;
+                    }
+                  }
+                  
+                  logger.info(`Successfully batch re-queued ${playersToRequeue.length} players`);
+                  return true;
+                });
+                
+              } catch (queueError) {
+                logger.error(`Failed in batch player re-queuing: ${queueError}`);
+                // Continue with deletion even if re-queuing has errors
+              } finally {
+                // Unmark all players regardless of success
+                for (const entry of playersToRequeue) {
+                  queueService.unmarkPlayerAsProcessing(entry.player.id);
                 }
               }
 
