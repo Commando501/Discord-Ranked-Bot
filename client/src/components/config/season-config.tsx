@@ -28,10 +28,6 @@ const rewardTierSchema = z.object({
   description: z.string().min(1, "Description is required"),
 });
 
-// Import rankTierSchema from shared directory instead of redefining it
-import { rankTierSchema } from "@shared/rankSystem";
-
-
 export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPanelProps) {
   // State to manage reward tiers UI
   const [newTierName, setNewTierName] = useState("");
