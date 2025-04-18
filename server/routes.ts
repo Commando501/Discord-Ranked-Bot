@@ -643,6 +643,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to distribute rewards' });
     }
   });
+  
+  // Reset all season data
+  app.post('/api/admin/seasons/reset-data', adminMiddleware, async (req, res) => {
+    try {
+      // Use transaction to ensure data consistency
+      return await withTransaction(async (tx) => {
+        logger.info('Starting season data reset - this will reset all match history and player data');
+        
+        // 1. Mark all matches as archived
+        logger.info('Archiving all matches...');
+        const matches = await tx.query.matches.findMany();
+        for (const match of matches) {
+          await tx.update(schema.matches).set({
+            status: 'ARCHIVED',
+            archivedAt: new Date()
+          }).where(eq(schema.matches.id, match.id));
+        }
+        
+        // 2. Clear the queue
+        logger.info('Clearing queue...');
+        await tx.delete(schema.queue);
+        
+        // 3. Reset all player stats
+        logger.info('Resetting player stats...');
+        const players = await tx.query.players.findMany();
+        for (const player of players) {
+          await tx.update(schema.players).set({
+            mmr: 1500,  // Reset to default MMR
+            wins: 0,
+            losses: 0,
+            winStreak: 0,
+            lossStreak: 0
+          }).where(eq(schema.players.id, player.id));
+        }
+        
+        // 4. Update season number and dates in config
+        logger.info('Updating season configuration...');
+        const currentConfig = await storage.getBotConfig();
+        const updatedSeasonConfig = {
+          ...currentConfig.seasonManagement,
+          currentSeason: 1,  // Reset to season 1
+          seasonStartDate: new Date().toISOString(),
+          seasonEndDate: (() => {
+            const endDate = new Date();
+            endDate.setMonth(endDate.getMonth() + 3);
+            return endDate.toISOString();
+          })()
+        };
+        
+        currentConfig.seasonManagement = updatedSeasonConfig;
+        await storage.updateBotConfig(currentConfig);
+        
+        // Log the action
+        const matchService = new MatchService(storage);
+        await matchService.logEvent(
+          "Season Data Reset",
+          "All match history has been archived and player stats have been reset.",
+          [
+            { name: "Admin Action", value: "Complete Data Reset", inline: true },
+            { name: "New Season", value: "1", inline: true },
+            { name: "Players Reset", value: players.length.toString(), inline: true },
+            { name: "Matches Archived", value: matches.length.toString(), inline: true }
+          ]
+        );
+        
+        return res.json({
+          success: true,
+          message: "Season data reset successful. All match history archived and player stats reset.",
+          playersReset: players.length,
+          matchesArchived: matches.length
+        });
+      });
+    } catch (error) {
+      logger.error(`Error resetting season data: ${error}`);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to reset season data due to an error"
+      });
+    }
+  });
 
   app.post('/api/matches/:id/cancel', adminMiddleware, async (req, res) => {
     try {
