@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { 
-  botConfigSchema, 
+import {
+  botConfigSchema,
   generalConfigSchema,
   matchmakingConfigSchema,
   mmrConfigSchema,
@@ -11,7 +11,7 @@ import {
   matchRulesConfigSchema,
   notificationConfigSchema,
   integrationConfigSchema,
-  dataManagementConfigSchema
+  dataManagementConfigSchema,
 } from "@shared/botConfig";
 import { players, Player } from "@shared/schema";
 import { getMatchService } from "./index.bot";
@@ -22,22 +22,24 @@ class MatchService {
   constructor(storage: any) {
     this.storage = storage;
   }
-  async cancelMatch(matchId: number): Promise<{ success: boolean; message?: string }> {
+  async cancelMatch(
+    matchId: number,
+  ): Promise<{ success: boolean; message?: string }> {
     try {
       const match = await this.storage.getMatch(matchId);
       if (!match) {
-        return { success: false, message: 'Match not found' };
+        return { success: false, message: "Match not found" };
       }
-      
+
       // Update match status to CANCELLED
-      await this.storage.updateMatch(matchId, { status: 'CANCELLED' });
-      
+      await this.storage.updateMatch(matchId, { status: "CANCELLED" });
+
       // Since we don't have a dedicated cancelMatch in storage,
       // we use updateMatch to mark the match as cancelled
-      return { success: true, message: 'Match cancelled successfully' };
+      return { success: true, message: "Match cancelled successfully" };
     } catch (error) {
-      console.error('Error cancelling match in service:', error);
-      return { success: false, message: 'Failed to cancel match' };
+      console.error("Error cancelling match in service:", error);
+      return { success: false, message: "Failed to cancel match" };
     }
   }
 }
@@ -51,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // API Routes for the frontend dashboard
-  app.get('/api/stats', async (req, res) => {
+  app.get("/api/stats", async (req, res) => {
     try {
       const queuePlayers = await storage.getQueuePlayers();
       const activeMatches = await storage.getActiveMatches();
@@ -60,46 +62,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         queueCount: queuePlayers.length,
         activeMatchesCount: activeMatches.length,
-        topPlayers
+        topPlayers,
       });
     } catch (error) {
-      console.error('Error fetching stats:', error);
-      res.status(500).json({ message: 'Failed to fetch statistics' });
+      console.error("Error fetching stats:", error);
+      res.status(500).json({ message: "Failed to fetch statistics" });
     }
   });
 
-  app.get('/api/queue', async (req, res) => {
+  app.get("/api/queue", async (req, res) => {
     try {
       const queuePlayers = await storage.getQueuePlayers();
       res.json(queuePlayers);
     } catch (error) {
-      console.error('Error fetching queue:', error);
-      res.status(500).json({ message: 'Failed to fetch queue data' });
+      console.error("Error fetching queue:", error);
+      res.status(500).json({ message: "Failed to fetch queue data" });
     }
   });
 
-  app.get('/api/matches/active', async (req, res) => {
+  app.get("/api/matches/active", async (req, res) => {
     try {
       const activeMatches = await storage.getActiveMatches();
       res.json(activeMatches);
     } catch (error) {
-      console.error('Error fetching active matches:', error);
-      res.status(500).json({ message: 'Failed to fetch active matches' });
+      console.error("Error fetching active matches:", error);
+      res.status(500).json({ message: "Failed to fetch active matches" });
     }
   });
 
-  app.get('/api/matches/history', async (req, res) => {
+  app.get("/api/matches/history", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const matchHistory = await storage.getMatchHistory(limit);
       res.json(matchHistory);
     } catch (error) {
-      console.error('Error fetching match history:', error);
-      res.status(500).json({ message: 'Failed to fetch match history' });
+      console.error("Error fetching match history:", error);
+      res.status(500).json({ message: "Failed to fetch match history" });
     }
   });
 
-  app.get('/api/players/top', async (req, res) => {
+  app.get("/api/players/top", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
 
@@ -111,116 +113,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(topPlayers);
     } catch (error) {
-      console.error('Error fetching top players:', error);
-      res.status(500).json({ message: 'Failed to fetch top players' });
+      console.error("Error fetching top players:", error);
+      res.status(500).json({ message: "Failed to fetch top players" });
     }
   });
 
   // Get player by Discord ID
-  app.get('/api/players/discord/:discordId', async (req, res) => {
+  app.get("/api/players/discord/:discordId", async (req, res) => {
     try {
       const { discordId } = req.params;
       const player = await storage.getPlayerByDiscordId(discordId);
 
       if (!player) {
-        return res.status(404).json({ message: 'Player not found' });
+        return res.status(404).json({ message: "Player not found" });
       }
 
       res.json(player);
     } catch (error) {
-      console.error('Error fetching player by Discord ID:', error);
-      res.status(500).json({ message: 'Failed to fetch player data' });
+      console.error("Error fetching player by Discord ID:", error);
+      res.status(500).json({ message: "Failed to fetch player data" });
     }
   });
 
   // Get player by player ID
-  app.get('/api/players/:id', async (req, res) => {
+  app.get("/api/players/:id", async (req, res) => {
     try {
       const playerId = parseInt(req.params.id);
 
       if (isNaN(playerId)) {
-        return res.status(400).json({ message: 'Invalid player ID' });
+        return res.status(400).json({ message: "Invalid player ID" });
       }
 
       const player = await storage.getPlayer(playerId);
 
       if (!player) {
-        return res.status(404).json({ message: 'Player not found' });
+        return res.status(404).json({ message: "Player not found" });
       }
 
       res.json(player);
     } catch (error) {
-      console.error('Error fetching player by ID:', error);
-      res.status(500).json({ message: 'Failed to fetch player data' });
+      console.error("Error fetching player by ID:", error);
+      res.status(500).json({ message: "Failed to fetch player data" });
     }
   });
 
-  app.get('/api/players/:id/matches', async (req, res) => {
+  app.get("/api/players/:id/matches", async (req, res) => {
     try {
       const playerId = parseInt(req.params.id);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
 
       if (isNaN(playerId)) {
-        return res.status(400).json({ message: 'Invalid player ID' });
+        return res.status(400).json({ message: "Invalid player ID" });
       }
 
       const player = await storage.getPlayer(playerId);
       if (!player) {
-        return res.status(404).json({ message: 'Player not found' });
+        return res.status(404).json({ message: "Player not found" });
       }
 
       const matches = await storage.getPlayerMatches(playerId, limit);
       res.json(matches);
     } catch (error) {
-      console.error('Error fetching player matches:', error);
-      res.status(500).json({ message: 'Failed to fetch player matches' });
+      console.error("Error fetching player matches:", error);
+      res.status(500).json({ message: "Failed to fetch player matches" });
     }
   });
 
-  app.get('/api/bot/commands', async (req, res) => {
+  app.get("/api/bot/commands", async (req, res) => {
     // This is a static list of available commands
     const commands = [
-      { name: '/queue', description: 'Join the matchmaking queue', usage: '/queue' },
-      { name: '/leave', description: 'Leave the matchmaking queue', usage: '/leave' },
-      { name: '/list', description: 'View current queue and matches', usage: '/list' },
-      { name: '/profile', description: 'View player statistics', usage: '/profile [user]' },
-      { name: '/history', description: 'View match history', usage: '/history [user] [count]' },
-      { name: '/streak', description: 'View win/loss streak', usage: '/streak [user]' },
-      { name: '/votekick', description: 'Vote to kick a player from a match', usage: '/votekick @user' },
-      { name: '/forcematch', description: 'Admin: Force create a match', usage: '/forcematch @user1 @user2...' },
-      { name: '/endmatch', description: 'Admin: End a match and record results', usage: '/endmatch <match_id> <winning_team>' },
-      { name: '/resetqueue', description: 'Admin: Reset the queue', usage: '/resetqueue' }
+      {
+        name: "/queue",
+        description: "Join the matchmaking queue",
+        usage: "/queue",
+      },
+      {
+        name: "/leave",
+        description: "Leave the matchmaking queue",
+        usage: "/leave",
+      },
+      {
+        name: "/list",
+        description: "View current queue and matches",
+        usage: "/list",
+      },
+      {
+        name: "/profile",
+        description: "View player statistics",
+        usage: "/profile [user]",
+      },
+      {
+        name: "/history",
+        description: "View match history",
+        usage: "/history [user] [count]",
+      },
+      {
+        name: "/streak",
+        description: "View win/loss streak",
+        usage: "/streak [user]",
+      },
+      {
+        name: "/votekick",
+        description: "Vote to kick a player from a match",
+        usage: "/votekick @user",
+      },
+      {
+        name: "/forcematch",
+        description: "Admin: Force create a match",
+        usage: "/forcematch @user1 @user2...",
+      },
+      {
+        name: "/endmatch",
+        description: "Admin: End a match and record results",
+        usage: "/endmatch <match_id> <winning_team>",
+      },
+      {
+        name: "/resetqueue",
+        description: "Admin: Reset the queue",
+        usage: "/resetqueue",
+      },
     ];
 
     res.json(commands);
   });
 
-  app.get('/api/bot/status', async (req, res) => {
+  app.get("/api/bot/status", async (req, res) => {
     // In a real implementation, this would come from the bot instance
     // For now, we'll return mock data about the bot status
     res.json({
-      version: '1.0.0',
-      status: 'online',
+      version: "1.0.0",
+      status: "online",
       uptime: process.uptime(),
-      connectedToDiscord: true
+      connectedToDiscord: true,
     });
   });
 
   // Bot Configuration Routes
 
   // Get bot configuration
-  app.get('/api/config', adminMiddleware, async (req, res) => {
+  app.get("/api/config", adminMiddleware, async (req, res) => {
     try {
       const config = await storage.getBotConfig();
       res.json(config);
     } catch (error) {
-      console.error('Error fetching bot configuration:', error);
-      res.status(500).json({ message: 'Failed to fetch bot configuration' });
+      console.error("Error fetching bot configuration:", error);
+      res.status(500).json({ message: "Failed to fetch bot configuration" });
     }
   });
 
   // Update bot configuration
-  app.put('/api/config', adminMiddleware, async (req, res) => {
+  app.put("/api/config", adminMiddleware, async (req, res) => {
     try {
       const configData = req.body;
 
@@ -231,29 +273,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(updatedConfig);
       } catch (validationError) {
         if (validationError instanceof z.ZodError) {
-          return res.status(400).json({ 
-            message: 'Invalid configuration data', 
-            errors: validationError.errors 
+          return res.status(400).json({
+            message: "Invalid configuration data",
+            errors: validationError.errors,
           });
         }
         throw validationError;
       }
     } catch (error) {
-      console.error('Error updating bot configuration:', error);
-      res.status(500).json({ message: 'Failed to update bot configuration' });
+      console.error("Error updating bot configuration:", error);
+      res.status(500).json({ message: "Failed to update bot configuration" });
     }
   });
 
   // Update specific configuration section
-  app.patch('/api/config/:section', adminMiddleware, async (req, res) => {
+  app.patch("/api/config/:section", adminMiddleware, async (req, res) => {
     try {
       const { section } = req.params;
       const sectionData = req.body;
 
       // Validate the section exists
       const validSections = [
-        'general', 'matchmaking', 'mmrSystem', 'seasonManagement',
-        'matchRules', 'notifications', 'integrations', 'dataManagement'
+        "general",
+        "matchmaking",
+        "mmrSystem",
+        "seasonManagement",
+        "matchRules",
+        "notifications",
+        "integrations",
+        "dataManagement",
       ];
 
       if (!validSections.includes(section)) {
@@ -268,74 +316,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let validatedSectionData;
 
         switch (section) {
-          case 'general':
+          case "general":
             validatedSectionData = generalConfigSchema.parse(sectionData);
             break;
-          case 'matchmaking':
+          case "matchmaking":
             validatedSectionData = matchmakingConfigSchema.parse(sectionData);
             break;
-          case 'mmrSystem':
+          case "mmrSystem":
             validatedSectionData = mmrConfigSchema.parse(sectionData);
             break;
-          case 'seasonManagement':
+          case "seasonManagement":
             validatedSectionData = seasonConfigSchema.parse(sectionData);
             break;
-          case 'matchRules':
+          case "matchRules":
             validatedSectionData = matchRulesConfigSchema.parse(sectionData);
             break;
-          case 'notifications':
+          case "notifications":
             validatedSectionData = notificationConfigSchema.parse(sectionData);
             break;
-          case 'integrations':
+          case "integrations":
             validatedSectionData = integrationConfigSchema.parse(sectionData);
             break;
-          case 'dataManagement':
-            validatedSectionData = dataManagementConfigSchema.parse(sectionData);
+          case "dataManagement":
+            validatedSectionData =
+              dataManagementConfigSchema.parse(sectionData);
             break;
           default:
-            throw new Error('Invalid section');
+            throw new Error("Invalid section");
         }
 
         // Update the section in the config
         const updatedConfig = {
           ...currentConfig,
-          [section]: validatedSectionData
+          [section]: validatedSectionData,
         };
 
         // Update the full config
         const savedConfig = await storage.updateBotConfig(updatedConfig);
-        res.json({ [section]: savedConfig[section as keyof typeof savedConfig] });
+        res.json({
+          [section]: savedConfig[section as keyof typeof savedConfig],
+        });
       } catch (validationError) {
         if (validationError instanceof z.ZodError) {
-          return res.status(400).json({ 
-            message: 'Invalid configuration data for section', 
-            errors: validationError.errors 
+          return res.status(400).json({
+            message: "Invalid configuration data for section",
+            errors: validationError.errors,
           });
         }
         throw validationError;
       }
     } catch (error) {
-      console.error('Error updating configuration section:', error);
-      res.status(500).json({ message: 'Failed to update configuration section' });
+      console.error("Error updating configuration section:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to update configuration section" });
     }
   });
 
   // Admin API routes
   // Get all players for admin
-  app.get('/api/admin/players', adminMiddleware, async (req, res) => {
+  app.get("/api/admin/players", adminMiddleware, async (req, res) => {
     try {
       // In a real app, we would have a method to get all players
       // For this example, we'll use the top players method with a high limit
       const players = await storage.listTopPlayers(100);
       res.json(players);
     } catch (error) {
-      console.error('Error fetching all players:', error);
-      res.status(500).json({ message: 'Failed to fetch players' });
+      console.error("Error fetching all players:", error);
+      res.status(500).json({ message: "Failed to fetch players" });
     }
   });
 
   // Create sample players (for development/testing only)
-  app.post('/api/dev/sample-data', adminMiddleware, async (req, res) => {
+  app.post("/api/dev/sample-data", adminMiddleware, async (req, res) => {
     try {
       // Create sample players
       const samplePlayers = [
@@ -349,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           losses: 12,
           winStreak: 3,
           lossStreak: 0,
-          isActive: true
+          isActive: true,
         },
         {
           username: "ProGamer",
@@ -361,7 +414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           losses: 8,
           winStreak: 6,
           lossStreak: 0,
-          isActive: true
+          isActive: true,
         },
         {
           username: "NoviceGamer",
@@ -373,7 +426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           losses: 15,
           winStreak: 0,
           lossStreak: 2,
-          isActive: true
+          isActive: true,
         },
         {
           username: "GamingLegend",
@@ -385,7 +438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           losses: 14,
           winStreak: 0,
           lossStreak: 1,
-          isActive: true
+          isActive: true,
         },
         {
           username: "CasualPlayer",
@@ -397,32 +450,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           losses: 19,
           winStreak: 2,
           lossStreak: 0,
-          isActive: true
-        }
+          isActive: true,
+        },
       ];
 
       for (const playerData of samplePlayers) {
         await storage.createPlayer(playerData);
       }
 
-      res.json({ 
-        success: true, 
-        message: 'Sample data created successfully',
-        playerCount: samplePlayers.length
+      res.json({
+        success: true,
+        message: "Sample data created successfully",
+        playerCount: samplePlayers.length,
       });
     } catch (error) {
-      console.error('Error creating sample data:', error);
-      res.status(500).json({ message: 'Failed to create sample data' });
+      console.error("Error creating sample data:", error);
+      res.status(500).json({ message: "Failed to create sample data" });
     }
   });
 
   // Update a player
-  app.patch('/api/admin/players/:id', adminMiddleware, async (req, res) => {
+  app.patch("/api/admin/players/:id", adminMiddleware, async (req, res) => {
     try {
       const playerId = parseInt(req.params.id);
 
       if (isNaN(playerId)) {
-        return res.status(400).json({ message: 'Invalid player ID' });
+        return res.status(400).json({ message: "Invalid player ID" });
       }
 
       // Validate the request body
@@ -431,34 +484,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Build the update data with only valid fields
       const updateData: Partial<Player> = {};
 
-      if (typeof mmr === 'number') updateData.mmr = mmr;
-      if (typeof wins === 'number') updateData.wins = wins;
-      if (typeof losses === 'number') updateData.losses = losses;
-      if (typeof winStreak === 'number') updateData.winStreak = winStreak;
-      if (typeof lossStreak === 'number') updateData.lossStreak = lossStreak;
-      if (typeof isActive === 'boolean') updateData.isActive = isActive;
+      if (typeof mmr === "number") updateData.mmr = mmr;
+      if (typeof wins === "number") updateData.wins = wins;
+      if (typeof losses === "number") updateData.losses = losses;
+      if (typeof winStreak === "number") updateData.winStreak = winStreak;
+      if (typeof lossStreak === "number") updateData.lossStreak = lossStreak;
+      if (typeof isActive === "boolean") updateData.isActive = isActive;
 
       // Check if there's anything to update
       if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ message: 'No valid fields to update' });
+        return res.status(400).json({ message: "No valid fields to update" });
       }
 
       // Update the player
       const updatedPlayer = await storage.updatePlayer(playerId, updateData);
 
       if (!updatedPlayer) {
-        return res.status(404).json({ message: 'Player not found' });
+        return res.status(404).json({ message: "Player not found" });
       }
 
       res.json(updatedPlayer);
     } catch (error) {
-      console.error('Error updating player:', error);
-      res.status(500).json({ message: 'Failed to update player' });
+      console.error("Error updating player:", error);
+      res.status(500).json({ message: "Failed to update player" });
     }
   });
 
   // Get all matches for admin
-  app.get('/api/admin/matches', adminMiddleware, async (req, res) => {
+  app.get("/api/admin/matches", adminMiddleware, async (req, res) => {
     try {
       // Get both active and completed matches with a high limit
       const activeMatches = await storage.getActiveMatches();
@@ -466,23 +519,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Combine and sort by creation date
       const allMatches = [...activeMatches, ...recentMatches].sort((a, b) => {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
       });
 
       res.json(allMatches);
     } catch (error) {
-      console.error('Error fetching all matches:', error);
-      res.status(500).json({ message: 'Failed to fetch matches' });
+      console.error("Error fetching all matches:", error);
+      res.status(500).json({ message: "Failed to fetch matches" });
     }
   });
 
   // Update a match
-  app.patch('/api/admin/matches/:id', adminMiddleware, async (req, res) => {
+  app.patch("/api/admin/matches/:id", adminMiddleware, async (req, res) => {
     try {
       const matchId = parseInt(req.params.id);
 
       if (isNaN(matchId)) {
-        return res.status(400).json({ message: 'Invalid match ID' });
+        return res.status(400).json({ message: "Invalid match ID" });
       }
 
       const matchData = req.body;
@@ -491,18 +546,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedMatch = await storage.updateMatch(matchId, matchData);
 
       if (!updatedMatch) {
-        return res.status(404).json({ message: 'Match not found' });
+        return res.status(404).json({ message: "Match not found" });
       }
 
       res.json(updatedMatch);
     } catch (error) {
-      console.error('Error updating match:', error);
-      res.status(500).json({ message: 'Failed to update match' });
+      console.error("Error updating match:", error);
+      res.status(500).json({ message: "Failed to update match" });
     }
   });
 
   // Get all teams for admin
-  app.get('/api/admin/teams', adminMiddleware, async (req, res) => {
+  app.get("/api/admin/teams", adminMiddleware, async (req, res) => {
     try {
       // In a real app, we would have a method to get all teams
       // For this demo, we'll get teams from active matches
@@ -515,57 +570,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(allTeams);
     } catch (error) {
-      console.error('Error fetching all teams:', error);
-      res.status(500).json({ message: 'Failed to fetch teams' });
+      console.error("Error fetching all teams:", error);
+      res.status(500).json({ message: "Failed to fetch teams" });
     }
   });
 
   // Get all queue entries for admin
-  app.get('/api/admin/queue', adminMiddleware, async (req, res) => {
+  app.get("/api/admin/queue", adminMiddleware, async (req, res) => {
     try {
       const queuePlayers = await storage.getQueuePlayers();
       res.json(queuePlayers);
     } catch (error) {
-      console.error('Error fetching queue:', error);
-      res.status(500).json({ message: 'Failed to fetch queue data' });
+      console.error("Error fetching queue:", error);
+      res.status(500).json({ message: "Failed to fetch queue data" });
     }
   });
 
   // Remove player from queue
-  app.delete('/api/admin/queue/:playerId', adminMiddleware, async (req, res) => {
-    try {
-      const playerId = parseInt(req.params.playerId);
+  app.delete(
+    "/api/admin/queue/:playerId",
+    adminMiddleware,
+    async (req, res) => {
+      try {
+        const playerId = parseInt(req.params.playerId);
 
-      if (isNaN(playerId)) {
-        return res.status(400).json({ message: 'Invalid player ID' });
+        if (isNaN(playerId)) {
+          return res.status(400).json({ message: "Invalid player ID" });
+        }
+
+        const success = await storage.removePlayerFromQueue(playerId);
+
+        if (!success) {
+          return res.status(404).json({ message: "Player not found in queue" });
+        }
+
+        res.json({ success: true, message: "Player removed from queue" });
+      } catch (error) {
+        console.error("Error removing player from queue:", error);
+        res.status(500).json({ message: "Failed to remove player from queue" });
       }
-
-      const success = await storage.removePlayerFromQueue(playerId);
-
-      if (!success) {
-        return res.status(404).json({ message: 'Player not found in queue' });
-      }
-
-      res.json({ success: true, message: 'Player removed from queue' });
-    } catch (error) {
-      console.error('Error removing player from queue:', error);
-      res.status(500).json({ message: 'Failed to remove player from queue' });
-    }
-  });
+    },
+  );
 
   // Clear queue
-  app.post('/api/admin/queue/clear', adminMiddleware, async (req, res) => {
+  app.post("/api/admin/queue/clear", adminMiddleware, async (req, res) => {
     try {
       await storage.clearQueue();
-      res.json({ success: true, message: 'Queue cleared successfully' });
+      res.json({ success: true, message: "Queue cleared successfully" });
     } catch (error) {
-      console.error('Error clearing queue:', error);
-      res.status(500).json({ message: 'Failed to clear queue' });
+      console.error("Error clearing queue:", error);
+      res.status(500).json({ message: "Failed to clear queue" });
     }
   });
 
   // Start a new season
-  app.post('/api/admin/seasons/new', adminMiddleware, async (req, res) => {
+  app.post("/api/admin/seasons/new", adminMiddleware, async (req, res) => {
     try {
       // Get current config
       const currentConfig = await storage.getBotConfig();
@@ -586,11 +645,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...seasonManagement,
         currentSeason: newSeasonNumber,
         seasonStartDate: startDate,
-        seasonEndDate: endDate.toISOString()
+        seasonEndDate: endDate.toISOString(),
       };
 
       // Apply MMR reset based on config
-      if (seasonManagement.mmrResetType !== 'none') {
+      if (seasonManagement.mmrResetType !== "none") {
         // In a real implementation, we would reset MMR for all players here
         // For this demo, we'll just acknowledge it in the response
       }
@@ -599,151 +658,185 @@ export async function registerRoutes(app: Express): Promise<Server> {
       currentConfig.seasonManagement = updatedSeasonConfig;
       await storage.updateBotConfig(currentConfig);
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: `Season ${newSeasonNumber} started successfully`,
-        seasonData: updatedSeasonConfig
+        seasonData: updatedSeasonConfig,
       });
     } catch (error) {
-      console.error('Error starting new season:', error);
-      res.status(500).json({ message: 'Failed to start new season' });
+      console.error("Error starting new season:", error);
+      res.status(500).json({ message: "Failed to start new season" });
     }
   });
 
   // Distribute season rewards
-  app.post('/api/admin/seasons/distribute-rewards', adminMiddleware, async (req, res) => {
-    try {
-      // Get current config
-      const currentConfig = await storage.getBotConfig();
-      const { seasonManagement } = currentConfig;
+  app.post(
+    "/api/admin/seasons/distribute-rewards",
+    adminMiddleware,
+    async (req, res) => {
+      try {
+        // Get current config
+        const currentConfig = await storage.getBotConfig();
+        const { seasonManagement } = currentConfig;
 
-      // In a real implementation, we would:
-      // 1. Get all players
-      // 2. Calculate their rewards based on MMR thresholds
-      // 3. Send messages to Discord users
-      // 4. Generate logs
+        // In a real implementation, we would:
+        // 1. Get all players
+        // 2. Calculate their rewards based on MMR thresholds
+        // 3. Send messages to Discord users
+        // 4. Generate logs
 
-      // For this demo, we'll just acknowledge the request
+        // For this demo, we'll just acknowledge the request
 
-      // Check if we have reward tiers defined
-      if (!seasonManagement.rewardTiers || seasonManagement.rewardTiers.length === 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'No reward tiers defined. Please define reward tiers before distributing rewards.' 
+        // Check if we have reward tiers defined
+        if (
+          !seasonManagement.rewardTiers ||
+          seasonManagement.rewardTiers.length === 0
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "No reward tiers defined. Please define reward tiers before distributing rewards.",
+          });
+        }
+
+        res.json({
+          success: true,
+          message: `Rewards for Season ${seasonManagement.currentSeason} distributed successfully`,
+          rewardTiers: seasonManagement.rewardTiers.length,
+        });
+      } catch (error) {
+        console.error("Error distributing rewards:", error);
+        res.status(500).json({ message: "Failed to distribute rewards" });
+      }
+    },
+  );
+
+  // Reset all season data
+  app.post(
+    "/api/admin/seasons/reset-data",
+    adminMiddleware,
+    async (req, res) => {
+      try {
+        // Use transaction to ensure data consistency
+        return await withTransaction(async (tx) => {
+          logger.info(
+            "Starting season data reset - this will reset all match history and player data",
+          );
+
+          // 1. Mark all matches as archived
+          logger.info("Archiving all matches...");
+          const matches = await tx.query.matches.findMany();
+          for (const match of matches) {
+            await tx
+              .update(schema.matches)
+              .set({
+                status: "ARCHIVED",
+                archivedAt: new Date(),
+              })
+              .where(eq(schema.matches.id, match.id));
+          }
+
+          // 2. Clear the queue
+          logger.info("Clearing queue...");
+          await tx.delete(schema.queue);
+
+          // 3. Reset all player stats
+          logger.info("Resetting player stats...");
+          const players = await tx.query.players.findMany();
+          for (const player of players) {
+            await tx
+              .update(schema.players)
+              .set({
+                mmr: 1000, // Reset to default MMR
+                wins: 0,
+                losses: 0,
+                winStreak: 0,
+                lossStreak: 0,
+              })
+              .where(eq(schema.players.id, player.id));
+          }
+
+          // 4. Update season number and dates in config
+          logger.info("Updating season configuration...");
+          const currentConfig = await storage.getBotConfig();
+          const updatedSeasonConfig = {
+            ...currentConfig.seasonManagement,
+            currentSeason: 1, // Reset to season 1
+            seasonStartDate: new Date().toISOString(),
+            seasonEndDate: (() => {
+              const endDate = new Date();
+              endDate.setMonth(endDate.getMonth() + 3);
+              return endDate.toISOString();
+            })(),
+          };
+
+          currentConfig.seasonManagement = updatedSeasonConfig;
+          await storage.updateBotConfig(currentConfig);
+
+          // Log the action
+          const matchService = new MatchService(storage);
+          await matchService.logEvent(
+            "Season Data Reset",
+            "All match history has been archived and player stats have been reset.",
+            [
+              {
+                name: "Admin Action",
+                value: "Complete Data Reset",
+                inline: true,
+              },
+              { name: "New Season", value: "1", inline: true },
+              {
+                name: "Players Reset",
+                value: players.length.toString(),
+                inline: true,
+              },
+              {
+                name: "Matches Archived",
+                value: matches.length.toString(),
+                inline: true,
+              },
+            ],
+          );
+
+          return res.json({
+            success: true,
+            message:
+              "Season data reset successful. All match history archived and player stats reset.",
+            playersReset: players.length,
+            matchesArchived: matches.length,
+          });
+        });
+      } catch (error) {
+        logger.error(`Error resetting season data: ${error}`);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to reset season data due to an error",
         });
       }
+    },
+  );
 
-      res.json({ 
-        success: true, 
-        message: `Rewards for Season ${seasonManagement.currentSeason} distributed successfully`,
-        rewardTiers: seasonManagement.rewardTiers.length
-      });
-    } catch (error) {
-      console.error('Error distributing rewards:', error);
-      res.status(500).json({ message: 'Failed to distribute rewards' });
-    }
-  });
-  
-  // Reset all season data
-  app.post('/api/admin/seasons/reset-data', adminMiddleware, async (req, res) => {
-    try {
-      // Use transaction to ensure data consistency
-      return await withTransaction(async (tx) => {
-        logger.info('Starting season data reset - this will reset all match history and player data');
-        
-        // 1. Mark all matches as archived
-        logger.info('Archiving all matches...');
-        const matches = await tx.query.matches.findMany();
-        for (const match of matches) {
-          await tx.update(schema.matches).set({
-            status: 'ARCHIVED',
-            archivedAt: new Date()
-          }).where(eq(schema.matches.id, match.id));
-        }
-        
-        // 2. Clear the queue
-        logger.info('Clearing queue...');
-        await tx.delete(schema.queue);
-        
-        // 3. Reset all player stats
-        logger.info('Resetting player stats...');
-        const players = await tx.query.players.findMany();
-        for (const player of players) {
-          await tx.update(schema.players).set({
-            mmr: 1500,  // Reset to default MMR
-            wins: 0,
-            losses: 0,
-            winStreak: 0,
-            lossStreak: 0
-          }).where(eq(schema.players.id, player.id));
-        }
-        
-        // 4. Update season number and dates in config
-        logger.info('Updating season configuration...');
-        const currentConfig = await storage.getBotConfig();
-        const updatedSeasonConfig = {
-          ...currentConfig.seasonManagement,
-          currentSeason: 1,  // Reset to season 1
-          seasonStartDate: new Date().toISOString(),
-          seasonEndDate: (() => {
-            const endDate = new Date();
-            endDate.setMonth(endDate.getMonth() + 3);
-            return endDate.toISOString();
-          })()
-        };
-        
-        currentConfig.seasonManagement = updatedSeasonConfig;
-        await storage.updateBotConfig(currentConfig);
-        
-        // Log the action
-        const matchService = new MatchService(storage);
-        await matchService.logEvent(
-          "Season Data Reset",
-          "All match history has been archived and player stats have been reset.",
-          [
-            { name: "Admin Action", value: "Complete Data Reset", inline: true },
-            { name: "New Season", value: "1", inline: true },
-            { name: "Players Reset", value: players.length.toString(), inline: true },
-            { name: "Matches Archived", value: matches.length.toString(), inline: true }
-          ]
-        );
-        
-        return res.json({
-          success: true,
-          message: "Season data reset successful. All match history archived and player stats reset.",
-          playersReset: players.length,
-          matchesArchived: matches.length
-        });
-      });
-    } catch (error) {
-      logger.error(`Error resetting season data: ${error}`);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to reset season data due to an error"
-      });
-    }
-  });
-
-  app.post('/api/matches/:id/cancel', adminMiddleware, async (req, res) => {
+  app.post("/api/matches/:id/cancel", adminMiddleware, async (req, res) => {
     try {
       const matchId = parseInt(req.params.id);
       if (isNaN(matchId)) {
-        return res.status(400).json({ message: 'Invalid match ID' });
+        return res.status(400).json({ message: "Invalid match ID" });
       }
 
       // Get the bot MatchService instance to handle Discord channel cleanup
       const matchService = getMatchService();
       if (!matchService) {
-        console.error('Could not get MatchService instance from bot');
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Failed to cancel match: Bot services not initialized'
+        console.error("Could not get MatchService instance from bot");
+        return res.status(500).json({
+          success: false,
+          message: "Failed to cancel match: Bot services not initialized",
         });
       }
 
       // Use handleMatchCancellation method which properly cleans up Discord channels
       // and returns players to queue
-      const cancellationResult = await matchService.handleMatchCancellation(matchId);
+      const cancellationResult =
+        await matchService.handleMatchCancellation(matchId);
 
       if (cancellationResult.success) {
         res.json(cancellationResult);
@@ -751,50 +844,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(400).json(cancellationResult);
       }
     } catch (error) {
-      console.error('Error cancelling match:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Failed to cancel match due to server error'
+      console.error("Error cancelling match:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to cancel match due to server error",
       });
     }
   });
-  
-  // Cancel match without returning players to queue
-  app.post('/api/matches/:id/cancel-reset', adminMiddleware, async (req, res) => {
-    try {
-      const matchId = parseInt(req.params.id);
-      if (isNaN(matchId)) {
-        return res.status(400).json({ message: 'Invalid match ID' });
-      }
 
-      // Get the bot MatchService instance to handle Discord channel cleanup
-      const matchService = getMatchService();
-      if (!matchService) {
-        console.error('Could not get MatchService instance from bot');
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Failed to reset match: Bot services not initialized'
+  // Cancel match without returning players to queue
+  app.post(
+    "/api/matches/:id/cancel-reset",
+    adminMiddleware,
+    async (req, res) => {
+      try {
+        const matchId = parseInt(req.params.id);
+        if (isNaN(matchId)) {
+          return res.status(400).json({ message: "Invalid match ID" });
+        }
+
+        // Get the bot MatchService instance to handle Discord channel cleanup
+        const matchService = getMatchService();
+        if (!matchService) {
+          console.error("Could not get MatchService instance from bot");
+          return res.status(500).json({
+            success: false,
+            message: "Failed to reset match: Bot services not initialized",
+          });
+        }
+
+        // Use handleMatchCancellationNoQueue which cleans up Discord channels
+        // but does NOT return players to queue
+        const resetResult =
+          await matchService.handleMatchCancellationNoQueue(matchId);
+
+        if (resetResult.success) {
+          res.json(resetResult);
+        } else {
+          res.status(400).json(resetResult);
+        }
+      } catch (error) {
+        console.error("Error resetting match:", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to reset match due to server error",
         });
       }
-
-      // Use handleMatchCancellationNoQueue which cleans up Discord channels
-      // but does NOT return players to queue
-      const resetResult = await matchService.handleMatchCancellationNoQueue(matchId);
-
-      if (resetResult.success) {
-        res.json(resetResult);
-      } else {
-        res.status(400).json(resetResult);
-      }
-    } catch (error) {
-      console.error('Error resetting match:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Failed to reset match due to server error'
-      });
-    }
-  });
-
+    },
+  );
 
   const httpServer = createServer(app);
   return httpServer;
