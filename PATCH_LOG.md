@@ -1,6 +1,17 @@
 
 # Project Patch Log Index
 
+# Project Patch Log Index
+
+This file serves as an index to all patch logs, organized by time period.
+
+- 2025-05-28: Fixed syntax error in QueueService by moving batchRemovePlayersFromQueue into the class
+- 2025-05-27: Fixed syntax error in playerService.ts preventing application startup
+- 2025-05-27: Fixed syntax error in routes.ts by properly positioning rank image upload route
+- 2025-05-26: Added rank image support to represent player ranks in web and Discord interfaces
+
+
+
 This file serves as an index to all patch logs, organized by time period.
 
 - 2025-05-27: Fixed syntax error in playerService.ts preventing application startup

@@ -584,20 +584,17 @@ export class QueueService {
             this.matchCreationInProgress = false;
         }
     }
-}
 
-// We now use getDiscordBot imported from '../../index.bot' instead of this placeholder
-
-/**
- * Batch remove multiple players from the queue in a single operation
- * @param playerIds Array of player IDs to remove from queue
- * @param tx Optional transaction object
- * @returns Success status and message
- */
-async function batchRemovePlayersFromQueue(
-    playerIds: number[],
-    tx?: any
-): Promise<{ success: boolean; message: string }> {
+    /**
+     * Batch remove multiple players from the queue in a single operation
+     * @param playerIds Array of player IDs to remove from queue
+     * @param tx Optional transaction object
+     * @returns Success status and message
+     */
+    async batchRemovePlayersFromQueue(
+        playerIds: number[],
+        tx?: any
+    ): Promise<{ success: boolean; message: string }> {
         try {
             if (playerIds.length === 0) {
                 return { success: true, message: "No players to remove" };
@@ -637,3 +634,6 @@ async function batchRemovePlayersFromQueue(
             };
         }
     }
+}
+
+// We now use getDiscordBot imported from '../../index.bot' instead of this placeholder
