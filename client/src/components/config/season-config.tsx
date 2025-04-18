@@ -28,12 +28,8 @@ const rewardTierSchema = z.object({
   description: z.string().min(1, "Description is required"),
 });
 
-// Define a schema for rank tiers (mirroring reward tiers for simplicity)
-const rankTierSchema = z.object({
-    name: z.string().min(1, "Name is required"),
-    mmrThreshold: z.number().int().min(0, "MMR threshold must be at least 0"),
-    description: z.string().min(1, "Description is required"),
-  });
+// Import rankTierSchema from shared directory instead of redefining it
+import { rankTierSchema } from "@shared/rankSystem";
 
 
 export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPanelProps) {
