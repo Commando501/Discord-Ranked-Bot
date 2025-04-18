@@ -588,8 +588,6 @@ export class QueueService {
 
 // We now use getDiscordBot imported from '../../index.bot' instead of this placeholder
 
-}
-
 /**
  * Batch remove multiple players from the queue in a single operation
  * @param playerIds Array of player IDs to remove from queue
