@@ -437,20 +437,60 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
               <div className="space-y-2">
                 {rankTiers.map((tier, index) => (
                   <div key={index} className="flex items-center justify-between p-3 border rounded-md">
-                    <div className="flex-1 flex items-center">
-                      {tier.color && (
-                        <div 
-                          className="w-4 h-4 rounded-full mr-2" 
-                          style={{ backgroundColor: tier.color }}
-                        ></div>
-                      )}
-                      <div>
-                        <div className="font-medium">{tier.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          MMR: {tier.mmrThreshold} - {tier.description}
+                    {editingRankTierIndex === index ? (
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-2">
+                        <div>
+                          <Input
+                            value={editedRankTier?.name || ""}
+                            onChange={(e) => setEditedRankTier({...editedRankTier!, name: e.target.value})}
+                            placeholder="Tier Name"
+                          />
+                        </div>
+                        <div>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={editedRankTier?.mmrThreshold || 0}
+                            onChange={(e) => setEditedRankTier({...editedRankTier!, mmrThreshold: parseInt(e.target.value)})}
+                            placeholder="MMR Threshold"
+                          />
+                        </div>
+                        <div className="flex">
+                          <div 
+                            className="w-10 h-10 rounded-l-md flex items-center justify-center" 
+                            style={{ backgroundColor: editedRankTier?.color || "#000000" }}
+                          ></div>
+                          <Input
+                            value={editedRankTier?.color || ""}
+                            onChange={(e) => setEditedRankTier({...editedRankTier!, color: e.target.value})}
+                            placeholder="#000000"
+                            className="rounded-l-none"
+                          />
+                        </div>
+                        <div>
+                          <Input
+                            value={editedRankTier?.description || ""}
+                            onChange={(e) => setEditedRankTier({...editedRankTier!, description: e.target.value})}
+                            placeholder="Description"
+                          />
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex-1 flex items-center">
+                        {tier.color && (
+                          <div 
+                            className="w-4 h-4 rounded-full mr-2" 
+                            style={{ backgroundColor: tier.color }}
+                          ></div>
+                        )}
+                        <div>
+                          <div className="font-medium">{tier.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            MMR: {tier.mmrThreshold} - {tier.description}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div>
                       {editingRankTierIndex === index ? (
                         <>
