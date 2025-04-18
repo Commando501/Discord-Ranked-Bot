@@ -5,7 +5,7 @@ import { DiscordUser } from '@shared/schema';
 import { RankTier, Player } from '@shared/schema';
 import { getPlayerRank, getProgressToNextRank } from '@shared/rankSystem';
 import { config } from '../config';
-import { defaultRankTiers } from '@shared/botConfig';
+import { defaultRankTiers } from '@shared/rankSystem';
 
 export class PlayerService {
   private storage: IStorage;
