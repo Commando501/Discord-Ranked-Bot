@@ -130,6 +130,28 @@ export default function LeaderboardsPage() {
   const topPlayers = getTopPlayers();
   const tablePlayers = getTablePlayers();
 
+  // Function to retrieve rank tiers from API
+  const getRankTiers = (): RankTier[] => {
+    // Get the rank tiers from the config endpoint
+    const { data: config } = useQuery({
+      queryKey: ['/api/config'],
+    });
+    
+    // If we have rankTiers in the config, use them
+    if (config?.seasonManagement?.rankTiers && config.seasonManagement.rankTiers.length > 0) {
+      return config.seasonManagement.rankTiers;
+    }
+    
+    // Otherwise fall back to the default tiers
+    return [
+      { name: "Bronze", mmrThreshold: 0, color: "#B9BBBE" },
+      { name: "Silver", mmrThreshold: 1000, color: "#5865F2" },
+      { name: "Gold", mmrThreshold: 1500, color: "#3BA55C" },
+      { name: "Platinum", mmrThreshold: 2000, color: "#FAA61A" },
+      { name: "Diamond", mmrThreshold: 2500, color: "#ED4245" },
+    ];
+  };
+
   // Calculate MMR distribution based on rank tiers
   const getMmrDistribution = () => {
     if (!players || players.length === 0) return [];
@@ -172,28 +194,6 @@ export default function LeaderboardsPage() {
   };
 
   const mmrDistribution = getMmrDistribution();
-
-  // Function to retrieve rank tiers from API
-  const getRankTiers = (): RankTier[] => {
-    // Get the rank tiers from the config endpoint
-    const { data: config } = useQuery({
-      queryKey: ['/api/config'],
-    });
-    
-    // If we have rankTiers in the config, use them
-    if (config?.seasonManagement?.rankTiers && config.seasonManagement.rankTiers.length > 0) {
-      return config.seasonManagement.rankTiers;
-    }
-    
-    // Otherwise fall back to the default tiers
-    return [
-      { name: "Bronze", mmrThreshold: 0, color: "#B9BBBE" },
-      { name: "Silver", mmrThreshold: 1000, color: "#5865F2" },
-      { name: "Gold", mmrThreshold: 1500, color: "#3BA55C" },
-      { name: "Platinum", mmrThreshold: 2000, color: "#FAA61A" },
-      { name: "Diamond", mmrThreshold: 2500, color: "#ED4245" },
-    ];
-  };
 
   return (
     <AppLayout>
