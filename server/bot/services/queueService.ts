@@ -594,7 +594,7 @@ export class QueueService {
  * @param tx Optional transaction object
  * @returns Success status and message
  */
-async batchRemovePlayersFromQueue(
+async function batchRemovePlayersFromQueue(
     playerIds: number[],
     tx?: any
 ): Promise<{ success: boolean; message: string }> {
