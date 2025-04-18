@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash } from "lucide-react";
+import { Plus, Trash, Pencil, Save, X } from "lucide-react";
 import { z } from "zod";
 import { rankTierSchema } from "@shared/rankSystem";
 
@@ -35,12 +35,14 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
   const [newTierDescription, setNewTierDescription] = useState("");
   const [tiers, setTiers] = useState(config.rewardTiers || []);
   const [rankTiers, setRankTiers] = useState(config.rankTiers || []); // Added rank tiers state
-  
+
   // State for new rank tier inputs
   const [newRankTierName, setNewRankTierName] = useState("");
   const [newRankTierMmr, setNewRankTierMmr] = useState(0);
   const [newRankTierColor, setNewRankTierColor] = useState("#3BA55C");
   const [newRankTierDescription, setNewRankTierDescription] = useState("");
+  const [editingRankTierIndex, setEditingRankTierIndex] = useState<number | null>(null);
+  const [editedRankTier, setEditedRankTier] = useState<RankTier | null>(null);
 
   // Create a form with validation
   const form = useForm<SeasonConfig>({
@@ -134,6 +136,26 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
       setRankTiers(updatedRankTiers);
       onChange({...form.getValues(), rankTiers: updatedRankTiers});
     };
+
+  const handleEditRankTier = (index: number) => {
+    setEditingRankTierIndex(index);
+    setEditedRankTier({...rankTiers[index]});
+  };
+
+  const handleSaveRankTier = (index: number) => {
+    const updatedRankTiers = [...rankTiers];
+    updatedRankTiers[index] = editedRankTier!;
+    setRankTiers(updatedRankTiers);
+    onChange({...form.getValues(), rankTiers: updatedRankTiers});
+    setEditingRankTierIndex(null);
+    setEditedRankTier(null);
+  };
+
+  const handleCancelRankTierEdit = () => {
+    setEditingRankTierIndex(null);
+    setEditedRankTier(null);
+  };
+
 
   // Format date for display
   const formatDate = (dateString?: string) => {
@@ -429,9 +451,27 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                         </div>
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => removeRankTier(index)}>
-                      <Trash className="h-4 w-4" />
-                    </Button>
+                    <div>
+                      {editingRankTierIndex === index ? (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => handleSaveRankTier(index)}>
+                            <Save className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={handleCancelRankTierEdit}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => removeRankTier(index)}>
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleEditRankTier(index)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {rankTiers.length === 0 && (
