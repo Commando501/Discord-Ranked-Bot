@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { CalendarIcon, Plus, Trash } from "lucide-react";
 import { z } from "zod";
+import { rankTierSchema } from "@shared/rankSystem";
 
 interface SeasonConfigPanelProps {
   config: SeasonConfig;
@@ -27,12 +28,22 @@ const rewardTierSchema = z.object({
   description: z.string().min(1, "Description is required"),
 });
 
+// Define a schema for rank tiers (mirroring reward tiers for simplicity)
+const rankTierSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    mmrThreshold: z.number().int().min(0, "MMR threshold must be at least 0"),
+    description: z.string().min(1, "Description is required"),
+  });
+
+
 export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPanelProps) {
   // State to manage reward tiers UI
   const [newTierName, setNewTierName] = useState("");
   const [newTierMmr, setNewTierMmr] = useState(0);
   const [newTierDescription, setNewTierDescription] = useState("");
   const [tiers, setTiers] = useState(config.rewardTiers || []);
+  const [rankTiers, setRankTiers] = useState(config.rankTiers || []); // Added rank tiers state
+
 
   // Create a form with validation
   const form = useForm<SeasonConfig>({
@@ -45,16 +56,19 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
     if (config.rewardTiers) {
       setTiers(config.rewardTiers);
     }
-  }, [config.rewardTiers]);
+    if (config.rankTiers) {
+      setRankTiers(config.rankTiers);
+    }
+  }, [config.rewardTiers, config.rankTiers]);
 
   // Watch for form changes and update parent component
   React.useEffect(() => {
     const subscription = form.watch((value) => {
-      // Make sure to include the tiers
-      onChange({ ...value, rewardTiers: tiers } as SeasonConfig);
+      // Make sure to include the tiers and rankTiers
+      onChange({ ...value, rewardTiers: tiers, rankTiers: rankTiers } as SeasonConfig);
     });
     return () => subscription.unsubscribe();
-  }, [form.watch, onChange, tiers]);
+  }, [form.watch, onChange, tiers, rankTiers]);
 
   // Add a new tier
   const addTier = () => {
@@ -64,14 +78,14 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
         mmrThreshold: newTierMmr,
         description: newTierDescription,
       });
-      
+
       // Add new tier and sort by MMR threshold
       const updatedTiers = [...tiers, newTier].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
       setTiers(updatedTiers);
-      
+
       // Update the form data
       onChange({ ...form.getValues(), rewardTiers: updatedTiers });
-      
+
       // Reset input fields
       setNewTierName("");
       setNewTierMmr(0);
@@ -81,15 +95,27 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
     }
   };
 
-  // Remove a tier
+  //Remove a tier
   const removeTier = (index: number) => {
     const updatedTiers = [...tiers];
     updatedTiers.splice(index, 1);
     setTiers(updatedTiers);
-    
-    // Update the form data
-    onChange({ ...form.getValues(), rewardTiers: updatedTiers });
+    onChange({...form.getValues(), rewardTiers: updatedTiers});
+  }
+
+  // Add a new rank tier
+  const addRankTier = () => {
+    //Implementation for adding a new rank tier would go here, mirroring the addTier function
+    //This would require a new state variable for newRankTierName etc. and a function to handle adding the new rank tier to the rankTiers state
   };
+
+    // Remove a rank tier
+    const removeRankTier = (index: number) => {
+      const updatedRankTiers = [...rankTiers];
+      updatedRankTiers.splice(index, 1);
+      setRankTiers(updatedRankTiers);
+      onChange({...form.getValues(), rankTiers: updatedRankTiers});
+    };
 
   // Format date for display
   const formatDate = (dateString?: string) => {
@@ -111,7 +137,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
             {/* Basic Season Settings */}
             <div className="space-y-4">
               <div className="text-lg font-medium">Season Settings</div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
@@ -134,7 +160,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="mmrResetType"
@@ -164,7 +190,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                   )}
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
@@ -202,7 +228,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="seasonEndDate"
@@ -240,7 +266,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={form.control}
                 name="placementMatchRequirements"
@@ -263,7 +289,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="enableEndOfSeasonAnnouncements"
@@ -285,11 +311,11 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                 )}
               />
             </div>
-            
+
             {/* Reward Tiers */}
             <div className="space-y-4 pt-4">
               <div className="text-lg font-medium">Reward Tiers</div>
-              
+
               <div className="space-y-2">
                 {tiers.map((tier, index) => (
                   <div key={index} className="flex items-center justify-between p-3 border rounded-md">
@@ -304,19 +330,19 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                     </Button>
                   </div>
                 ))}
-                
+
                 {tiers.length === 0 && (
                   <div className="text-center p-4 border rounded-md text-muted-foreground">
                     No reward tiers defined
                   </div>
                 )}
               </div>
-              
+
               <Separator />
-              
+
               <div className="space-y-4">
                 <div className="text-sm font-medium">Add New Tier</div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <FormLabel htmlFor="tierName">Tier Name</FormLabel>
@@ -327,7 +353,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                       placeholder="Diamond"
                     />
                   </div>
-                  
+
                   <div>
                     <FormLabel htmlFor="tierMmr">MMR Threshold</FormLabel>
                     <Input
@@ -339,7 +365,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                       placeholder="2000"
                     />
                   </div>
-                  
+
                   <div>
                     <FormLabel htmlFor="tierDescription">Description</FormLabel>
                     <Input
@@ -350,7 +376,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                     />
                   </div>
                 </div>
-                
+
                 <Button 
                   type="button" 
                   onClick={addTier} 
@@ -359,6 +385,45 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Tier
+                </Button>
+              </div>
+            </div>
+
+            {/* Rank Tiers Section */}
+            <div className="space-y-4 pt-4">
+              <div className="text-lg font-medium">Rank Tiers</div>
+
+              {/* Rank Tiers UI -  mirroring the Reward Tiers UI */}
+              <div className="space-y-2">
+                {rankTiers.map((tier, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-md">
+                    <div className="flex-1">
+                      <div className="font-medium">{tier.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        MMR: {tier.mmrThreshold} - {tier.description}
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => removeRankTier(index)}>
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                {rankTiers.length === 0 && (
+                  <div className="text-center p-4 border rounded-md text-muted-foreground">
+                    No rank tiers defined
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Add New Rank Tier Section */}
+              {/* This would need to be fleshed out with actual input fields for rank tier properties */}
+              <div className="space-y-4">
+                <div className="text-sm font-medium">Add New Rank Tier</div>
+                <Button type="button" onClick={addRankTier} className="mt-2">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Rank Tier
                 </Button>
               </div>
             </div>

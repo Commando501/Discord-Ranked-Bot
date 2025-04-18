@@ -51,6 +51,12 @@ interface Player {
   createdAt: string;
 }
 
+interface RankTier {
+  name: string;
+  mmrThreshold: number;
+  color?: string;
+}
+
 export default function LeaderboardsPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("mmr");
@@ -153,6 +159,19 @@ export default function LeaderboardsPage() {
   };
 
   const mmrDistribution = getMmrDistribution();
+
+  // Function to retrieve rank tiers (replace with actual data fetching)
+  const getRankTiers = (): RankTier[] => {
+    // Fetch rank tiers from API or config
+    // For now, we'll use a hardcoded example
+    return [
+      { name: "Bronze", mmrThreshold: 0, color: "#40444B" },
+      { name: "Silver", mmrThreshold: 1000, color: "#5865F2" },
+      { name: "Gold", mmrThreshold: 1500, color: "#3BA55C" },
+      { name: "Platinum", mmrThreshold: 2000, color: "#FAA61A" },
+      { name: "Diamond", mmrThreshold: 2500, color: "#ED4245" },
+    ];
+  };
 
   return (
     <AppLayout>
@@ -541,7 +560,7 @@ export default function LeaderboardsPage() {
                   )}
                 </CardContent>
               </Card>
-              
+
               <Card className="bg-[#2F3136] border-black/10">
                 <CardHeader className="border-b border-black/10 pb-3">
                   <div className="flex justify-between items-center">
@@ -568,28 +587,26 @@ export default function LeaderboardsPage() {
                 <CardContent className="pt-6">
                   <div className="space-y-4">
                     <div className="grid grid-cols-5 gap-4">
-                      <div className="col-span-5 sm:col-span-1 bg-[#40444B] rounded-lg p-3 text-center">
-                        <div className="font-medium text-white">Bronze</div>
-                        <div className="text-xs text-[#B9BBBE]">0 - 999</div>
-                      </div>
-                      <div className="col-span-5 sm:col-span-1 bg-[#5865F2] rounded-lg p-3 text-center">
-                        <div className="font-medium text-white">Silver</div>
-                        <div className="text-xs text-white/80">1000 - 1499</div>
-                      </div>
-                      <div className="col-span-5 sm:col-span-1 bg-[#3BA55C] rounded-lg p-3 text-center">
-                        <div className="font-medium text-white">Gold</div>
-                        <div className="text-xs text-white/80">1500 - 1999</div>
-                      </div>
-                      <div className="col-span-5 sm:col-span-1 bg-[#FAA61A] rounded-lg p-3 text-center">
-                        <div className="font-medium text-white">Platinum</div>
-                        <div className="text-xs text-white/80">2000 - 2499</div>
-                      </div>
-                      <div className="col-span-5 sm:col-span-1 bg-[#ED4245] rounded-lg p-3 text-center">
-                        <div className="font-medium text-white">Diamond</div>
-                        <div className="text-xs text-white/80">2500+</div>
-                      </div>
+                      {getRankTiers().map((tier, index) => {
+                        // Calculate max MMR display value
+                        const nextTier = getRankTiers()[index + 1];
+                        const maxDisplay = nextTier ? `${nextTier.mmrThreshold - 1}` : '+';
+
+                        return (
+                          <div 
+                            key={tier.name}
+                            className="col-span-5 sm:col-span-1 rounded-lg p-3 text-center"
+                            style={{ backgroundColor: tier.color || '#40444B' }}
+                          >
+                            <div className="font-medium text-white">{tier.name}</div>
+                            <div className="text-xs text-white/80">
+                              {tier.mmrThreshold} {nextTier ? '- ' + (nextTier.mmrThreshold - 1) : '+'}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    
+
                     <div className="bg-[#36393F] rounded-lg p-4">
                       <h4 className="text-white font-medium mb-2">MMR Calculation</h4>
                       <p className="text-[#B9BBBE] text-sm mb-3">
@@ -615,7 +632,7 @@ export default function LeaderboardsPage() {
                 </CardContent>
               </Card>
             </div>
-            
+
             <Card className="bg-[#2F3136] border-black/10">
               <CardHeader className="border-b border-black/10 pb-3">
                 <CardTitle className="text-white text-lg">Global Stats</CardTitle>

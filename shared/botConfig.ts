@@ -49,6 +49,8 @@ export const mmrConfigSchema = z.object({
   }),
 });
 
+import { rankTierSchema, defaultRankTiers } from "./rankSystem";
+
 // Season Management
 export const seasonConfigSchema = z.object({
   currentSeason: z.number().int().min(1).default(1),
@@ -61,6 +63,7 @@ export const seasonConfigSchema = z.object({
     mmrThreshold: z.number().int(),
     description: z.string(),
   })).default([]),
+  rankTiers: z.array(rankTierSchema).default(defaultRankTiers),
   enableEndOfSeasonAnnouncements: z.boolean().default(true),
 });
 

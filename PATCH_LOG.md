@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 See [2025-Q2.md](./patch_logs/2025-Q2.md) for the most recent changes.
+- 2025-04-27: Added formal rank definition system
 - 2025-04-17: Enhanced votekick system by removing same-team restrictions
 - 2025-04-10: Fixed issues with votekick match handling
 
