@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 import { DiscordUser } from '@shared/schema';
 import { RankTier, Player } from '@shared/schema';
 import { getPlayerRank, getProgressToNextRank } from '@shared/rankSystem';
-import { configManager } from '../config';
+import { config } from '../config';
 import { defaultRankTiers } from '@shared/botConfig';
 
 export class PlayerService {
@@ -120,7 +120,6 @@ export class PlayerService {
       if (!player) return null;
       
       // Get configuration for rank tiers
-      const config = await configManager.getConfig();
       const rankTiers = config.seasonManagement?.rankTiers || defaultRankTiers;
       
       // Get player rank and progress
