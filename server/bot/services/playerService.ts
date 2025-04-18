@@ -1,6 +1,11 @@
+
 import { IStorage } from '../../storage';
 import { logger } from '../utils/logger';
 import { DiscordUser } from '@shared/schema';
+import { RankTier, Player } from '@shared/schema';
+import { getPlayerRank, getProgressToNextRank } from '@shared/rankSystem';
+import { configManager } from '../config';
+import { defaultRankTiers } from '@shared/botConfig';
 
 export class PlayerService {
   private storage: IStorage;
@@ -103,9 +108,7 @@ export class PlayerService {
   async getPlayerById(playerId: number): Promise<any | null> {
     return this.storage.getPlayer(playerId);
   }
-}
-
-
+  
   // Get player rank with image for Discord display
   async getPlayerRankWithImage(discordId: string): Promise<{ 
     rank: RankTier, 
@@ -134,3 +137,4 @@ export class PlayerService {
       return null;
     }
   }
+}
