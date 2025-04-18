@@ -838,13 +838,8 @@ export class MatchService {
         };
       }
 
-      // Check if both players are on the same team (only allow kicking teammates)
-      if (initiatorTeam.id !== targetTeam.id) {
-        return {
-          success: false,
-          message: "You can only vote to kick players on your own team",
-        };
-      }
+      // No longer restricting votekick to same team
+      // Players can now initiate votekicks against players on either team
 
       // Check if there's already an active vote kick for this player
       const existingVoteKick = await this.storage.getActiveVoteKick(
@@ -878,12 +873,12 @@ export class MatchService {
       const botConfig = await this.storage.getBotConfig();
       const voteSettings = botConfig.matchRules.voteSystemSettings;
 
-      // Get total team size
-      const teamPlayers = initiatorTeam.players;
+      // Get total match players since we're now allowing cross-team votes
+      const allPlayers = match.teams.flatMap(team => team.players);
       // Calculate required votes based on majority percentage from config
       const requiredVotes = Math.max(
         voteSettings.minVotesNeeded,
-        Math.ceil(teamPlayers.length * (voteSettings.majorityPercent / 100)),
+        Math.ceil(allPlayers.length * (voteSettings.majorityPercent / 100)),
       );
 
       // Create voting message
@@ -895,7 +890,7 @@ export class MatchService {
         )
         .addFields(
           { name: "Match", value: `#${matchWithBothPlayers.id}`, inline: true },
-          { name: "Team", value: initiatorTeam.name, inline: true },
+          { name: "Target Team", value: targetTeam.name, inline: true },
           { name: "Votes Required", value: `1/${requiredVotes}`, inline: true },
         )
         .setFooter({ text: 'Type "yes" or "no" in this channel to vote' })
@@ -933,7 +928,7 @@ export class MatchService {
 
       if (matchChannel && matchChannel.isTextBased()) {
         await matchChannel.send({
-          content: teamPlayers.map((p) => `<@${p.discordId}>`).join(" "),
+          content: allPlayers.map((p) => `<@${p.discordId}>`).join(" "),
           embeds: [embed],
         });
       } else {
@@ -954,7 +949,8 @@ export class MatchService {
             value: matchWithBothPlayers.id.toString(),
             inline: true,
           },
-          { name: "Team", value: initiatorTeam.name, inline: true },
+          { name: "Initiator Team", value: initiatorTeam.name, inline: true },
+          { name: "Target Team", value: targetTeam.name, inline: true },
           {
             name: "Required Votes",
             value: requiredVotes.toString(),
