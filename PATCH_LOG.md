@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 See [2025-Q2.md](./patch_logs/2025-Q2.md) for the most recent changes.
+- 2025-05-03: Implemented rank tier management in web interface
 - 2025-05-02: Removed duplicate rankTierSchema import in season-config.tsx
 - 2025-05-01: Fixed duplicate rankTierSchema declaration in season-config.tsx
 - 2025-04-27: Added formal rank definition system

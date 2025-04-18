@@ -35,7 +35,12 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
   const [newTierDescription, setNewTierDescription] = useState("");
   const [tiers, setTiers] = useState(config.rewardTiers || []);
   const [rankTiers, setRankTiers] = useState(config.rankTiers || []); // Added rank tiers state
-
+  
+  // State for new rank tier inputs
+  const [newRankTierName, setNewRankTierName] = useState("");
+  const [newRankTierMmr, setNewRankTierMmr] = useState(0);
+  const [newRankTierColor, setNewRankTierColor] = useState("#3BA55C");
+  const [newRankTierDescription, setNewRankTierDescription] = useState("");
 
   // Create a form with validation
   const form = useForm<SeasonConfig>({
@@ -97,8 +102,29 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
 
   // Add a new rank tier
   const addRankTier = () => {
-    //Implementation for adding a new rank tier would go here, mirroring the addTier function
-    //This would require a new state variable for newRankTierName etc. and a function to handle adding the new rank tier to the rankTiers state
+    try {
+      const newTier = rankTierSchema.parse({
+        name: newRankTierName,
+        mmrThreshold: newRankTierMmr,
+        color: newRankTierColor,
+        description: newRankTierDescription,
+      });
+
+      // Add new tier and sort by MMR threshold
+      const updatedRankTiers = [...rankTiers, newTier].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+      setRankTiers(updatedRankTiers);
+
+      // Update the form data
+      onChange({ ...form.getValues(), rankTiers: updatedRankTiers });
+
+      // Reset input fields
+      setNewRankTierName("");
+      setNewRankTierMmr(0);
+      setNewRankTierColor("#3BA55C");
+      setNewRankTierDescription("");
+    } catch (error) {
+      console.error("Invalid rank tier data:", error);
+    }
   };
 
     // Remove a rank tier
@@ -385,14 +411,22 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
             <div className="space-y-4 pt-4">
               <div className="text-lg font-medium">Rank Tiers</div>
 
-              {/* Rank Tiers UI -  mirroring the Reward Tiers UI */}
+              {/* Rank Tiers UI */}
               <div className="space-y-2">
                 {rankTiers.map((tier, index) => (
                   <div key={index} className="flex items-center justify-between p-3 border rounded-md">
-                    <div className="flex-1">
-                      <div className="font-medium">{tier.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        MMR: {tier.mmrThreshold} - {tier.description}
+                    <div className="flex-1 flex items-center">
+                      {tier.color && (
+                        <div 
+                          className="w-4 h-4 rounded-full mr-2" 
+                          style={{ backgroundColor: tier.color }}
+                        ></div>
+                      )}
+                      <div>
+                        <div className="font-medium">{tier.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          MMR: {tier.mmrThreshold} - {tier.description}
+                        </div>
                       </div>
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => removeRankTier(index)}>
@@ -410,10 +444,66 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
               <Separator />
 
               {/* Add New Rank Tier Section */}
-              {/* This would need to be fleshed out with actual input fields for rank tier properties */}
               <div className="space-y-4">
                 <div className="text-sm font-medium">Add New Rank Tier</div>
-                <Button type="button" onClick={addRankTier} className="mt-2">
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <FormLabel htmlFor="rankTierName">Tier Name</FormLabel>
+                    <Input
+                      id="rankTierName"
+                      value={newRankTierName}
+                      onChange={(e) => setNewRankTierName(e.target.value)}
+                      placeholder="Diamond"
+                    />
+                  </div>
+
+                  <div>
+                    <FormLabel htmlFor="rankTierMmr">MMR Threshold</FormLabel>
+                    <Input
+                      id="rankTierMmr"
+                      type="number"
+                      min={0}
+                      value={newRankTierMmr}
+                      onChange={(e) => setNewRankTierMmr(parseInt(e.target.value))}
+                      placeholder="2000"
+                    />
+                  </div>
+
+                  <div>
+                    <FormLabel htmlFor="rankTierColor">Color (Hex)</FormLabel>
+                    <div className="flex">
+                      <div 
+                        className="w-10 h-10 rounded-l-md flex items-center justify-center" 
+                        style={{ backgroundColor: newRankTierColor }}
+                      ></div>
+                      <Input
+                        id="rankTierColor"
+                        value={newRankTierColor}
+                        onChange={(e) => setNewRankTierColor(e.target.value)}
+                        placeholder="#3BA55C"
+                        className="rounded-l-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <FormLabel htmlFor="rankTierDescription">Description</FormLabel>
+                    <Input
+                      id="rankTierDescription"
+                      value={newRankTierDescription}
+                      onChange={(e) => setNewRankTierDescription(e.target.value)}
+                      placeholder="Top tier players"
+                    />
+                  </div>
+                </div>
+
+                <Button 
+                  type="button" 
+                  onClick={addRankTier} 
+                  className="mt-2"
+                  disabled={!newRankTierName || !newRankTierDescription || !newRankTierColor}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Rank Tier
                 </Button>

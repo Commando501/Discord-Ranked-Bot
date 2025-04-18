@@ -130,17 +130,30 @@ export default function LeaderboardsPage() {
   const topPlayers = getTopPlayers();
   const tablePlayers = getTablePlayers();
 
-  // Calculate MMR distribution (mock function)
+  // Calculate MMR distribution based on rank tiers
   const getMmrDistribution = () => {
     if (!players || players.length === 0) return [];
 
-    const ranges = [
-      { label: '0-999', min: 0, max: 999, count: 0, color: '#B9BBBE' },
-      { label: '1000-1499', min: 1000, max: 1499, count: 0, color: '#5865F2' },
-      { label: '1500-1999', min: 1500, max: 1999, count: 0, color: '#3BA55C' },
-      { label: '2000-2499', min: 2000, max: 2499, count: 0, color: '#FAA61A' },
-      { label: '2500+', min: 2500, max: Infinity, count: 0, color: '#ED4245' }
-    ];
+    const tiers = getRankTiers();
+    // Sort tiers by MMR threshold
+    const sortedTiers = [...tiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+    
+    // Create ranges based on the tiers
+    const ranges = sortedTiers.map((tier, index) => {
+      const nextTier = sortedTiers[index + 1];
+      const max = nextTier ? nextTier.mmrThreshold - 1 : Infinity;
+      const label = nextTier 
+        ? `${tier.mmrThreshold}-${max}` 
+        : `${tier.mmrThreshold}+`;
+        
+      return {
+        label,
+        min: tier.mmrThreshold,
+        max,
+        count: 0,
+        color: tier.color || '#40444B'
+      };
+    });
 
     players.forEach(player => {
       for (const range of ranges) {
@@ -160,12 +173,21 @@ export default function LeaderboardsPage() {
 
   const mmrDistribution = getMmrDistribution();
 
-  // Function to retrieve rank tiers (replace with actual data fetching)
+  // Function to retrieve rank tiers from API
   const getRankTiers = (): RankTier[] => {
-    // Fetch rank tiers from API or config
-    // For now, we'll use a hardcoded example
+    // Get the rank tiers from the config endpoint
+    const { data: config } = useQuery({
+      queryKey: ['/api/config'],
+    });
+    
+    // If we have rankTiers in the config, use them
+    if (config?.seasonManagement?.rankTiers && config.seasonManagement.rankTiers.length > 0) {
+      return config.seasonManagement.rankTiers;
+    }
+    
+    // Otherwise fall back to the default tiers
     return [
-      { name: "Bronze", mmrThreshold: 0, color: "#40444B" },
+      { name: "Bronze", mmrThreshold: 0, color: "#B9BBBE" },
       { name: "Silver", mmrThreshold: 1000, color: "#5865F2" },
       { name: "Gold", mmrThreshold: 1500, color: "#3BA55C" },
       { name: "Platinum", mmrThreshold: 2000, color: "#FAA61A" },
