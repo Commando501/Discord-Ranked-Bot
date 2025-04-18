@@ -53,6 +53,12 @@
         "mmrThreshold": 99,
         "color": "#d6d6d1",
         "description": "Lowest Tier"
+      },
+      {
+        "name": "Iron 1",
+        "mmrThreshold": 199,
+        "color": "#d6d6d1",
+        "description": "Iron"
       }
     ],
     "enableEndOfSeasonAnnouncements": true
