@@ -108,6 +108,31 @@ export default function LeaderboardsPage() {
       });
     }
 
+// Function to display player rank with image if available
+const PlayerRank = ({ player }: { player: Player }) => {
+  const tiers = getRankTiers();
+  const playerRank = getPlayerRank(player.mmr, tiers);
+  
+  return (
+    <div className="flex items-center">
+      {playerRank.imagePath ? (
+        <img 
+          src={playerRank.imagePath} 
+          alt={playerRank.name} 
+          className="w-6 h-6 mr-2 object-contain"
+        />
+      ) : (
+        <div 
+          className="w-4 h-4 rounded-full mr-2" 
+          style={{ backgroundColor: playerRank.color || '#ccc' }}
+        />
+      )}
+      <span>{playerRank.name}</span>
+    </div>
+  );
+};
+
+
     if (sortOrder === 'asc') {
       sorted.reverse();
     }

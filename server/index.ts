@@ -1,6 +1,11 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
 import { initializeBot } from "./index.bot";
 
 const app = express();
@@ -32,6 +37,10 @@ app.use((req, res, next) => {
 
       log(logLine);
     }
+
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, '../public')));
+
   });
 
   next();

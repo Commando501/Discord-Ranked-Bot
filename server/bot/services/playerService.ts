@@ -104,3 +104,33 @@ export class PlayerService {
     return this.storage.getPlayer(playerId);
   }
 }
+
+
+  // Get player rank with image for Discord display
+  async getPlayerRankWithImage(discordId: string): Promise<{ 
+    rank: RankTier, 
+    progress: number,
+    player: Player 
+  } | null> {
+    try {
+      const player = await this.getPlayerByDiscordId(discordId);
+      if (!player) return null;
+      
+      // Get configuration for rank tiers
+      const config = await configManager.getConfig();
+      const rankTiers = config.seasonManagement?.rankTiers || defaultRankTiers;
+      
+      // Get player rank and progress
+      const rank = getPlayerRank(player.mmr, rankTiers);
+      const progress = getProgressToNextRank(player.mmr, rankTiers);
+      
+      return { 
+        rank, 
+        progress,
+        player 
+      };
+    } catch (error) {
+      console.error('Error getting player rank with image:', error);
+      return null;
+    }
+  }
