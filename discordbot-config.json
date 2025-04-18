@@ -59,6 +59,66 @@
         "mmrThreshold": 199,
         "color": "#d6d6d1",
         "description": "Iron"
+      },
+      {
+        "name": "Bronze 3",
+        "mmrThreshold": 299,
+        "color": "#CD7F32",
+        "description": "bronze"
+      },
+      {
+        "name": "Bronze 2",
+        "mmrThreshold": 424,
+        "color": "#CD7F32",
+        "description": "Bronze"
+      },
+      {
+        "name": "Bronze 1",
+        "mmrThreshold": 549,
+        "color": "#CD7F32",
+        "description": "bronze"
+      },
+      {
+        "name": "Silver 3",
+        "mmrThreshold": 699,
+        "color": "#C0C0C0",
+        "description": "silver"
+      },
+      {
+        "name": "Silver 2",
+        "mmrThreshold": 849,
+        "color": "#C0C0C0",
+        "description": "Silver 3"
+      },
+      {
+        "name": "Silver 1",
+        "mmrThreshold": 999,
+        "color": "#C0C0C0",
+        "description": "silver"
+      },
+      {
+        "name": "Gold 3",
+        "mmrThreshold": 1149,
+        "color": "#FFD700",
+        "description": "Gold"
+      },
+      {
+        "name": "Gold 2",
+        "mmrThreshold": 1299,
+        "color": "#FFD700",
+        "description": "Gold"
+      },
+      {
+        "name": "Gold 1",
+        "mmrThreshold": 1449,
+        "color": "#FFD700",
+        "description": "Gold"
+      },
+      {
+        "name": "Platinum 3",
+        "mmrThreshold": 1649,
+        "color": "#00989b",
+        "description": "Plat"
       }
     ],
     "enableEndOfSeasonAnnouncements": true
