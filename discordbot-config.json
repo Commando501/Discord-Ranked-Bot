@@ -47,20 +47,7 @@
     "mmrResetType": "soft",
     "placementMatchRequirements": 10,
     "rewardTiers": [],
-    "rankTiers": [
-      {
-        "name": "Iron 2",
-        "mmrThreshold": 99,
-        "color": "#d6d6d1",
-        "description": "Lowest Tier"
-      },
-      {
-        "name": "Iron 1",
-        "mmrThreshold": 199,
-        "color": "#d6d6d1",
-        "description": "Iron"
-      }
-    ],
+    "rankTiers": [],
     "enableEndOfSeasonAnnouncements": true
   },
   "matchRules": {
