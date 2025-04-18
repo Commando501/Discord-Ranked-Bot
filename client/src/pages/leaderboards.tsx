@@ -129,14 +129,14 @@ export default function LeaderboardsPage() {
 
   const topPlayers = getTopPlayers();
   const tablePlayers = getTablePlayers();
-
-  // Function to retrieve rank tiers from API
+  
+  // Get the rank tiers from the config endpoint - moved to component level to follow React hooks rules
+  const { data: config } = useQuery({
+    queryKey: ['/api/config'],
+  });
+  
+  // Function to retrieve rank tiers from API or default values
   const getRankTiers = (): RankTier[] => {
-    // Get the rank tiers from the config endpoint
-    const { data: config } = useQuery({
-      queryKey: ['/api/config'],
-    });
-    
     // If we have rankTiers in the config, use them
     if (config?.seasonManagement?.rankTiers && config.seasonManagement.rankTiers.length > 0) {
       return config.seasonManagement.rankTiers;
