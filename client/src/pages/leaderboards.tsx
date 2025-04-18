@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCcw, Medal, Trophy, Download, ArrowUpDown, Info } from "lucide-react";
+import { getPlayerRank } from "@/../../shared/rankSystem";
 import AppLayout from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -127,9 +128,6 @@ export default function LeaderboardsPage() {
     return sorted.slice(3);
   };
 
-  const topPlayers = getTopPlayers();
-  const tablePlayers = getTablePlayers();
-  
   // Get the rank tiers from the config endpoint - moved to component level to follow React hooks rules
   const { data: config } = useQuery({
     queryKey: ['/api/config'],
@@ -151,6 +149,9 @@ export default function LeaderboardsPage() {
       { name: "Diamond", mmrThreshold: 2500, color: "#ED4245" },
     ];
   };
+  
+  const topPlayers = getTopPlayers();
+  const tablePlayers = getTablePlayers();
 
   // Calculate MMR distribution based on rank tiers
   const getMmrDistribution = () => {
@@ -448,7 +449,22 @@ export default function LeaderboardsPage() {
                                     {getInitials(player.username)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="text-[#DCDDDE]">{player.username}#{player.discriminator}</span>
+                                <div className="flex items-center">
+                                  {(() => {
+                                    const playerRank = getPlayerRank(player.mmr, getRankTiers());
+                                    return playerRank.icon ? (
+                                      <img 
+                                        src={playerRank.icon} 
+                                        alt={`${playerRank.name} rank`}
+                                        className="w-4 h-4 mr-1 object-contain"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).style.display = 'none';
+                                        }}
+                                      />
+                                    ) : null;
+                                  })()}
+                                  <span className="text-[#DCDDDE]">{player.username}#{player.discriminator}</span>
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell className="text-right font-medium text-white">{player.mmr}</TableCell>
@@ -620,6 +636,18 @@ export default function LeaderboardsPage() {
                             className="col-span-5 sm:col-span-1 rounded-lg p-3 text-center"
                             style={{ backgroundColor: tier.color || '#40444B' }}
                           >
+                            {tier.icon && (
+                              <div className="flex justify-center mb-1">
+                                <img 
+                                  src={tier.icon} 
+                                  alt={`${tier.name} rank`} 
+                                  className="w-8 h-8 object-contain"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              </div>
+                            )}
                             <div className="font-medium text-white">{tier.name}</div>
                             <div className="text-xs text-white/80">
                               {tier.mmrThreshold} {nextTier ? '- ' + (nextTier.mmrThreshold - 1) : '+'}
