@@ -15,6 +15,9 @@ import {
 } from "@shared/botConfig";
 import { players, Player } from "@shared/schema";
 import { getMatchService } from "./index.bot";
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 // Assuming this class exists and is correctly implemented.  Add it if it's missing.
 class MatchService {
@@ -297,62 +300,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "general",
         "matchmaking",
         "mmrSystem",
-
-// Add route for uploading rank images
-app.post('/api/upload/rankimage', async (req, res) => {
-  try {
-    // Set up multer for file uploads
-    const upload = multer({
-      storage: multer.diskStorage({
-        destination: function (req, file, cb) {
-          // Create directory if it doesn't exist
-          const dir = path.join(__dirname, '../public/images/ranks');
-          if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-          }
-          cb(null, dir);
-        },
-        filename: function (req, file, cb) {
-          // Use a unique filename
-          const uniqueName = `rank_${Date.now()}${path.extname(file.originalname)}`;
-          cb(null, uniqueName);
-        }
-      }),
-      limits: {
-        fileSize: 1024 * 1024 * 2 // 2MB limit
-      },
-      fileFilter: function (req, file, cb) {
-        // Only allow image files
-        if (!file.mimetype.startsWith('image/')) {
-          return cb(new Error('Only image files are allowed'));
-        }
-        cb(null, true);
-      }
-    }).single('file');
-
-    upload(req, res, function(err) {
-      if (err) {
-        return res.status(400).json({ error: err.message });
-      }
-      
-      if (!req.file) {
-        return res.status(400).json({ error: 'No file provided' });
-      }
-      
-      // Generate public URL for the image
-      const imagePath = `/images/ranks/${req.file.filename}`;
-      
-      res.status(200).json({
-        success: true,
-        imagePath
-      });
-    });
-  } catch (error) {
-    console.error('Error uploading rank image:', error);
-    res.status(500).json({ error: 'Failed to upload image' });
-  }
-});
-
         "seasonManagement",
         "matchRules",
         "notifications",
@@ -426,6 +373,61 @@ app.post('/api/upload/rankimage', async (req, res) => {
       res
         .status(500)
         .json({ message: "Failed to update configuration section" });
+    }
+  });
+
+  // Add route for uploading rank images
+  app.post('/api/upload/rankimage', async (req, res) => {
+    try {
+      // Set up multer for file uploads
+      const upload = multer({
+        storage: multer.diskStorage({
+          destination: function (req, file, cb) {
+            // Create directory if it doesn't exist
+            const dir = path.join(__dirname, '../public/images/ranks');
+            if (!fs.existsSync(dir)) {
+              fs.mkdirSync(dir, { recursive: true });
+            }
+            cb(null, dir);
+          },
+          filename: function (req, file, cb) {
+            // Use a unique filename
+            const uniqueName = `rank_${Date.now()}${path.extname(file.originalname)}`;
+            cb(null, uniqueName);
+          }
+        }),
+        limits: {
+          fileSize: 1024 * 1024 * 2 // 2MB limit
+        },
+        fileFilter: function (req, file, cb) {
+          // Only allow image files
+          if (!file.mimetype.startsWith('image/')) {
+            return cb(new Error('Only image files are allowed'));
+          }
+          cb(null, true);
+        }
+      }).single('file');
+
+      upload(req, res, function(err) {
+        if (err) {
+          return res.status(400).json({ error: err.message });
+        }
+
+        if (!req.file) {
+          return res.status(400).json({ error: 'No file provided' });
+        }
+
+        // Generate public URL for the image
+        const imagePath = `/images/ranks/${req.file.filename}`;
+
+        res.status(200).json({
+          success: true,
+          imagePath
+        });
+      });
+    } catch (error) {
+      console.error('Error uploading rank image:', error);
+      res.status(500).json({ error: 'Failed to upload image' });
     }
   });
 
