@@ -47,7 +47,29 @@
     "mmrResetType": "soft",
     "placementMatchRequirements": 10,
     "rewardTiers": [],
-    "rankTiers": [],
+    "rankTiers": [
+      {
+        "name": "Iron 2",
+        "mmrThreshold": 99,
+        "color": "#4D5458",
+        "icon": "/ranks/iron2.png",
+        "description": "iron"
+      },
+      {
+        "name": "Iron 1",
+        "mmrThreshold": 199,
+        "color": "#4D5458",
+        "icon": "client/public/ranks/iron1.png",
+        "description": "iron"
+      },
+      {
+        "name": "Bronze 3",
+        "mmrThreshold": 299,
+        "color": "#CD7F32",
+        "icon": "/ranks/bronze3.png",
+        "description": "bronze"
+      }
+    ],
     "enableEndOfSeasonAnnouncements": true
   },
   "matchRules": {
