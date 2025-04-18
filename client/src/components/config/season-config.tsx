@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { Plus, Trash, Pencil, Save, X } from "lucide-react";
+import { Plus, Trash, Pencil, Save, X, Calendar as CalendarIcon } from "lucide-react";
 import { z } from "zod";
 import { rankTierSchema } from "@shared/rankSystem";
 
