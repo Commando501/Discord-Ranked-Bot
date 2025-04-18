@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 See [2025-Q2.md](./patch_logs/2025-Q2.md) for the most recent changes.
+- 2025-05-27: Added rank icon support and image upload functionality
 - 2025-05-25: Fixed rank tier editing UI to display input fields when edit button is clicked
 - 2025-05-24: Fixed missing CalendarIcon import in season-config.tsx
 - 2025-05-24: Added rank tier editing functionality to web interface

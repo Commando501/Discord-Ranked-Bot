@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
-import { Plus, Trash, Pencil, Save, X, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Trash, Pencil, Save, X, Calendar as CalendarIcon, Upload, Image } from "lucide-react";
 import { z } from "zod";
 import { rankTierSchema } from "@shared/rankSystem";
 
@@ -41,6 +41,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
   const [newRankTierMmr, setNewRankTierMmr] = useState(0);
   const [newRankTierColor, setNewRankTierColor] = useState("#3BA55C");
   const [newRankTierDescription, setNewRankTierDescription] = useState("");
+  const [newRankTierIcon, setNewRankTierIcon] = useState("");
   const [editingRankTierIndex, setEditingRankTierIndex] = useState<number | null>(null);
   const [editedRankTier, setEditedRankTier] = useState<RankTier | null>(null);
 
@@ -102,6 +103,22 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
     onChange({...form.getValues(), rewardTiers: updatedTiers});
   }
 
+  // Handle rank icon file upload
+  const handleRankIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Create a unique filename using the tier name (or a timestamp if no name)
+    const baseName = newRankTierName ? 
+      newRankTierName.toLowerCase().replace(/\s+/g, '') : 
+      `rank_${Date.now()}`;
+    const iconPath = `/ranks/${baseName}.png`;
+    
+    // Here we would typically upload the file to the server
+    // For now, we'll just set the path and assume the file is uploaded elsewhere
+    setNewRankTierIcon(iconPath);
+  };
+
   // Add a new rank tier
   const addRankTier = () => {
     try {
@@ -110,6 +127,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
         mmrThreshold: newRankTierMmr,
         color: newRankTierColor,
         description: newRankTierDescription,
+        icon: newRankTierIcon || undefined, // Only include if not empty
       });
 
       // Add new tier and sort by MMR threshold
@@ -124,6 +142,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
       setNewRankTierMmr(0);
       setNewRankTierColor("#3BA55C");
       setNewRankTierDescription("");
+      setNewRankTierIcon("");
     } catch (error) {
       console.error("Invalid rank tier data:", error);
     }
@@ -438,7 +457,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                 {rankTiers.map((tier, index) => (
                   <div key={index} className="flex items-center justify-between p-3 border rounded-md">
                     {editingRankTierIndex === index ? (
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-2">
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-2">
                         <div>
                           <Input
                             value={editedRankTier?.name || ""}
@@ -474,10 +493,23 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                             placeholder="Description"
                           />
                         </div>
+                        <div>
+                          <Input
+                            value={editedRankTier?.icon || ""}
+                            onChange={(e) => setEditedRankTier({...editedRankTier!, icon: e.target.value})}
+                            placeholder="/ranks/icon.png"
+                          />
+                        </div>
                       </div>
                     ) : (
                       <div className="flex-1 flex items-center">
-                        {tier.color && (
+                        {tier.icon ? (
+                          <img 
+                            src={tier.icon} 
+                            alt={`${tier.name} rank`} 
+                            className="w-8 h-8 mr-2 object-contain"
+                          />
+                        ) : tier.color && (
                           <div 
                             className="w-4 h-4 rounded-full mr-2" 
                             style={{ backgroundColor: tier.color }}
@@ -527,7 +559,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
               <div className="space-y-4">
                 <div className="text-sm font-medium">Add New Rank Tier</div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <div>
                     <FormLabel htmlFor="rankTierName">Tier Name</FormLabel>
                     <Input
@@ -575,6 +607,56 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                       onChange={(e) => setNewRankTierDescription(e.target.value)}
                       placeholder="Top tier players"
                     />
+                  </div>
+                  
+                  <div>
+                    <FormLabel htmlFor="rankTierIcon">Rank Icon</FormLabel>
+                    <div className="flex items-center space-x-2">
+                      {newRankTierIcon ? (
+                        <div className="flex items-center space-x-2">
+                          <img 
+                            src={newRankTierIcon} 
+                            alt="Rank icon preview" 
+                            className="w-8 h-8 object-contain"
+                          />
+                          <Input
+                            id="rankTierIconPath"
+                            value={newRankTierIcon}
+                            onChange={(e) => setNewRankTierIcon(e.target.value)}
+                            placeholder="/ranks/icon.png"
+                          />
+                        </div>
+                      ) : (
+                        <div className="relative w-full">
+                          <Input
+                            id="rankTierIcon"
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleRankIconUpload}
+                          />
+                          <Button 
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => document.getElementById('rankTierIcon')?.click()}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload Icon
+                          </Button>
+                          <span className="text-xs text-muted-foreground block mt-1">
+                            Or enter path: /ranks/filename.png
+                          </span>
+                          <Input
+                            id="rankTierIconPath"
+                            value={newRankTierIcon}
+                            onChange={(e) => setNewRankTierIcon(e.target.value)}
+                            placeholder="/ranks/icon.png"
+                            className="mt-2"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
