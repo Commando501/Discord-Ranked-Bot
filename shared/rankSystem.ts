@@ -8,7 +8,6 @@ export const rankTierSchema = z.object({
   color: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, "Must be a valid hex color code"),
   icon: z.string().optional(),
   description: z.string().min(1, "Description is required"),
-  imagePath: z.string().optional(),
 });
 
 // Define the type for a rank tier

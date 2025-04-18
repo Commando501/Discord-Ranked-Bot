@@ -3,10 +3,6 @@
 
 This file serves as an index to all patch logs, organized by time period.
 
-- 2025-05-26: Added rank image support to represent player ranks in web and Discord interfaces
-
-
-
 ## Recent Changes
 See [2025-Q2.md](./patch_logs/2025-Q2.md) for the most recent changes.
 - 2025-05-25: Fixed rank tier editing UI to display input fields when edit button is clicked

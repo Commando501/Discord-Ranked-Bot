@@ -41,8 +41,6 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
   const [newRankTierMmr, setNewRankTierMmr] = useState(0);
   const [newRankTierColor, setNewRankTierColor] = useState("#3BA55C");
   const [newRankTierDescription, setNewRankTierDescription] = useState("");
-  const [newRankTierImagePath, setNewRankTierImagePath] = useState(""); // Added image path state
-  const [newRankTierImagePreview, setNewRankTierImagePreview] = useState(""); // Added image preview state
   const [editingRankTierIndex, setEditingRankTierIndex] = useState<number | null>(null);
   const [editedRankTier, setEditedRankTier] = useState<RankTier | null>(null);
 
@@ -107,32 +105,25 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
   // Add a new rank tier
   const addRankTier = () => {
     try {
-      // Create a new rank tier
-      const newTier: RankTier = {
+      const newTier = rankTierSchema.parse({
         name: newRankTierName,
         mmrThreshold: newRankTierMmr,
         color: newRankTierColor,
         description: newRankTierDescription,
-        imagePath: newRankTierImagePath // Added imagePath
-      };
+      });
 
-      // Validate the new tier
-      rankTierSchema.parse(newTier);
+      // Add new tier and sort by MMR threshold
+      const updatedRankTiers = [...rankTiers, newTier].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+      setRankTiers(updatedRankTiers);
 
-      // Add the new tier to the list
-      setRankTiers([...rankTiers, newTier]);
+      // Update the form data
+      onChange({ ...form.getValues(), rankTiers: updatedRankTiers });
 
-      // Reset form fields
+      // Reset input fields
       setNewRankTierName("");
       setNewRankTierMmr(0);
-      setNewRankTierColor("#000000");
+      setNewRankTierColor("#3BA55C");
       setNewRankTierDescription("");
-      setNewRankTierImagePath(""); // Reset image path
-      setNewRankTierImagePreview(""); //Reset image preview
-
-      // Update the config
-      onChange({ ...form.getValues(), rankTiers: [...rankTiers, newTier] });
-
     } catch (error) {
       console.error("Invalid rank tier data:", error);
     }
@@ -492,9 +483,6 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                             style={{ backgroundColor: tier.color }}
                           ></div>
                         )}
-                        {tier.imagePath && (
-                          <img src={tier.imagePath} alt={`${tier.name} Rank Image`} className="w-8 h-8 mr-2" />
-                        )}
                         <div>
                           <div className="font-medium">{tier.name}</div>
                           <div className="text-sm text-muted-foreground">
@@ -586,16 +574,6 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                       value={newRankTierDescription}
                       onChange={(e) => setNewRankTierDescription(e.target.value)}
                       placeholder="Top tier players"
-                    />
-                  </div>
-                  <div>
-                    <FormLabel htmlFor="rankTierImagePath">Image Path</FormLabel>
-                    <Input
-                      id="rankTierImagePath"
-                      type="text"
-                      value={newRankTierImagePath}
-                      onChange={(e) => setNewRankTierImagePath(e.target.value)}
-                      placeholder="/path/to/image.png"
                     />
                   </div>
                 </div>
