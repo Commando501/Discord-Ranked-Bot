@@ -1,53 +1,6 @@
 
 # PATCH LOG
 
-### 2025-06-29 09:15:00 UTC
-**Type**: Enhancement
-**Files Modified**: 
-- `server/discord/commands/list.ts`
-
-**Changes**:
-- Updated the player list format to correctly display rank emojis next to rank names
-- Moved emojis from in front of player names to before rank names for better visibility
-- Maintained consistent emoji positioning in both initial list display and after queue updates
-
-**Purpose**: Improve the visual presentation of player ranks in the `/list` command by displaying the correct tier-specific emoji next to each player's rank.
-
-**Testing**: Verified that emojis are now correctly displayed next to rank names in the player list.
-
-**Dependencies Affected**: None
-
-### 2025-06-29 08:30:00 UTC
-**Type**: Bug Fix
-**Files Modified**: 
-- `server/discord/commands/list.ts`
-
-**Changes**:
-- Fixed incorrect emoji ID for Gold 1 rank in the `/list` command
-- Ensured consistent emoji IDs across all rank display areas of the command
-
-**Purpose**: Fix the issue where Gold 1 rank emoji was not displaying correctly in the `/list` command.
-
-**Testing**: Verified that the Gold 1 emoji now displays correctly with MMR in the appropriate range.
-
-**Dependencies Affected**: None
-
-### 2025-06-29 07:45:00 UTC
-**Type**: Bug Fix
-**Files Modified**: 
-- `server/discord/commands/list.ts`
-
-**Changes**:
-- Fixed rank tier determination logic in the `/list` command to properly display detailed rank tiers
-- Added enhanced logging for improved debugging and verification
-- Applied the same corrected algorithm from the profile command to ensure consistent tier determination
-
-**Purpose**: Fix the issue where `/list` command was only showing base ranks (e.g., "Gold") instead of detailed ranks (e.g., "Gold 3") for players.
-
-**Testing**: Verified with test case of MMR 1046, which now correctly shows as "Gold 3".
-
-**Dependencies Affected**: None
-
 ### 2025-06-29 14:30:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
