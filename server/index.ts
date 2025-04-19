@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import fileUpload from 'express-fileupload'; // Added express-fileupload
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeBot } from "./index.bot";
@@ -6,6 +7,13 @@ import { initializeBot } from "./index.bot";
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(fileUpload({ // Added fileUpload middleware
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max file size
+  abortOnLimit: true,
+  useTempFiles: true, // Use temporary files for larger uploads
+  debug: false
+}));
+
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -66,7 +74,7 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
-    
+
     // Initialize the Discord bot after the server is started
     if (process.env.DISCORD_TOKEN) {
       initializeBot().catch(err => {
