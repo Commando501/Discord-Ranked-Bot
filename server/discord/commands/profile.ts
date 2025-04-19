@@ -60,22 +60,49 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     // Find rank icon if available
     let rankIconAttachment = null;
     if (playerRank) {
-      const rankName = playerRank.name.replace(/\s+/g, '');
-      const iconPath = path.join(process.cwd(), 'client', 'public', 'ranks', `${rankName}.png`);
-      
-      // Try different variations if the exact match is not found
-      const iconPaths = [
-        iconPath,
-        path.join(process.cwd(), 'client', 'public', 'ranks', `${rankName.toLowerCase()}.png`),
-        // Try with first letter capitalized
-        path.join(process.cwd(), 'client', 'public', 'ranks', `${rankName.charAt(0).toUpperCase() + rankName.slice(1).toLowerCase()}.png`)
-      ];
-      
-      for (const path of iconPaths) {
-        if (fs.existsSync(path)) {
-          rankIconAttachment = { attachment: path, name: 'rank.png' };
-          break;
+      try {
+        const rankName = playerRank.name.replace(/\s+/g, '');
+        
+        // Generate multiple possible variations of the filename
+        const possibleNames = [
+          rankName,                                                             // Exact match
+          rankName.toLowerCase(),                                              // All lowercase
+          rankName.charAt(0).toUpperCase() + rankName.slice(1).toLowerCase(),  // First letter capitalized
+          rankName.toUpperCase(),                                              // All uppercase
+          // Try with common separators removed
+          rankName.replace(/[_\-\s]/g, ''),
+          // Try with numbers at different positions
+          ...rankName.match(/(\D+)(\d+)/) ? 
+            [`${RegExp.$1}${RegExp.$2}`, `${RegExp.$1}_${RegExp.$2}`, `${RegExp.$1}-${RegExp.$2}`] : []
+        ];
+        
+        // Check all possible paths
+        const basePath = path.join(process.cwd(), 'client', 'public', 'ranks');
+        
+        // Try multiple extensions
+        const extensions = ['.png', '.jpg', '.jpeg', '.gif'];
+        
+        // Try all combinations
+        for (const name of possibleNames) {
+          for (const ext of extensions) {
+            const filePath = path.join(basePath, `${name}${ext}`);
+            logger.debug(`Trying rank icon path: ${filePath}`);
+            
+            if (fs.existsSync(filePath)) {
+              rankIconAttachment = { attachment: filePath, name: 'rank.png' };
+              logger.info(`Found rank icon at: ${filePath}`);
+              break;
+            }
+          }
+          if (rankIconAttachment) break;
         }
+        
+        if (!rankIconAttachment) {
+          logger.warn(`Could not find rank icon for rank: ${playerRank.name} (tried multiple variations)`);
+        }
+      } catch (error) {
+        logger.error(`Error finding rank icon: ${error}`);
+        // Continue without the rank icon if there's an error
       }
     }
 
@@ -157,16 +184,26 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.editReply(replyOptions);
   } catch (error) {
     logger.error("Error executing profile command", {
-      error,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
       userId: interaction.user.id,
     });
+
+    // Try to provide a more specific error message
+    let errorMessage = "There was an error retrieving the profile information. Please try again later.";
+    
+    if (error instanceof Error) {
+      if (error.message.includes("ENOENT") && error.message.includes("ranks")) {
+        errorMessage = "Could not load rank icon images. Profile information is still available.";
+      } else if (error.message.includes("getPlayerByDiscordId")) {
+        errorMessage = "Could not retrieve player data. Please try again later.";
+      }
+    }
 
     const errorEmbed = new EmbedBuilder()
       .setColor("#ED4245")
       .setTitle("Error")
-      .setDescription(
-        "There was an error retrieving the profile information. Please try again later.",
-      );
+      .setDescription(errorMessage);
 
     await interaction.editReply({ embeds: [errorEmbed] });
   }
