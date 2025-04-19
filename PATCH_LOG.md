@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 See [2025-Q2.md](./patch_logs/2025-Q2.md) for the most recent changes.
+- 2025-06-15: Completely restructured rank icon upload endpoint to resolve persistent JSON content-type issues
 - 2025-06-14: Fixed persistent "Received text/html; charset=utf-8 instead of JSON response" error in rank icon upload
 - 2025-06-13: Fixed "Received text/html; charset=utf-8 instead of JSON response" error in rank icon upload
 - 2025-06-12: Improved client-side error handling for rank icon uploads

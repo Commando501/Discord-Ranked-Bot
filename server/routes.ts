@@ -649,119 +649,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
       cb(null, uploadDir);
     },
     filename: function (req: any, file: any, cb: any) {
-      // Use the original filename, but clean it for safety
+      // Generate a unique filename to avoid conflicts
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const fileExt = path.extname(file.originalname);
       const safeFilename = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-      cb(null, safeFilename);
+      const finalFilename = safeFilename.replace(fileExt, '') + '-' + uniqueSuffix + fileExt;
+      cb(null, finalFilename);
     }
   });
   
+  // Create a more restricted multer instance
   const rankIconUpload = multer({ 
     storage: rankIconsStorage,
     limits: {
-      fileSize: 5 * 1024 * 1024, // 5MB limit
+      fileSize: 2 * 1024 * 1024, // 2MB limit
+      files: 1 // Only one file at a time
     },
     fileFilter: (req: any, file: any, cb: any) => {
-      // Accept only image files
-      if (file.mimetype.startsWith('image/')) {
+      // Accept only specific image MIME types
+      const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (allowedMimes.includes(file.mimetype)) {
         cb(null, true);
       } else {
-        cb(new Error('Only image files are allowed'), false);
+        cb(new Error(`Only ${allowedMimes.join(', ')} files are allowed`), false);
       }
     }
-  });
+  }).single('file'); // Move the single() method here
   
-  // Add endpoint for rank icon uploads with error handling
+  // Completely bypass Express error handling for this route
   app.post('/api/upload/rank-icon', (req, res) => {
-    // Force content type to be application/json for all responses
+    // Immediately set headers to prevent Express from overriding them later
     res.setHeader('Content-Type', 'application/json');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     
-    // Create a helper for sending consistent JSON errors
-    const sendJsonError = (status, message, details = null) => {
-      console.error(`Upload error [${status}]:`, message, details);
-      // Force content-type again to ensure it's not changed
+    // Custom error handler that always returns JSON
+    const sendJsonResponse = (status, success, message, details = null) => {
+      console.log(`Upload ${success ? 'success' : 'error'} [${status}]:`, message);
+      
+      // Force JSON content type again before sending
       res.setHeader('Content-Type', 'application/json');
-      res.status(status).json({
-        success: false,
+      
+      // Ensure we have a proper JSON string
+      const jsonResponse = JSON.stringify({
+        success: success,
         message: message,
         details: details
       });
+      
+      // Send raw to avoid any middleware transformations
+      res.writeHead(status, {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(jsonResponse)
+      });
+      res.end(jsonResponse);
     };
     
-    // Wrap the entire request handler in a try/catch to prevent any HTML error responses
+    // Step 1: Admin authorization
     try {
-      // Create a middleware chain that ensures JSON response at each step
-      const safeAdminMiddleware = (req, res, next) => {
-        try {
-          adminMiddleware(req, res, (err) => {
-            // Force content-type for all middleware responses
-            res.setHeader('Content-Type', 'application/json');
-            
-            if (err) {
-              return sendJsonError(401, 'Unauthorized access', { source: 'admin_middleware' });
-            }
-            next();
-          });
-        } catch (adminErr) {
-          return sendJsonError(500, 'Error in authorization middleware', { 
-            error: adminErr instanceof Error ? adminErr.message : 'Unknown error'
-          });
+      adminMiddleware(req, res, (adminErr) => {
+        if (adminErr) {
+          return sendJsonResponse(401, false, 'Unauthorized access', { source: 'admin_middleware' });
         }
-      };
-
-      // Create a safe wrapper for file upload
-      const safeFileUpload = (req, res, next) => {
-        try {
-          rankIconUpload.single('file')(req, res, (uploadErr) => {
-            // Force content-type after multer processing
-            res.setHeader('Content-Type', 'application/json');
-            
-            if (uploadErr) {
-              return sendJsonError(400, uploadErr.message || 'Error uploading file', { source: 'multer' });
-            }
-            
-            if (!req.file) {
-              return sendJsonError(400, 'No file uploaded', { source: 'validation' });
-            }
-            
-            // Continue to next middleware with the file
-            next();
-          });
-        } catch (fileErr) {
-          return sendJsonError(500, 'Error processing file upload', {
-            error: fileErr instanceof Error ? fileErr.message : 'Unknown error'
-          });
-        }
-      };
-
-      // Apply the middleware chain sequentially
-      safeAdminMiddleware(req, res, () => {
-        safeFileUpload(req, res, () => {
+        
+        // Step 2: File upload
+        rankIconUpload(req, res, (uploadErr) => {
+          // Handle multer errors
+          if (uploadErr) {
+            return sendJsonResponse(400, false, uploadErr.message || 'Error uploading file', { source: 'multer' });
+          }
+          
+          // Check if a file was provided
+          if (!req.file) {
+            return sendJsonResponse(400, false, 'No file uploaded', { source: 'validation' });
+          }
+          
+          // Step 3: Success response
           try {
             // Log success
-            console.log('File uploaded successfully:', req.file.filename);
+            console.log('File upload successful:', req.file.filename);
             
-            // Final response - again force the content type
-            res.setHeader('Content-Type', 'application/json');
-            res.status(200).json({
-              success: true,
-              message: 'File uploaded successfully',
+            return sendJsonResponse(200, true, 'File uploaded successfully', {
               file: {
                 filename: req.file.filename,
                 path: `ranks/${req.file.filename}`,
-                size: req.file.size
+                size: req.file.size,
+                mimetype: req.file.mimetype
               }
             });
-          } catch (responseErr) {
-            return sendJsonError(500, 'Error sending success response', {
-              error: responseErr instanceof Error ? responseErr.message : 'Unknown error'
+          } catch (finalError) {
+            return sendJsonResponse(500, false, 'Error preparing success response', {
+              error: finalError instanceof Error ? finalError.message : 'Unknown error'
             });
           }
         });
       });
-    } catch (error) {
-      // Global error handler to ensure we always return JSON
-      return sendJsonError(500, 'Unhandled server error during upload', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+    } catch (globalError) {
+      // Last resort error handler
+      return sendJsonResponse(500, false, 'Unhandled server error during upload', {
+        error: globalError instanceof Error ? globalError.message : 'Unknown error'
       });
     }
   });
