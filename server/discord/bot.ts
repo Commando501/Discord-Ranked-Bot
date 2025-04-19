@@ -16,36 +16,6 @@ export const client = new Client({
   ],
 });
 
-// Export function to initialize the Discord bot
-export async function initializeBot() {
-  try {
-    if (!process.env.DISCORD_TOKEN) {
-      throw new Error('DISCORD_TOKEN is not defined in environment variables');
-    }
-
-    // Set up commands from modules
-    for (const module of Object.values(commandModules)) {
-      if (module.default && module.default.data) {
-        commandsCollection.set(module.default.data.name, module.default);
-      }
-    }
-
-    // Log in to Discord
-    await client.login(process.env.DISCORD_TOKEN);
-    logger.info('Discord bot initialized and logged in successfully');
-    
-    return client;
-  } catch (error: any) {
-    logger.error(`Error initializing Discord bot: ${error.message}`);
-    return null;
-  }
-}
-
-// Export function to get the Discord client
-export function getDiscordClient() {
-  return client;
-}
-
 const commandsCollection = new Collection(); // Initialize commands collection
 
 // Populate commandsCollection (This assumes a structure for command modules)
