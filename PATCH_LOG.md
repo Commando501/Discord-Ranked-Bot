@@ -3,6 +3,10 @@
 
 This file serves as an index to all patch logs, organized by time period.
 
+
+- 2025-07-04: Enhanced /list command with rank emojis showing player's current rank tier
+
+
 ## Recent Changes
 
 - 2025-07-03: Enhanced /list command with auto-refreshing embeds for real-time queue updates

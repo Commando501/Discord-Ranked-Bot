@@ -37,13 +37,52 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       .setDescription(`${queuePlayers.length} players in queue`);
 
     if (queuePlayers.length > 0) {
-      const queueList = queuePlayers
-        .map((entry, index) => {
-          const waitTime = formatDuration(entry.joinedAt);
-          return `${index + 1}. ${entry.player.username} (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
-        })
-        .join("\n");
+      // Get rank tiers
+      const rankTiers = await storage.getRankTiers();
 
+      // Build queue list with rank info
+      const queueListPromises = queuePlayers.map(async (entry, index) => {
+        const waitTime = formatDuration(entry.joinedAt);
+        // Get player rank
+        const playerRank = await storage.getPlayerRank(entry.player.mmr, rankTiers);
+
+        // Create emoji reference
+        let rankEmoji = '';
+
+        // Map rank names to emoji IDs
+        const rankEmojiMap: Record<string, string> = {
+          'Iron 1': '<:Iron1:emoji_id_here>',
+          'Iron 2': '<:Iron2:emoji_id_here>',
+          'Bronze 3': '<:Bronze3:emoji_id_here>',
+          'Bronze 2': '<:Bronze2:emoji_id_here>',
+          'Bronze 1': '<:Bronze1:emoji_id_here>',
+          'Silver 3': '<:Silver3:emoji_id_here>',
+          'Silver 2': '<:Silver2:emoji_id_here>',
+          'Silver 1': '<:Silver1:emoji_id_here>',
+          'Gold 3': '<:Gold3:emoji_id_here>',
+          'Gold 2': '<:Gold2:emoji_id_here>',
+          'Gold 1': '<:Gold1:emoji_id_here>',
+          'Platinum 3': '<:Platinum3:emoji_id_here>',
+          'Platinum 2': '<:Platinum2:emoji_id_here>',
+          'Platinum 1': '<:Platinum1:emoji_id_here>',
+          'Diamond 3': '<:Diamond3:emoji_id_here>',
+          'Diamond 2': '<:Diamond2:emoji_id_here>',
+          'Diamond 1': '<:Diamond1:emoji_id_here>',
+          'Masters 3': '<:Masters3:emoji_id_here>',
+          'Masters 2': '<:Masters2:emoji_id_here>',
+          'Masters 1': '<:Masters1:emoji_id_here>',
+          'Challenger': '<:Challenger:emoji_id_here>'
+        };
+
+        // Get the emoji for this rank if it exists
+        if (rankEmojiMap[playerRank.name]) {
+          rankEmoji = rankEmojiMap[playerRank.name] + ' ';
+        }
+
+        return `${index + 1}. ${rankEmoji}${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+      });
+
+      const queueList = (await Promise.all(queueListPromises)).join("\n");
       queueEmbed.addFields({ name: "Players", value: queueList });
     }
 
@@ -259,13 +298,52 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             .setDescription(`${queuePlayers.length} players in queue`);
 
           if (queuePlayers.length > 0) {
-            const queueList = queuePlayers
-              .map((entry, index) => {
-                const waitTime = formatDuration(entry.joinedAt);
-                return `${index + 1}. ${entry.player.username} (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
-              })
-              .join("\n");
+            // Get rank tiers
+            const rankTiers = await storage.getRankTiers();
 
+            // Build queue list with rank info
+            const queueListPromises = queuePlayers.map(async (entry, index) => {
+              const waitTime = formatDuration(entry.joinedAt);
+              // Get player rank
+              const playerRank = await storage.getPlayerRank(entry.player.mmr, rankTiers);
+
+              // Create emoji reference
+              let rankEmoji = '';
+
+              // Map rank names to emoji IDs
+              const rankEmojiMap: Record<string, string> = {
+                'Iron 1': '<:Iron1:emoji_id_here>',
+                'Iron 2': '<:Iron2:emoji_id_here>',
+                'Bronze 3': '<:Bronze3:emoji_id_here>',
+                'Bronze 2': '<:Bronze2:emoji_id_here>',
+                'Bronze 1': '<:Bronze1:emoji_id_here>',
+                'Silver 3': '<:Silver3:emoji_id_here>',
+                'Silver 2': '<:Silver2:emoji_id_here>',
+                'Silver 1': '<:Silver1:emoji_id_here>',
+                'Gold 3': '<:Gold3:emoji_id_here>',
+                'Gold 2': '<:Gold2:emoji_id_here>',
+                'Gold 1': '<:Gold1:emoji_id_here>',
+                'Platinum 3': '<:Platinum3:emoji_id_here>',
+                'Platinum 2': '<:Platinum2:emoji_id_here>',
+                'Platinum 1': '<:Platinum1:emoji_id_here>',
+                'Diamond 3': '<:Diamond3:emoji_id_here>',
+                'Diamond 2': '<:Diamond2:emoji_id_here>',
+                'Diamond 1': '<:Diamond1:emoji_id_here>',
+                'Masters 3': '<:Masters3:emoji_id_here>',
+                'Masters 2': '<:Masters2:emoji_id_here>',
+                'Masters 1': '<:Masters1:emoji_id_here>',
+                'Challenger': '<:Challenger:emoji_id_here>'
+              };
+
+              // Get the emoji for this rank if it exists
+              if (rankEmojiMap[playerRank.name]) {
+                rankEmoji = rankEmojiMap[playerRank.name] + ' ';
+              }
+
+              return `${index + 1}. ${rankEmoji}${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+            });
+
+            const queueList = (await Promise.all(queueListPromises)).join("\n");
             updatedQueueEmbed.addFields({ name: "Players", value: queueList });
           }
 
@@ -481,13 +559,52 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             .setDescription(`${queuePlayers.length} players in queue`);
 
           if (queuePlayers.length > 0) {
-            const queueList = queuePlayers
-              .map((entry, index) => {
-                const waitTime = formatDuration(entry.joinedAt);
-                return `${index + 1}. ${entry.player.username} (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
-              })
-              .join("\n");
+            // Get rank tiers
+            const rankTiers = await storage.getRankTiers();
 
+            // Build queue list with rank info
+            const queueListPromises = queuePlayers.map(async (entry, index) => {
+              const waitTime = formatDuration(entry.joinedAt);
+              // Get player rank
+              const playerRank = await storage.getPlayerRank(entry.player.mmr, rankTiers);
+
+              // Create emoji reference
+              let rankEmoji = '';
+
+              // Map rank names to emoji IDs
+              const rankEmojiMap: Record<string, string> = {
+                'Iron 1': '<:Iron1:emoji_id_here>',
+                'Iron 2': '<:Iron2:emoji_id_here>',
+                'Bronze 3': '<:Bronze3:emoji_id_here>',
+                'Bronze 2': '<:Bronze2:emoji_id_here>',
+                'Bronze 1': '<:Bronze1:emoji_id_here>',
+                'Silver 3': '<:Silver3:emoji_id_here>',
+                'Silver 2': '<:Silver2:emoji_id_here>',
+                'Silver 1': '<:Silver1:emoji_id_here>',
+                'Gold 3': '<:Gold3:emoji_id_here>',
+                'Gold 2': '<:Gold2:emoji_id_here>',
+                'Gold 1': '<:Gold1:emoji_id_here>',
+                'Platinum 3': '<:Platinum3:emoji_id_here>',
+                'Platinum 2': '<:Platinum2:emoji_id_here>',
+                'Platinum 1': '<:Platinum1:emoji_id_here>',
+                'Diamond 3': '<:Diamond3:emoji_id_here>',
+                'Diamond 2': '<:Diamond2:emoji_id_here>',
+                'Diamond 1': '<:Diamond1:emoji_id_here>',
+                'Masters 3': '<:Masters3:emoji_id_here>',
+                'Masters 2': '<:Masters2:emoji_id_here>',
+                'Masters 1': '<:Masters1:emoji_id_here>',
+                'Challenger': '<:Challenger:emoji_id_here>'
+              };
+
+              // Get the emoji for this rank if it exists
+              if (rankEmojiMap[playerRank.name]) {
+                rankEmoji = rankEmojiMap[playerRank.name] + ' ';
+              }
+
+              return `${index + 1}. ${rankEmoji}${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+            });
+
+            const queueList = (await Promise.all(queueListPromises)).join("\n");
             updatedQueueEmbed.addFields({ name: "Players", value: queueList });
           }
 
