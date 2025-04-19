@@ -86,13 +86,18 @@ export default function LeaderboardsPage() {
       return iconPath;
     }
 
-    // If it starts with a slash, it's already a root-relative path
-    if (iconPath.startsWith('/')) {
-      return iconPath;
+    // Clean up path: remove any client/public prefix if present
+    let cleanPath = iconPath;
+    if (cleanPath.includes('client/public/')) {
+      cleanPath = cleanPath.replace('client/public/', '');
     }
 
-    // Otherwise, ensure it has a leading slash
-    return `/${iconPath}`;
+    // Ensure path starts with / 
+    if (!cleanPath.startsWith('/')) {
+      cleanPath = '/' + cleanPath;
+    }
+
+    return cleanPath;
   };
 
   // Function to get player rank tier based on MMR
@@ -166,24 +171,42 @@ export default function LeaderboardsPage() {
                                   alt={rankTier.name}
                                   className="h-6 w-6 object-contain"
                                   onError={(e) => {
-                                    // Try alternative casing if the first attempt fails
-                                    const originalSrc = (e.target as HTMLImageElement).src;
+                                    const img = e.target as HTMLImageElement;
+                                    const originalSrc = img.src;
                                     console.error("Failed to load image:", originalSrc);
-
-                                    // Try lowercase version of the file
-                                    if (originalSrc.includes('/ranks/')) {
-                                      const pathParts = originalSrc.split('/ranks/');
-                                      const filename = pathParts[1];
-                                      const lowercaseFilename = filename.toLowerCase();
-                                      if (filename !== lowercaseFilename) {
-                                        console.log("Trying lowercase version:", lowercaseFilename);
-                                        (e.target as HTMLImageElement).src = `${pathParts[0]}/ranks/${lowercaseFilename}`;
-                                        return;
-                                      }
+                                    
+                                    // Create direct paths to try
+                                    const attempts = [];
+                                    
+                                    // Extract the tier name and try direct paths
+                                    const tierName = rankTier.name.replace(/\s+/g, '');
+                                    attempts.push(`/ranks/${tierName}.png`);
+                                    attempts.push(`/ranks/${tierName.toLowerCase()}.png`);
+                                    
+                                    // Try with separate rank and number
+                                    if (rankTier.name.includes(' ')) {
+                                      const [rank, number] = rankTier.name.split(' ');
+                                      attempts.push(`/ranks/${rank}${number}.png`);
+                                      attempts.push(`/ranks/${rank.toLowerCase()}${number}.png`);
+                                      attempts.push(`/ranks/${rank}${number}.PNG`);
                                     }
+                                    
+                                    // Try each alternative path
+                                    let attemptIndex = 0;
+                                    const tryNextPath = () => {
+                                      if (attemptIndex < attempts.length) {
+                                        console.log(`Trying rank icon path (${attemptIndex + 1}/${attempts.length}):`, attempts[attemptIndex]);
+                                        img.src = attempts[attemptIndex];
+                                        attemptIndex++;
+                                      } else {
+                                        // Just hide the image if all attempts fail
+                                        img.style.display = 'none';
+                                      }
+                                    };
 
-                                    // Hide the image if all attempts fail
-                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    // Start trying alternative paths
+                                    img.onerror = tryNextPath;
+                                    tryNextPath();
                                   }}
                                 />
                               )}
@@ -242,56 +265,48 @@ export default function LeaderboardsPage() {
                                   const img = e.target as HTMLImageElement;
                                   const originalSrc = img.src;
                                   console.error("Failed to load image:", originalSrc);
-
-                                  // Extract the path parts
-                                  const urlObj = new URL(originalSrc);
-                                  const path = urlObj.pathname;
-
-                                  // Try multiple approaches to fix the path
+                                  
+                                  // Create direct paths to try
                                   const attempts = [];
-
-                                  // 1. Try lowercase filename
-                                  if (path.includes('/ranks/')) {
-                                    const basePath = path.substring(0, path.lastIndexOf('/') + 1);
-                                    const filename = path.substring(path.lastIndexOf('/') + 1);
-                                    const lowercaseFilename = filename.toLowerCase();
-
-                                    if (filename !== lowercaseFilename) {
-                                      attempts.push(`${urlObj.origin}${basePath}${lowercaseFilename}`);
-                                    }
-
-                                    // 2. Try alternative extensions
-                                    if (filename.endsWith('.png')) {
-                                      // Try PNG extension (uppercase)
-                                      const altExtension = filename.replace(/\.png$/i, '.PNG');
-                                      attempts.push(`${urlObj.origin}${basePath}${altExtension}`);
-
-                                      // Try without extension
-                                      const noExtension = filename.replace(/\.png$/i, '');
-                                      attempts.push(`${urlObj.origin}${basePath}${noExtension}`);
-                                    } else if (!filename.includes('.')) {
-                                      // No extension in original, try adding one
-                                      attempts.push(`${urlObj.origin}${basePath}${filename}.png`);
-                                      attempts.push(`${urlObj.origin}${basePath}${filename}.PNG`);
-                                    }
-
-                                    // 3. Try direct path to public folder (no /client/public)
-                                    if (path.includes('/client/public/')) {
-                                      const fixedPath = path.replace('/client/public/', '/');
-                                      attempts.push(`${urlObj.origin}${fixedPath}`);
-                                    }
+                                  
+                                  // Extract filename
+                                  const filename = originalSrc.substring(originalSrc.lastIndexOf('/') + 1);
+                                  const filenameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+                                  const urlBase = originalSrc.substring(0, originalSrc.lastIndexOf('/') + 1);
+                                  
+                                  // Try direct paths with different extensions and casing
+                                  attempts.push(`/ranks/${filenameWithoutExt}.png`);
+                                  attempts.push(`/ranks/${filenameWithoutExt}.PNG`);
+                                  attempts.push(`/ranks/${filenameWithoutExt.toLowerCase()}.png`);
+                                  attempts.push(`/ranks/${filenameWithoutExt.toUpperCase()}.png`);
+                                  
+                                  // Try just the filename without path prefix
+                                  const tierName = tier.name.replace(/\s+/g, '');
+                                  attempts.push(`/ranks/${tierName}.png`);
+                                  attempts.push(`/ranks/${tierName.toLowerCase()}.png`);
+                                  
+                                  // Try exact name matches
+                                  if (tier.name.includes(' ')) {
+                                    const [rank, number] = tier.name.split(' ');
+                                    attempts.push(`/ranks/${rank}${number}.png`);
+                                    attempts.push(`/ranks/${rank.toLowerCase()}${number}.png`);
+                                    attempts.push(`/ranks/${rank}${number}.PNG`);
                                   }
-
+                                  
+                                  console.log(`Attempting to load ${tier.name} icon with ${attempts.length} different paths`);
+                                  
                                   // Try each alternative path
                                   let attemptIndex = 0;
                                   const tryNextPath = () => {
                                     if (attemptIndex < attempts.length) {
-                                      console.log(`Trying alternative path (${attemptIndex + 1}/${attempts.length}):`, attempts[attemptIndex]);
+                                      console.log(`Trying (${attemptIndex + 1}/${attempts.length}):`, attempts[attemptIndex]);
                                       img.src = attempts[attemptIndex];
                                       attemptIndex++;
                                     } else {
-                                      // If all attempts failed, show a placeholder or hide
+                                      // If all attempts failed, show placeholder text
                                       console.error("All image loading attempts failed for", tier.name);
+                                      const placeholderText = document.createTextNode(tier.name.charAt(0));
+                                      img.parentNode?.insertBefore(placeholderText, img);
                                       img.style.display = 'none';
                                     }
                                   };
