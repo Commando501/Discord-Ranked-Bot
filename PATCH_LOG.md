@@ -6,6 +6,9 @@ This file serves as an index to all patch logs, organized by time period.
 ## Recent Changes
 
 - 2025-06-29: Fixed critical threshold interpretation to make thresholds upper bounds (not lower bounds)
+
+- 2025-06-29: Fixed rank icon resolution to prioritize exact tier matches instead of generic rank names
+
 - 2025-06-28: Complete algorithm overhaul with explicit range checking to fix persistent tier assignment issues
 - 2025-06-28: Fixed critical tier assignment bug with completely revised algorithm that correctly assigns MMR values
 - 2025-06-28: Fixed rank tier ranges with correct interpretation of MMR boundaries (Silver 1: 850-999, Gold 3: 1000-1149)

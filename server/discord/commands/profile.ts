@@ -205,29 +205,21 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             }
           }
           
-          // Generate all possible filename variations
+          // Generate only specific filename variations - avoid generic rank base names
           const variations = [
-            // Exact match
+            // Exact match with tier and number
             playerRank.name.replace(/\s+/g, ''),
             playerRank.name.toLowerCase().replace(/\s+/g, ''),
             
-            // Base name with number combinations
+            // Base name with number combinations (specific tier)
             `${rankBase}${rankNumber}`,
             `${rankBase.toLowerCase()}${rankNumber}`,
             `${rankBase}${rankNumber}.png`,
             `${rankBase.toLowerCase()}${rankNumber}.png`,
             
-            // Just base name (for generic rank icons)
-            rankBase,
-            rankBase.toLowerCase(),
-            
             // With file extensions
             `${playerRank.name.replace(/\s+/g, '')}.png`,
-            `${playerRank.name.toLowerCase().replace(/\s+/g, '')}.png`,
-            
-            // Try other common formats
-            `${rankBase}`,
-            `${rankBase.toLowerCase()}`
+            `${playerRank.name.toLowerCase().replace(/\s+/g, '')}.png`
           ];
           
           logger.info(`Trying to find icon for rank: ${playerRank.name}, generated variations: ${variations.join(', ')}`);
@@ -239,32 +231,48 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           for (const file of files) {
             const fileBaseName = path.basename(file, path.extname(file)).toLowerCase();
             
-            // Try all variations against this file
+            // First prioritize exact matches
             for (const variation of variations) {
               const variationLower = variation.toLowerCase();
-              // Check if file contains this variation or variation contains file name
-              if (fileBaseName === variationLower || 
-                  fileBaseName.includes(variationLower) || 
-                  variationLower.includes(fileBaseName)) {
+              // Check for exact match first
+              if (fileBaseName === variationLower) {
                 iconFile = file;
-                logger.info(`Found matching file ${file} for variation ${variation}`);
+                logger.info(`Found EXACT match ${file} for variation ${variation}`);
                 break;
+              }
+            }
+            
+            // If we found an exact match, exit the file loop
+            if (iconFile) break;
+            
+            // Otherwise try partial matches (but only if they include the number)
+            if (!iconFile && rankNumber) {
+              for (const variation of variations) {
+                const variationLower = variation.toLowerCase();
+                // Check if file contains this variation AND the number component
+                if (fileBaseName.includes(variationLower) && fileBaseName.includes(rankNumber)) {
+                  iconFile = file;
+                  logger.info(`Found number-specific match ${file} for variation ${variation}`);
+                  break;
+                }
               }
             }
             
             if (iconFile) break;
           }
           
-          // If still no match, try a more aggressive partial match
-          if (!iconFile) {
+          // Only use this fallback if no specific match was found AND we have a rank number
+          if (!iconFile && rankNumber) {
+            // Look specifically for exact tier + number matches
+            const exactVariation = `${rankBase.toLowerCase()}${rankNumber}`;
+            
             for (const file of files) {
               const fileBaseName = path.basename(file, path.extname(file)).toLowerCase();
               
-              // Try to match just the rank base name
-              if (fileBaseName.includes(rankBase.toLowerCase()) || 
-                  rankBase.toLowerCase().includes(fileBaseName)) {
+              // Check for exact match with the number included
+              if (fileBaseName.includes(exactVariation)) {
                 iconFile = file;
-                logger.info(`Found partial match ${file} for rank base ${rankBase}`);
+                logger.info(`Found number-specific fallback match ${file} for tier ${rankBase}${rankNumber}`);
                 break;
               }
             }
