@@ -57,6 +57,26 @@ export default function LeaderboardsPage() {
     refetch();
   };
 
+  // Function to get MMR range for a rank tier
+  const getRankTierRange = (tier: RankTier, allTiers: RankTier[]): string => {
+    if (!tier) return "N/A";
+    
+    // Sort tiers by MMR threshold (ascending)
+    const sortedTiers = [...allTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+    
+    // Find the current tier index
+    const currentTierIndex = sortedTiers.findIndex(t => t.name === tier.name);
+    
+    // If it's the highest tier (last in sorted array)
+    if (currentTierIndex === sortedTiers.length - 1) {
+      return `${tier.mmrThreshold}+`;
+    }
+    
+    // Otherwise, show range from this tier's threshold to the next tier's threshold - 1
+    const nextTierThreshold = sortedTiers[currentTierIndex + 1].mmrThreshold;
+    return `${tier.mmrThreshold} - ${nextTierThreshold - 1}`;
+  };
+  
   // Helper function to ensure image path is correct
   const getRankIconUrl = (iconPath: string | undefined) => {
     if (!iconPath) return null;
@@ -76,29 +96,9 @@ export default function LeaderboardsPage() {
   };
   
   // Function to get player rank tier based on MMR
-  const getPlayerRankTier = (mmr: number): RankTier | undefined => {
-    if (rankTiers.length === 0) return undefined;
-    return getPlayerRank(mmr, rankTiers);
-  };
-  
-  // Function to get MMR range for a rank tier
-  const getRankTierRange = (tier: RankTier): string => {
-    if (!tier) return "N/A";
-    
-    // Sort tiers by MMR threshold (ascending)
-    const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
-    
-    // Find the current tier index
-    const currentTierIndex = sortedTiers.findIndex(t => t.name === tier.name);
-    
-    // If it's the highest tier (last in sorted array)
-    if (currentTierIndex === sortedTiers.length - 1) {
-      return `${tier.mmrThreshold}+`;
-    }
-    
-    // Otherwise, show range from this tier's threshold to the next tier's threshold - 1
-    const nextTierThreshold = sortedTiers[currentTierIndex + 1].mmrThreshold;
-    return `${tier.mmrThreshold} - ${nextTierThreshold - 1}`;
+  const getPlayerRankTier = (mmr: number, tiers: RankTier[]): RankTier | undefined => {
+    if (!tiers || tiers.length === 0) return undefined;
+    return getPlayerRank(mmr, tiers);
   };
 
   return (
@@ -141,7 +141,7 @@ export default function LeaderboardsPage() {
                   </TableHeader>
                   <TableBody>
                     {topPlayers?.map((player, index) => {
-                      const rankTier = getPlayerRankTier(player.mmr);
+                      const rankTier = getPlayerRankTier(player.mmr, rankTiers);
                       const winRate = player.wins + player.losses > 0
                         ? ((player.wins / (player.wins + player.losses)) * 100).toFixed(1)
                         : "0.0";
@@ -215,7 +215,7 @@ export default function LeaderboardsPage() {
                               {tier.name}
                             </span>
                           </TableCell>
-                          <TableCell>{getRankTierRange(tier)}</TableCell>
+                          <TableCell>{getRankTierRange(tier, rankTiers)}</TableCell>
                           <TableCell>
                             {tier.icon ? (
                               <img 
