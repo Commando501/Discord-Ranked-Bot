@@ -672,40 +672,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Add endpoint for rank icon uploads with error handling
   app.post('/api/upload/rank-icon', (req, res) => {
-    // Set content type to JSON before any processing begins
-    res.setHeader('Content-Type', 'application/json');
+    // Set proper content type immediately and ensure it's not changed elsewhere
+    res.type('application/json');
+    
+    const sendJsonError = (status, message, details = null) => {
+      console.error(`Upload error [${status}]:`, message);
+      res.status(status).json({
+        success: false,
+        message: message,
+        details: details
+      });
+    };
     
     try {
       // First call adminMiddleware with error catching
       adminMiddleware(req, res, (adminErr) => {
         if (adminErr) {
-          console.error('Admin middleware error:', adminErr);
-          return res.status(401).json({ 
-            success: false, 
-            message: 'Unauthorized access'
-          });
+          return sendJsonError(401, 'Unauthorized access', { source: 'admin_middleware' });
         }
         
-        // Then handle file upload with error catching
+        // Handle file upload with better error catching
         rankIconUpload.single('file')(req, res, (uploadErr) => {
-          // Handle multer errors and ensure JSON response
+          // Override any content type changes that might have happened
+          res.type('application/json');
+          
+          // Handle multer errors
           if (uploadErr) {
-            console.error('Multer error:', uploadErr);
-            return res.status(400).json({ 
-              success: false, 
-              message: uploadErr.message || 'Error uploading file'
-            });
+            return sendJsonError(400, uploadErr.message || 'Error uploading file', { source: 'multer' });
           }
           
           if (!req.file) {
-            return res.status(400).json({ 
-              success: false, 
-              message: 'No file uploaded' 
-            });
+            return sendJsonError(400, 'No file uploaded', { source: 'validation' });
           }
           
+          // Log success and details
+          console.log('File uploaded successfully:', req.file.filename);
+          
           // Return the file details
-          res.status(200).json({ 
+          return res.status(200).json({ 
             success: true, 
             message: 'File uploaded successfully',
             file: {
@@ -718,10 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       // Global error handler to ensure we always return JSON
-      console.error('Unexpected server error during upload:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Server error occurred during upload',
+      return sendJsonError(500, 'Server error occurred during upload', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
