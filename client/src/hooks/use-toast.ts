@@ -165,20 +165,27 @@ function toast({ ...props }: Toast) {
     console.error("Error dispatching toast:", error)
   }
 
-  try {
-    return {
-      id: id,
-      dismiss,
-      update,
+  // Safely create toast control object to prevent errors
+  const toastControls = {
+    id: id,
+    dismiss: () => {
+      try {
+        dismiss();
+      } catch (error) {
+        console.error("Error in dismiss function:", error);
+      }
+    },
+    update: (props: ToasterToast) => {
+      try {
+        update(props);
+      } catch (error) {
+        console.error("Error in update function:", error);
+        return null;
+      }
     }
-  } catch (error) {
-    console.error("Error in toast return:", error);
-    return {
-      id: id,
-      dismiss: () => {},
-      update: () => {},
-    }
-  }
+  };
+  
+  return toastControls;
 }
 
 function useToast() {
