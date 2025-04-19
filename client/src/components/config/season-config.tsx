@@ -136,13 +136,21 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
         try {
           data = await responseClone.json();
         } catch (parseError) {
-          console.error("Error parsing response");
-          throw new Error('Server response is not valid JSON');
+          // Check if the response is HTML (likely an error page)
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('text/html')) {
+            console.error("Server returned HTML instead of JSON");
+            throw new Error('Server error: Received HTML instead of JSON response');
+          } else {
+            console.error("Error parsing response");
+            throw new Error('Server response is not valid JSON');
+          }
         }
 
         // Set the file path from the server response using the path returned from the server
         const iconPath = data?.file?.path;
         if (!iconPath) {
+          console.error("Invalid response structure:", data);
           throw new Error('Invalid server response: missing file path');
         }
         setNewRankTierIcon(iconPath);

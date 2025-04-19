@@ -649,18 +649,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       cb(null, uploadDir);
     },
     filename: function (req: any, file: any, cb: any) {
-      // Use the original filename
-      cb(null, file.originalname);
+      // Use the original filename, but clean it for safety
+      const safeFilename = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+      cb(null, safeFilename);
     }
   });
   
-  const rankIconUpload = multer({ storage: rankIconsStorage });
+  const rankIconUpload = multer({ 
+    storage: rankIconsStorage,
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB limit
+    },
+    fileFilter: (req: any, file: any, cb: any) => {
+      // Accept only image files
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed'), false);
+      }
+    }
+  });
   
-  // Add endpoint for rank icon uploads
-  app.post('/api/upload/rank-icon', adminMiddleware, rankIconUpload.single('file'), (req, res) => {
-    try {
+  // Add endpoint for rank icon uploads with error handling
+  app.post('/api/upload/rank-icon', adminMiddleware, (req, res) => {
+    rankIconUpload.single('file')(req, res, (err) => {
+      // Handle multer errors and ensure JSON response
+      if (err) {
+        console.error('Multer error:', err);
+        return res.status(400).json({ 
+          success: false, 
+          message: err.message || 'Error uploading file'
+        });
+      }
+      
       if (!req.file) {
-        return res.status(400).json({ success: false, message: 'No file uploaded' });
+        return res.status(400).json({ 
+          success: false, 
+          message: 'No file uploaded' 
+        });
       }
       
       // Return the file details
@@ -673,10 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           size: req.file.size
         }
       });
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      res.status(500).json({ success: false, message: 'Failed to upload file' });
-    }
+    });
   });
 
 
