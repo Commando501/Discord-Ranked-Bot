@@ -79,14 +79,33 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         }
       }
       
-      // Determine player's rank using the loaded tiers
+      // Log the loaded rank tiers to help debug
       if (rankTiers.length > 0) {
-        playerRank = getPlayerRank(player.mmr, rankTiers);
+        logger.info(`Found ${rankTiers.length} rank tiers. First tier: ${JSON.stringify(rankTiers[0])}, Last tier: ${JSON.stringify(rankTiers[rankTiers.length-1])}`);
+        
+        // Sort tiers by MMR threshold (highest first) to ensure correct rank determination
+        const sortedTiers = [...rankTiers].sort((a, b) => b.mmrThreshold - a.mmrThreshold);
+        
+        // Find the first tier where the player's MMR is greater than or equal to the threshold
+        for (const tier of sortedTiers) {
+          if (player.mmr >= tier.mmrThreshold) {
+            playerRank = tier;
+            break;
+          }
+        }
+        
+        // If no tier is found, use the lowest tier
+        if (!playerRank && sortedTiers.length > 0) {
+          playerRank = sortedTiers[sortedTiers.length - 1];
+        }
+        
         if (!playerRank) {
           logger.warn(`Could not determine rank for player with MMR ${player.mmr}`);
         }
       } else {
         logger.warn(`No rank tiers available to determine rank for player with MMR ${player.mmr}`);
+        // Only use default tiers as absolute fallback
+        playerRank = getPlayerRank(player.mmr, []);
       }
       
       // Log the exact rank information to verify
