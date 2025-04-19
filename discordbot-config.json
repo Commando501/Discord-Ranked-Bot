@@ -87,96 +87,112 @@
         "name": "Silver 3",
         "mmrThreshold": 699,
         "color": "#C0C0C0",
+        "icon": "client/public/ranks/Silver3.png",
         "description": "Silver"
       },
       {
         "name": "Silver 2",
         "mmrThreshold": 849,
         "color": "#C0C0C0",
+        "icon": "client/public/ranks/Silver2.png",
         "description": "silver"
       },
       {
         "name": "Silver 1",
         "mmrThreshold": 999,
         "color": "#C0C0C0",
+        "icon": "client/public/ranks/Silver1.png",
         "description": "silver"
       },
       {
         "name": "Gold 3",
         "mmrThreshold": 1149,
         "color": "#FFD700",
+        "icon": "client/public/ranks/gold3.png",
         "description": "gold"
       },
       {
         "name": "Gold 2",
         "mmrThreshold": 1299,
         "color": "#FFD700",
+        "icon": "client/public/ranks/Gold2.png",
         "description": "Gold"
       },
       {
         "name": "Gold 1",
         "mmrThreshold": 1449,
         "color": "#FFD700",
+        "icon": "client/public/ranks/Gold1.png",
         "description": "gold"
       },
       {
         "name": "Platinum 3",
         "mmrThreshold": 1649,
         "color": "#007f81",
+        "icon": "client/public/ranks/Plat3.png",
         "description": "platinum"
       },
       {
         "name": "Platinum 2",
         "mmrThreshold": 1849,
         "color": "#007f81",
+        "icon": "client/public/ranks/Plat2.png",
         "description": "platinum"
       },
       {
         "name": "Platinum 1",
         "mmrThreshold": 2049,
         "color": "#007f81",
+        "icon": "client/public/ranks/Plat1.png",
         "description": "platinum"
       },
       {
         "name": "Diamond 3",
         "mmrThreshold": 2274,
         "color": "#445fa5",
+        "icon": "client/public/ranks/Diamond3.png",
         "description": "diamond"
       },
       {
         "name": "Diamond 2",
         "mmrThreshold": 2499,
         "color": "#445fa5",
+        "icon": "client/public/ranks/Diamond2.png",
         "description": "diamond"
       },
       {
         "name": "Diamond 1",
         "mmrThreshold": 2749,
         "color": "#445fa5",
+        "icon": "client/public/ranks/Diamond1.png",
         "description": "diamond"
       },
       {
         "name": "Masters 3",
         "mmrThreshold": 2999,
         "color": "#3BA55C",
+        "icon": "client/public/ranks/Masters3.png",
         "description": "masters"
       },
       {
         "name": "Masters 2",
         "mmrThreshold": 3249,
         "color": "#3BA55C",
+        "icon": "client/public/ranks/Masters2.png",
         "description": "masters"
       },
       {
         "name": "Masters 1",
         "mmrThreshold": 3499,
         "color": "#3BA55C",
+        "icon": "client/public/ranks/Masters1.png",
         "description": "masters"
       },
       {
         "name": "Challenger",
         "mmrThreshold": 3500,
         "color": "#3BA55C",
+        "icon": "client/public/ranks/Challenger.png",
         "description": "challenger"
       }
     ],
