@@ -1,4 +1,3 @@
-
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
@@ -141,6 +140,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       });
 
       collector.on('collect', async (i) => {
+        // Defer the ephemeral reply to acknowledge the interaction
+        await i.deferReply({ ephemeral: true });
+
         // Get or create player for the user who clicked the button
         const player = await playerService.getOrCreatePlayer({
           id: i.user.id,
@@ -152,34 +154,31 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         if (i.customId === 'join_queue') {
           // Check if player is already in queue
           const existingQueueEntry = await queueService.getPlayerQueueEntry(player.id);
-          
+
           if (existingQueueEntry) {
-            await i.reply({ 
-              content: "You are already in the matchmaking queue.",
-              ephemeral: true 
+            await i.editReply({ 
+              content: "You are already in the matchmaking queue."
             });
             return;
           }
-          
+
           // Add player to queue
           const queueResult = await queueService.addPlayerToQueue(player.id);
-          
+
           if (!queueResult.success) {
-            await i.reply({
-              content: `Failed to join queue: ${queueResult.message}`,
-              ephemeral: true
+            await i.editReply({
+              content: `Failed to join queue: ${queueResult.message}`
             });
             return;
           }
-          
-          // Get updated queue count
+
+          // Get updated queue size
           const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
-          
-          await i.reply({
-            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`,
-            ephemeral: true
+
+          await i.editReply({
+            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`
           });
-          
+
           // Check if we can create a match
           if (i.guild) {
             await queueService.checkAndCreateMatch(i.guild);
@@ -188,16 +187,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         else if (i.customId === 'leave_queue') {
           // Check if player is in queue
           const queueEntry = await queueService.getPlayerQueueEntry(player.id);
-          
+
           if (!queueEntry) {
             // Check if player is in an active match
             const isInMatch = await queueService.isPlayerInActiveMatch(player.id);
-            
+
             if (isInMatch) {
               // Find the match the player is in
               const activeMatches = await matchService.getActiveMatches();
               let playerMatch = null;
-              
+
               // Find which match the player is in
               for (const match of activeMatches) {
                 for (const team of match.teams) {
@@ -209,46 +208,143 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 }
                 if (playerMatch) break;
               }
-              
+
               if (playerMatch) {
                 // Handle match cancellation with exclusion
                 const result = await matchService.handleMatchCancellationWithExclusion(
                   playerMatch.id, 
                   player.id
                 );
-                
+
                 if (result.success) {
-                  await i.reply({
-                    content: `You have left match #${playerMatch.id}. The match has been cancelled and other players returned to queue.`,
-                    ephemeral: true
+                  await i.editReply({
+                    content: `You have left match #${playerMatch.id}. The match has been cancelled and other players returned to queue.`
                   });
                 } else {
-                  await i.reply({
-                    content: `Failed to leave match: ${result.message}`,
-                    ephemeral: true
+                  await i.editReply({
+                    content: `Failed to leave match: ${result.message}`
                   });
                 }
                 return;
               }
             }
-            
-            await i.reply({
-              content: "You are not currently in the matchmaking queue or an active match.",
-              ephemeral: true
+
+            await i.editReply({
+              content: "You are not currently in the matchmaking queue or an active match."
             });
             return;
           }
-          
+
           // Remove player from queue
           await queueService.removePlayerFromQueue(player.id);
-          
-          // Get updated queue count
+
+          // Get updated queue size
           const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
-          
-          await i.reply({
-            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`,
-            ephemeral: true
+
+          await i.editReply({
+            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`
           });
+        }
+
+        // Update the original embed with fresh data after queue change
+        try {
+          // Get updated queue and match data
+          const queuePlayers = await queueService.getQueuePlayersWithInfo();
+          const activeMatches = await matchService.getActiveMatches();
+
+          // Create updated queue embed
+          const updatedQueueEmbed = new EmbedBuilder()
+            .setColor("#5865F2")
+            .setTitle("Matchmaking Queue")
+            .setDescription(`${queuePlayers.length} players in queue`);
+
+          if (queuePlayers.length > 0) {
+            const queueList = queuePlayers
+              .map((entry, index) => {
+                const waitTime = formatDuration(entry.joinedAt);
+                return `${index + 1}. ${entry.player.username} (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+              })
+              .join("\n");
+
+            updatedQueueEmbed.addFields({ name: "Players", value: queueList });
+          }
+
+          // If there are active matches, re-create match embeds
+          if (activeMatches.length > 0) {
+            // Create a separate embed for each match with detailed information
+            const updatedMatchEmbeds = await Promise.all(
+              activeMatches.map(async (match) => {
+                try {
+                  // Get detailed match information including teams
+                  const matchDetails = await matchService.getMatchDetails(match.id);
+
+                  // Calculate match duration
+                  const matchDuration = formatDuration(match.createdAt);
+
+                  // Create embed for this match
+                  const matchEmbed = new EmbedBuilder()
+                    .setColor("#3BA55C")
+                    .setTitle(`Match #${match.id}`)
+                    .setDescription(
+                      `Status: ${match.status} | Started: ${matchDuration} ago`,
+                    )
+                    .setFooter({
+                      text: `Use /endmatch ${match.id} Eagle|Cobra to end this match`,
+                    });
+
+                  // Add team information if available
+                  if (matchDetails?.teams && matchDetails.teams.length > 0) {
+                    matchDetails.teams.forEach((team) => {
+                      const teamPlayers = team.players
+                        .map((player) => `${player.username} (MMR: ${player.mmr})`)
+                        .join("\n");
+
+                      matchEmbed.addFields({
+                        name: `Team ${team.name} (Avg MMR: ${team.avgMMR})`,
+                        value: teamPlayers || "No players",
+                        inline: true,
+                      });
+                    });
+                  }
+
+                  return matchEmbed;
+                } catch (detailError) {
+                  logger.error(
+                    `Error fetching details for match ${match.id}:`,
+                    detailError,
+                  );
+                  // Fallback to simple match embed if details can't be fetched
+                  return new EmbedBuilder()
+                    .setColor("#ED4245")
+                    .setTitle(`Match #${match.id}`)
+                    .setDescription(
+                      `Status: ${match.status}\nStarted: ${formatDuration(match.createdAt)}\n⚠️ Could not load detailed information`,
+                    );
+                }
+              }),
+            );
+
+            // Update the original message with fresh embeds
+            await interaction.editReply({
+              embeds: [updatedQueueEmbed, ...updatedMatchEmbeds],
+              components: [row]
+            });
+          } else {
+            // If no matches, just create empty match embed
+            const updatedMatchesEmbed = new EmbedBuilder()
+              .setColor("#57F287")
+              .setTitle("Active Matches")
+              .setDescription("No active matches");
+
+            // Update the original message with the refreshed embeds
+            await interaction.editReply({ 
+              embeds: [updatedQueueEmbed, updatedMatchesEmbed],
+              components: [row] 
+            });
+          }
+        } catch (updateError) {
+          logger.error(`Error updating embed after button click: ${updateError}`);
+          // Don't need to notify the user since they got a direct ephemeral response
         }
       });
 
@@ -266,6 +362,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       });
 
       collector.on('collect', async (i) => {
+        // Defer the ephemeral reply to acknowledge the interaction
+        await i.deferReply({ ephemeral: true });
+
         // Get or create player for the user who clicked the button
         const player = await playerService.getOrCreatePlayer({
           id: i.user.id,
@@ -277,34 +376,31 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         if (i.customId === 'join_queue') {
           // Check if player is already in queue
           const existingQueueEntry = await queueService.getPlayerQueueEntry(player.id);
-          
+
           if (existingQueueEntry) {
-            await i.reply({ 
-              content: "You are already in the matchmaking queue.",
-              ephemeral: true 
+            await i.editReply({ 
+              content: "You are already in the matchmaking queue."
             });
             return;
           }
-          
+
           // Add player to queue
           const queueResult = await queueService.addPlayerToQueue(player.id);
-          
+
           if (!queueResult.success) {
-            await i.reply({
-              content: `Failed to join queue: ${queueResult.message}`,
-              ephemeral: true
+            await i.editReply({
+              content: `Failed to join queue: ${queueResult.message}`
             });
             return;
           }
-          
-          // Get updated queue count
+
+          // Get updated queue size
           const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
-          
-          await i.reply({
-            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`,
-            ephemeral: true
+
+          await i.editReply({
+            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`
           });
-          
+
           // Check if we can create a match
           if (i.guild) {
             await queueService.checkAndCreateMatch(i.guild);
@@ -313,16 +409,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         else if (i.customId === 'leave_queue') {
           // Check if player is in queue
           const queueEntry = await queueService.getPlayerQueueEntry(player.id);
-          
+
           if (!queueEntry) {
             // Check if player is in an active match
             const isInMatch = await queueService.isPlayerInActiveMatch(player.id);
-            
+
             if (isInMatch) {
               // Find the match the player is in
               const activeMatches = await matchService.getActiveMatches();
               let playerMatch = null;
-              
+
               // Find which match the player is in
               for (const match of activeMatches) {
                 for (const team of match.teams) {
@@ -334,46 +430,143 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 }
                 if (playerMatch) break;
               }
-              
+
               if (playerMatch) {
                 // Handle match cancellation with exclusion
                 const result = await matchService.handleMatchCancellationWithExclusion(
                   playerMatch.id, 
                   player.id
                 );
-                
+
                 if (result.success) {
-                  await i.reply({
-                    content: `You have left match #${playerMatch.id}. The match has been cancelled and other players returned to queue.`,
-                    ephemeral: true
+                  await i.editReply({
+                    content: `You have left match #${playerMatch.id}. The match has been cancelled and other players returned to queue.`
                   });
                 } else {
-                  await i.reply({
-                    content: `Failed to leave match: ${result.message}`,
-                    ephemeral: true
+                  await i.editReply({
+                    content: `Failed to leave match: ${result.message}`
                   });
                 }
                 return;
               }
             }
-            
-            await i.reply({
-              content: "You are not currently in the matchmaking queue or an active match.",
-              ephemeral: true
+
+            await i.editReply({
+              content: "You are not currently in the matchmaking queue or an active match."
             });
             return;
           }
-          
+
           // Remove player from queue
           await queueService.removePlayerFromQueue(player.id);
-          
-          // Get updated queue count
+
+          // Get updated queue size
           const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
-          
-          await i.reply({
-            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`,
-            ephemeral: true
+
+          await i.editReply({
+            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`
           });
+        }
+
+        // Update the original embed with fresh data after queue change
+        try {
+          // Get updated queue and match data
+          const queuePlayers = await queueService.getQueuePlayersWithInfo();
+          const activeMatches = await matchService.getActiveMatches();
+
+          // Create updated queue embed
+          const updatedQueueEmbed = new EmbedBuilder()
+            .setColor("#5865F2")
+            .setTitle("Matchmaking Queue")
+            .setDescription(`${queuePlayers.length} players in queue`);
+
+          if (queuePlayers.length > 0) {
+            const queueList = queuePlayers
+              .map((entry, index) => {
+                const waitTime = formatDuration(entry.joinedAt);
+                return `${index + 1}. ${entry.player.username} (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+              })
+              .join("\n");
+
+            updatedQueueEmbed.addFields({ name: "Players", value: queueList });
+          }
+
+          // If there are active matches, re-create match embeds
+          if (activeMatches.length > 0) {
+            // Create a separate embed for each match with detailed information
+            const updatedMatchEmbeds = await Promise.all(
+              activeMatches.map(async (match) => {
+                try {
+                  // Get detailed match information including teams
+                  const matchDetails = await matchService.getMatchDetails(match.id);
+
+                  // Calculate match duration
+                  const matchDuration = formatDuration(match.createdAt);
+
+                  // Create embed for this match
+                  const matchEmbed = new EmbedBuilder()
+                    .setColor("#3BA55C")
+                    .setTitle(`Match #${match.id}`)
+                    .setDescription(
+                      `Status: ${match.status} | Started: ${matchDuration} ago`,
+                    )
+                    .setFooter({
+                      text: `Use /endmatch ${match.id} Eagle|Cobra to end this match`,
+                    });
+
+                  // Add team information if available
+                  if (matchDetails?.teams && matchDetails.teams.length > 0) {
+                    matchDetails.teams.forEach((team) => {
+                      const teamPlayers = team.players
+                        .map((player) => `${player.username} (MMR: ${player.mmr})`)
+                        .join("\n");
+
+                      matchEmbed.addFields({
+                        name: `Team ${team.name} (Avg MMR: ${team.avgMMR})`,
+                        value: teamPlayers || "No players",
+                        inline: true,
+                      });
+                    });
+                  }
+
+                  return matchEmbed;
+                } catch (detailError) {
+                  logger.error(
+                    `Error fetching details for match ${match.id}:`,
+                    detailError,
+                  );
+                  // Fallback to simple match embed if details can't be fetched
+                  return new EmbedBuilder()
+                    .setColor("#ED4245")
+                    .setTitle(`Match #${match.id}`)
+                    .setDescription(
+                      `Status: ${match.status}\nStarted: ${formatDuration(match.createdAt)}\n⚠️ Could not load detailed information`,
+                    );
+                }
+              }),
+            );
+
+            // Update the original message with fresh embeds
+            await interaction.editReply({
+              embeds: [updatedQueueEmbed, ...updatedMatchEmbeds],
+              components: [row]
+            });
+          } else {
+            // If no matches, just create empty match embed
+            const updatedMatchesEmbed = new EmbedBuilder()
+              .setColor("#57F287")
+              .setTitle("Active Matches")
+              .setDescription("No active matches");
+
+            // Update the original message with the refreshed embeds
+            await interaction.editReply({ 
+              embeds: [updatedQueueEmbed, updatedMatchesEmbed],
+              components: [row] 
+            });
+          }
+        } catch (updateError) {
+          logger.error(`Error updating embed after button click: ${updateError}`);
+          // Don't need to notify the user since they got a direct ephemeral response
         }
       });
     }

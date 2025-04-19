@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 
+- 2025-07-02: Enhanced /list command to automatically refresh embed after queue join/leave actions
 
 - 2025-07-01: Added interactive buttons to /list command for joining and leaving queue
 
