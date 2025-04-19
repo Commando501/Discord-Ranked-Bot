@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 
+- 2025-06-28: Fixed Discord profile command rank tier assignment algorithm to correctly handle threshold boundaries
 - 2025-06-28: Fixed Discord profile command rank determination logic to correctly assign highest eligible rank tier
 - 2025-06-28: Fixed Discord profile command to always load rank tiers directly from config file
 - 2025-06-28: Fixed Discord profile command rank determination to properly use config tiers instead of defaultRankTiers

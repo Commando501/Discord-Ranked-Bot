@@ -99,23 +99,31 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           logger.error(`Error loading detailed rank tiers from config: ${configError}`);
         }
         
-        // Sort tiers by MMR threshold (ascending) to get proper tier ordering
+        // Sort tiers by MMR threshold (ascending)
         const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
         
-        // Find the highest tier where player's MMR is >= threshold
-        let highestEligibleTier = null;
+        // Find the appropriate tier for the player's MMR
+        let appropriateTier = null;
         
-        for (const tier of sortedTiers) {
-          if (player.mmr >= tier.mmrThreshold) {
-            highestEligibleTier = tier;
-          } else {
-            // Once we find a tier with threshold higher than player's MMR, we've found our rank
+        // Start with the lowest tier
+        for (let i = 0; i < sortedTiers.length; i++) {
+          const currentTier = sortedTiers[i];
+          const nextTier = i < sortedTiers.length - 1 ? sortedTiers[i + 1] : null;
+          
+          // If this is the highest tier or player's MMR is below next tier's threshold
+          if (player.mmr >= currentTier.mmrThreshold && (!nextTier || player.mmr < nextTier.mmrThreshold)) {
+            appropriateTier = currentTier;
             break;
           }
         }
         
-        if (highestEligibleTier) {
-          playerRank = highestEligibleTier;
+        // Fallback to the highest tier if player.mmr is higher than all thresholds
+        if (!appropriateTier && sortedTiers.length > 0) {
+          appropriateTier = sortedTiers[sortedTiers.length - 1];
+        }
+        
+        if (appropriateTier) {
+          playerRank = appropriateTier;
           logger.info(`Selected rank "${playerRank.name}" for player with MMR ${player.mmr} (threshold: ${playerRank.mmrThreshold})`);
         }
         
