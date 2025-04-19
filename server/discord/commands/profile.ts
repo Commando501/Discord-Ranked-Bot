@@ -99,30 +99,34 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           logger.error(`Error loading detailed rank tiers from config: ${configError}`);
         }
         
-        // COMPLETELY REVISED ALGORITHM - FIXED ONCE AND FOR ALL
+        // CORRECT INTERPRETATION: Each tier covers MMR from its lower threshold up to the next tier's threshold
         // Sort tiers by threshold in ascending order
         const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
         
-        // Find the tier for player's MMR with a completely different approach
+        // Find the tier for player's MMR using the correct range interpretation
         let foundTier = null;
-                
-        // First identify all tiers the player qualifies for (MMR >= tier threshold)
-        const qualifyingTiers = sortedTiers.filter(tier => player.mmr >= tier.mmrThreshold);
         
-        // If they qualify for any tiers, the last one (highest threshold) is their tier
-        if (qualifyingTiers.length > 0) {
-          foundTier = qualifyingTiers[qualifyingTiers.length - 1];
+        // For each tier, check if the player's MMR is within its range
+        // A tier's range is from its threshold up to (but not including) the next tier's threshold
+        for (let i = 0; i < sortedTiers.length; i++) {
+          const currentTier = sortedTiers[i];
+          const nextTier = i < sortedTiers.length - 1 ? sortedTiers[i + 1] : null;
           
-          // Log details for verification
-          logger.info(`FINAL SOLUTION: Player MMR ${player.mmr} qualifies for ${qualifyingTiers.length} tiers.`);
-          logger.info(`Highest qualifying tier is ${foundTier.name} with threshold ${foundTier.mmrThreshold}.`);
+          // For the last tier, the upper bound is infinity
+          const lowerBound = currentTier.mmrThreshold;
+          const upperBound = nextTier ? nextTier.mmrThreshold - 1 : Number.MAX_SAFE_INTEGER;
           
-          // Double-check by finding adjacent tiers in original sorted list
-          const tierIndex = sortedTiers.findIndex(t => t.name === foundTier.name);
-          const nextTierThreshold = tierIndex < sortedTiers.length - 1 ? 
-            sortedTiers[tierIndex + 1].mmrThreshold : "MAX";
-          
-          logger.info(`Player MMR ${player.mmr} should be between ${foundTier.mmrThreshold} and ${nextTierThreshold}.`);
+          // Check if player's MMR falls within this range
+          if (player.mmr >= lowerBound && player.mmr <= upperBound) {
+            foundTier = currentTier;
+            
+            // Log details for verification
+            logger.info(`CORRECT RANGE FOUND: Player MMR ${player.mmr} falls in range for ${foundTier.name}`);
+            logger.info(`Range for ${foundTier.name}: ${lowerBound} to ${upperBound}`);
+            
+            // We found the tier, no need to continue checking
+            break;
+          }
         }
         
         if (foundTier) {
