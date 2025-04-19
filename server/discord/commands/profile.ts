@@ -65,6 +65,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       if (!playerRank && rankTiers.length > 0) {
         logger.warn(`Could not determine rank for player with MMR ${player.mmr}`);
       }
+      
+      // Log the exact rank information to verify
+      if (playerRank) {
+        logger.info(`Retrieved player rank: ${JSON.stringify(playerRank)}`);
+      }
     } catch (rankError) {
       logger.error(`Error retrieving rank information: ${rankError}`);
       // Continue without rank information

@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 
+- 2025-06-28: Fixed Discord profile command to properly display complete rank tier names (e.g., "Silver 3" instead of just "Silver")
 - 2025-06-27: Enhanced rank icon filename resolution in Discord profile command with better matching algorithm
 - 2025-06-27: Fixed "Unranked" display issue by implementing getRankTiers method in storage interface
 - 2025-06-26: Added additional error handling, debugging, and resilience to Discord profile command
