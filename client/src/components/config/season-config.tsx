@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { Plus, Trash, Pencil, Save, X, Calendar as CalendarIcon, Upload, Image } from "lucide-react";
 import { z } from "zod";
 import { rankTierSchema } from "@shared/rankSystem";
+import { toast } from "@/components/ui/use-toast";
 
 interface SeasonConfigPanelProps {
   config: SeasonConfig;
@@ -104,19 +105,45 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
   }
 
   // Handle rank icon file upload
-  const handleRankIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Create a unique filename using the tier name (or a timestamp if no name)
-    const baseName = newRankTierName ? 
-      newRankTierName.toLowerCase().replace(/\s+/g, '') : 
-      `rank_${Date.now()}`;
-    const iconPath = `/ranks/${baseName}.png`;
-    
-    // Here we would typically upload the file to the server
-    // For now, we'll just set the path and assume the file is uploaded elsewhere
-    setNewRankTierIcon(iconPath);
+  const handleRankIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      // Get the file
+      const file = e.target.files[0];
+
+      try {
+        // Create a FormData object
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Upload the file using fetch to a new server endpoint
+        const response = await fetch('/api/upload/rank-icon', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to upload icon');
+        }
+
+        const data = await response.json();
+
+        // Set the file path from the server response
+        setNewRankTierIcon(`ranks/${file.name}`);
+
+        // Show a success message
+        toast({
+          title: "Icon uploaded successfully",
+          description: `Icon saved as ranks/${file.name}`,
+        });
+      } catch (error) {
+        console.error("Error uploading icon:", error);
+        toast({
+          title: "Upload failed",
+          description: "There was an error uploading the icon",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   // Add a new rank tier
@@ -497,7 +524,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                           <Input
                             value={editedRankTier?.icon || ""}
                             onChange={(e) => setEditedRankTier({...editedRankTier!, icon: e.target.value})}
-                            placeholder="/ranks/icon.png"
+                            placeholder="ranks/icon.png"
                           />
                         </div>
                       </div>
@@ -608,7 +635,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                       placeholder="Top tier players"
                     />
                   </div>
-                  
+
                   <div>
                     <FormLabel htmlFor="rankTierIcon">Rank Icon</FormLabel>
                     <div className="flex items-center space-x-2">
@@ -623,14 +650,14 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                             id="rankTierIconPath"
                             value={newRankTierIcon}
                             onChange={(e) => setNewRankTierIcon(e.target.value)}
-                            placeholder="/ranks/icon.png"
+                            placeholder="ranks/icon.png"
                           />
                         </div>
                       ) : (
                         <div className="relative w-full">
-                          <Input
-                            id="rankTierIcon"
+                          <input
                             type="file"
+                            id="rankTierIcon"
                             accept="image/*"
                             className="hidden"
                             onChange={handleRankIconUpload}
@@ -645,13 +672,13 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
                             Upload Icon
                           </Button>
                           <span className="text-xs text-muted-foreground block mt-1">
-                            Or enter path: /ranks/filename.png
+                            Or enter path: ranks/filename.png
                           </span>
                           <Input
                             id="rankTierIconPath"
                             value={newRankTierIcon}
                             onChange={(e) => setNewRankTierIcon(e.target.value)}
-                            placeholder="/ranks/icon.png"
+                            placeholder="ranks/icon.png"
                             className="mt-2"
                           />
                         </div>

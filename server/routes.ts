@@ -633,6 +633,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Increment season number
       const newSeasonNumber = (seasonManagement.currentSeason || 1) + 1;
 
+  // File upload endpoint for rank icons
+  const multer = require('multer');
+  const path = require('path');
+  const fs = require('fs');
+  
+  // Configure storage
+  const rankIconsStorage = multer.diskStorage({
+    destination: function (req: any, file: any, cb: any) {
+      // Ensure the directory exists
+      const uploadDir = path.join(process.cwd(), 'client', 'public', 'ranks');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: function (req: any, file: any, cb: any) {
+      // Use the original filename
+      cb(null, file.originalname);
+    }
+  });
+  
+  const rankIconUpload = multer({ storage: rankIconsStorage });
+  
+  // Add endpoint for rank icon uploads
+  app.post('/api/upload/rank-icon', adminMiddleware, rankIconUpload.single('file'), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
+      }
+      
+      // Return the file details
+      res.status(200).json({ 
+        success: true, 
+        message: 'File uploaded successfully',
+        file: {
+          filename: req.file.filename,
+          path: `ranks/${req.file.filename}`,
+          size: req.file.size
+        }
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      res.status(500).json({ success: false, message: 'Failed to upload file' });
+    }
+  });
+
+
+
       // Set new dates
       const startDate = new Date().toISOString();
 
