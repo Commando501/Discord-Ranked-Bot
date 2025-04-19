@@ -639,9 +639,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const fs = require('fs');
   
   // Configure storage
-  const multer = require('multer');
-  const path = require('path');
-  const fs = require('fs');
   const crypto = require('crypto');
   
   // Ensure the upload directory exists
