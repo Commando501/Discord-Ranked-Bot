@@ -131,18 +131,19 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
         const data = await response.json();
 
         // Set the file path from the server response
-        setNewRankTierIcon(`ranks/${file.name}`);
+        const iconPath = `ranks/${file.name}`;
+        setNewRankTierIcon(iconPath);
 
         // Show a success message using the pre-defined toast from useToast hook
         toast({
           title: "Icon uploaded successfully",
-          description: `Icon saved as ranks/${file.name}`,
+          description: `Icon saved as ${iconPath}`,
         });
       } catch (error) {
         console.error("Error uploading icon:", error);
         toast({
           title: "Upload failed",
-          description: "There was an error uploading the icon",
+          description: error instanceof Error ? error.message : "There was an error uploading the icon",
           variant: "destructive",
         });
       }

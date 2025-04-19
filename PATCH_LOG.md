@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 See [2025-Q2.md](./patch_logs/2025-Q2.md) for the most recent changes.
+- 2025-06-06: Fixed rank icon upload functionality and file path handling
 - 2025-06-05: Fixed invalid hook call in handleRankIconUpload by moving useToast to component level
 - 2025-06-04: Fixed invalid hook call in handleRankIconUpload function
 - 2025-06-03: Fixed invalid hook call in toast update function during rank image uploads
