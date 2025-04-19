@@ -99,33 +99,40 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           logger.error(`Error loading detailed rank tiers from config: ${configError}`);
         }
         
-        // Sort tiers by MMR threshold (ascending)
-        const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
-        
-        // Direct approach: iterate from highest to lowest threshold to find first tier where MMR >= threshold
-        const reversedTiers = [...sortedTiers].reverse(); // Highest threshold first
-        
-        let selectedTier = null;
-        for (const tier of reversedTiers) {
-          if (player.mmr >= tier.mmrThreshold) {
-            selectedTier = tier;
-            break;
-          }
-        }
-        
-        // Fallback to lowest tier if none found (should not happen with properly configured tiers)
-        if (!selectedTier && sortedTiers.length > 0) {
-          selectedTier = sortedTiers[0];
-        }
-        
-        if (selectedTier) {
-          playerRank = selectedTier;
-          logger.info(`Selected rank "${playerRank.name}" for player with MMR ${player.mmr} (threshold: ${playerRank.mmrThreshold}, method: direct-highest-first)`);
+        // Define a clear function to find the appropriate tier for a given MMR
+        const tiersBetween = (mmr: number, tiers: any[]): any => {
+          // Sort tiers by threshold in ascending order
+          const sortedTiers = [...tiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
           
-          // Additional logging for debugging
+          // Find the highest tier whose threshold is less than or equal to the player's MMR
+          let appropriateTier = sortedTiers[0]; // Default to lowest tier
+          
+          for (let i = 0; i < sortedTiers.length; i++) {
+            const tier = sortedTiers[i];
+            
+            if (mmr >= tier.mmrThreshold) {
+              appropriateTier = tier;
+            } else {
+              // Once we find a tier with threshold higher than MMR, break
+              break;
+            }
+          }
+          
+          return appropriateTier;
+        };
+        
+        // Apply the function to find the appropriate tier
+        const appropriateTier = tiersBetween(player.mmr, rankTiers);
+        
+        if (appropriateTier) {
+          playerRank = appropriateTier;
+          
+          // Get all tiers sorted for context logging
+          const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
           const tierIndex = sortedTiers.findIndex(t => t.name === playerRank.name);
           const nextTierThreshold = tierIndex < sortedTiers.length - 1 ? sortedTiers[tierIndex + 1].mmrThreshold : "none";
-          logger.info(`Rank context: player MMR ${player.mmr} is between thresholds ${playerRank.mmrThreshold} and ${nextTierThreshold}`);
+          
+          logger.info(`FIXED ALGORITHM: Selected rank "${playerRank.name}" for player with MMR ${player.mmr} (MMR range: ${playerRank.mmrThreshold} to ${nextTierThreshold})`);
         }
         
         // If no tier is found, use the lowest tier
