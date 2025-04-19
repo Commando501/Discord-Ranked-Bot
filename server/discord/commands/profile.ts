@@ -54,60 +54,86 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       totalGames > 0 ? Math.round((player.wins / totalGames) * 100) : 0;
 
     // Get rank tiers and determine player's rank
-    const rankTiers = await storage.getRankTiers();
-    const playerRank = getPlayerRank(player.mmr, rankTiers);
+    let rankTiers = [];
+    let playerRank = null;
+    try {
+      rankTiers = await storage.getRankTiers() || [];
+      if (rankTiers.length === 0) {
+        logger.warn(`No rank tiers found when processing profile for user ${targetUser.id}`);
+      }
+      playerRank = getPlayerRank(player.mmr, rankTiers);
+      if (!playerRank && rankTiers.length > 0) {
+        logger.warn(`Could not determine rank for player with MMR ${player.mmr}`);
+      }
+    } catch (rankError) {
+      logger.error(`Error retrieving rank information: ${rankError}`);
+      // Continue without rank information
+    }
     
-    // Find rank icon if available
+    // Find rank icon if available - with simplified approach
     let rankIconAttachment = null;
-    if (playerRank) {
+    if (playerRank && playerRank.name) {
       try {
-        const rankName = playerRank.name.replace(/\s+/g, '');
-        
-        // Generate multiple possible variations of the filename
-        const possibleNames = [
-          rankName,                                                             // Exact match
-          rankName.toLowerCase(),                                              // All lowercase
-          rankName.charAt(0).toUpperCase() + rankName.slice(1).toLowerCase(),  // First letter capitalized
-          rankName.toUpperCase(),                                              // All uppercase
-          // Try with common separators removed
-          rankName.replace(/[_\-\s]/g, ''),
-          // Try with numbers at different positions
-          ...rankName.match(/(\D+)(\d+)/) ? 
-            [`${RegExp.$1}${RegExp.$2}`, `${RegExp.$1}_${RegExp.$2}`, `${RegExp.$1}-${RegExp.$2}`] : []
-        ];
-        
-        // Check all possible paths
+        // Get base path for rank icons
         const basePath = path.join(process.cwd(), 'client', 'public', 'ranks');
         
-        // Try multiple extensions
-        const extensions = ['.png', '.jpg', '.jpeg', '.gif'];
-        
-        // Try all combinations
-        for (const name of possibleNames) {
-          for (const ext of extensions) {
-            const filePath = path.join(basePath, `${name}${ext}`);
-            logger.debug(`Trying rank icon path: ${filePath}`);
+        // Check if directory exists to avoid file system errors
+        if (!fs.existsSync(basePath)) {
+          logger.warn(`Rank icons directory does not exist: ${basePath}`);
+        } else {
+          // Generate simpler filename variations
+          const rankName = playerRank.name.replace(/\s+/g, '');
+          const simpleVariations = [
+            rankName,                                               // as is
+            rankName.toLowerCase(),                                // lowercase
+            rankName.charAt(0).toUpperCase() + rankName.slice(1)   // Title case
+          ];
+          
+          // Try to find any matching file
+          let iconFile = null;
+          
+          // List files in the directory
+          try {
+            const files = fs.readdirSync(basePath);
             
-            if (fs.existsSync(filePath)) {
-              rankIconAttachment = { attachment: filePath, name: 'rank.png' };
-              logger.info(`Found rank icon at: ${filePath}`);
-              break;
+            // Try to find a matching file using case-insensitive comparison
+            for (const file of files) {
+              // Check if any variation matches the filename (ignoring extension)
+              const fileBaseName = path.basename(file, path.extname(file));
+              for (const variation of simpleVariations) {
+                if (fileBaseName.toLowerCase() === variation.toLowerCase()) {
+                  iconFile = file;
+                  break;
+                }
+              }
+              if (iconFile) break;
             }
+            
+            if (iconFile) {
+              const iconPath = path.join(basePath, iconFile);
+              rankIconAttachment = { attachment: iconPath, name: 'rank.png' };
+              logger.info(`Found rank icon at: ${iconPath}`);
+            } else {
+              logger.warn(`Could not find rank icon for rank: ${playerRank.name} in directory listing`);
+            }
+          } catch (readDirError) {
+            logger.error(`Could not read rank icons directory: ${readDirError}`);
           }
-          if (rankIconAttachment) break;
-        }
-        
-        if (!rankIconAttachment) {
-          logger.warn(`Could not find rank icon for rank: ${playerRank.name} (tried multiple variations)`);
         }
       } catch (error) {
-        logger.error(`Error finding rank icon: ${error}`);
+        logger.error(`Error in rank icon resolution process: ${error}`);
         // Continue without the rank icon if there's an error
       }
     }
 
     // Get recent matches for this player
-    const matches = await storage.getPlayerMatches(player.id, 5);
+    let matches = [];
+    try {
+      matches = await storage.getPlayerMatches(player.id, 5) || [];
+    } catch (matchError) {
+      logger.error(`Error retrieving player match history: ${matchError}`);
+      // Continue without match history
+    }
 
     // Create profile embed with rank info
     const embed = new EmbedBuilder()
@@ -183,20 +209,34 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     await interaction.editReply(replyOptions);
   } catch (error) {
-    logger.error("Error executing profile command", {
+    // Generate a unique tracking ID for this error
+    const errorId = `prof-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`;
+    
+    logger.error(`Error executing profile command [${errorId}]`, {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       userId: interaction.user.id,
+      targetUserId: targetUser.id,
+      errorContext: {
+        command: "profile",
+        errorId,
+        timestamp: new Date().toISOString()
+      }
     });
 
-    // Try to provide a more specific error message
-    let errorMessage = "There was an error retrieving the profile information. Please try again later.";
+    // Log more details about the context of the error
+    console.error(`PROFILE ERROR [${errorId}]:`, error);
+    
+    // Try to provide a more specific error message with tracking ID
+    let errorMessage = `There was an error retrieving the profile information. Please try again later. (Error ID: ${errorId})`;
     
     if (error instanceof Error) {
       if (error.message.includes("ENOENT") && error.message.includes("ranks")) {
-        errorMessage = "Could not load rank icon images. Profile information is still available.";
+        errorMessage = `Could not load rank icon images. Profile information is still available. (Error ID: ${errorId})`;
       } else if (error.message.includes("getPlayerByDiscordId")) {
-        errorMessage = "Could not retrieve player data. Please try again later.";
+        errorMessage = `Could not retrieve player data. Please try again later. (Error ID: ${errorId})`;
+      } else if (error.message.includes("Cannot read properties of null") || error.message.includes("undefined")) {
+        errorMessage = `Missing data in player profile. Our team has been notified. (Error ID: ${errorId})`;
       }
     }
 
