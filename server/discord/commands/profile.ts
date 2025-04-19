@@ -149,8 +149,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           logger.info(`CORRECTED ALGORITHM: Selected rank "${playerRank.name}" for player with MMR ${player.mmr}.`);
           
           // Get the previous tier threshold to determine the lower bound
-          const tierIndex = sortedTiers.findIndex(t => t.name === playerRank.name);
-          const prevTierThreshold = tierIndex > 0 ? sortedTiers[tierIndex - 1].mmrThreshold : -1;
+          const playerTierIndex = sortedTiers.findIndex(t => t.name === playerRank.name);
+          const prevTierThreshold = playerTierIndex > 0 ? sortedTiers[playerTierIndex - 1].mmrThreshold : -1;
           
           logger.info(`This tier's threshold (upper bound) is ${playerRank.mmrThreshold}.`);
           logger.info(`Valid MMR range for ${playerRank.name}: ${prevTierThreshold + 1} to ${playerRank.mmrThreshold}.`);
