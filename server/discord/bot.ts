@@ -16,6 +16,11 @@ export const client = new Client({
   ],
 });
 
+// Export function to get the Discord client
+export function getDiscordClient() {
+  return client;
+}
+
 const commandsCollection = new Collection(); // Initialize commands collection
 
 // Populate commandsCollection (This assumes a structure for command modules)
