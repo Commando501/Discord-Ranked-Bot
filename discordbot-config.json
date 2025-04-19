@@ -86,38 +86,98 @@
       {
         "name": "Silver 3",
         "mmrThreshold": 699,
-        "color": "#3BA55C",
+        "color": "#C0C0C0",
         "description": "Silver"
       },
       {
         "name": "Silver 2",
         "mmrThreshold": 849,
-        "color": "#3BA55C",
+        "color": "#C0C0C0",
         "description": "silver"
       },
       {
         "name": "Silver 1",
         "mmrThreshold": 999,
-        "color": "#3BA55C",
+        "color": "#C0C0C0",
         "description": "silver"
       },
       {
         "name": "Gold 3",
         "mmrThreshold": 1149,
-        "color": "#3BA55C",
+        "color": "#FFD700",
         "description": "gold"
       },
       {
         "name": "Gold 2",
         "mmrThreshold": 1299,
-        "color": "#3BA55C",
+        "color": "#FFD700",
         "description": "Gold"
       },
       {
         "name": "Gold 1",
         "mmrThreshold": 1449,
-        "color": "#3BA55C",
+        "color": "#FFD700",
         "description": "gold"
+      },
+      {
+        "name": "Platinum 3",
+        "mmrThreshold": 1649,
+        "color": "#007f81",
+        "description": "platinum"
+      },
+      {
+        "name": "Platinum 2",
+        "mmrThreshold": 1849,
+        "color": "#007f81",
+        "description": "platinum"
+      },
+      {
+        "name": "Platinum 1",
+        "mmrThreshold": 2049,
+        "color": "#007f81",
+        "description": "platinum"
+      },
+      {
+        "name": "Diamond 3",
+        "mmrThreshold": 2274,
+        "color": "#445fa5",
+        "description": "diamond"
+      },
+      {
+        "name": "Diamond 2",
+        "mmrThreshold": 2499,
+        "color": "#445fa5",
+        "description": "diamond"
+      },
+      {
+        "name": "Diamond 1",
+        "mmrThreshold": 2749,
+        "color": "#445fa5",
+        "description": "diamond"
+      },
+      {
+        "name": "Masters 3",
+        "mmrThreshold": 2999,
+        "color": "#3BA55C",
+        "description": "masters"
+      },
+      {
+        "name": "Masters 2",
+        "mmrThreshold": 3249,
+        "color": "#3BA55C",
+        "description": "masters"
+      },
+      {
+        "name": "Masters 1",
+        "mmrThreshold": 3499,
+        "color": "#3BA55C",
+        "description": "masters"
+      },
+      {
+        "name": "Challenger",
+        "mmrThreshold": 3500,
+        "color": "#3BA55C",
+        "description": "challenger"
       }
     ],
     "enableEndOfSeasonAnnouncements": true
