@@ -60,23 +60,23 @@ export default function LeaderboardsPage() {
   // Function to get MMR range for a rank tier
   const getRankTierRange = (tier: RankTier, allTiers: RankTier[]): string => {
     if (!tier) return "N/A";
-    
+
     // Sort tiers by MMR threshold (ascending)
     const sortedTiers = [...allTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
-    
+
     // Find the current tier index
     const currentTierIndex = sortedTiers.findIndex(t => t.name === tier.name);
-    
+
     // If it's the highest tier (last in sorted array)
     if (currentTierIndex === sortedTiers.length - 1) {
       return `${tier.mmrThreshold}+`;
     }
-    
+
     // Otherwise, show range from this tier's threshold to the next tier's threshold - 1
     const nextTierThreshold = sortedTiers[currentTierIndex + 1].mmrThreshold;
     return `${tier.mmrThreshold} - ${nextTierThreshold - 1}`;
   };
-  
+
   // Helper function to ensure image path is correct
   const getRankIconUrl = (iconPath: string | undefined) => {
     if (!iconPath) return null;
@@ -94,7 +94,7 @@ export default function LeaderboardsPage() {
     // Otherwise, ensure it has a leading slash
     return `/${iconPath}`;
   };
-  
+
   // Function to get player rank tier based on MMR
   const getPlayerRankTier = (mmr: number, tiers: RankTier[]): RankTier | undefined => {
     if (!tiers || tiers.length === 0) return undefined;
@@ -166,7 +166,23 @@ export default function LeaderboardsPage() {
                                   alt={rankTier.name}
                                   className="h-6 w-6 object-contain"
                                   onError={(e) => {
-                                    console.error("Failed to load image:", rankTier.icon);
+                                    // Try alternative casing if the first attempt fails
+                                    const originalSrc = (e.target as HTMLImageElement).src;
+                                    console.error("Failed to load image:", originalSrc);
+
+                                    // Try lowercase version of the file
+                                    if (originalSrc.includes('/ranks/')) {
+                                      const pathParts = originalSrc.split('/ranks/');
+                                      const filename = pathParts[1];
+                                      const lowercaseFilename = filename.toLowerCase();
+                                      if (filename !== lowercaseFilename) {
+                                        console.log("Trying lowercase version:", lowercaseFilename);
+                                        (e.target as HTMLImageElement).src = `${pathParts[0]}/ranks/${lowercaseFilename}`;
+                                        return;
+                                      }
+                                    }
+
+                                    // Hide the image if all attempts fail
                                     (e.target as HTMLImageElement).style.display = 'none';
                                   }}
                                 />
@@ -223,7 +239,23 @@ export default function LeaderboardsPage() {
                                 alt={tier.name}
                                 className="h-8 w-8 object-contain"
                                 onError={(e) => {
-                                  console.error("Failed to load image:", tier.icon);
+                                  // Try alternative casing if the first attempt fails
+                                  const originalSrc = (e.target as HTMLImageElement).src;
+                                  console.error("Failed to load image:", originalSrc);
+
+                                  // Try lowercase version of the file
+                                  if (originalSrc.includes('/ranks/')) {
+                                    const pathParts = originalSrc.split('/ranks/');
+                                    const filename = pathParts[1];
+                                    const lowercaseFilename = filename.toLowerCase();
+                                    if (filename !== lowercaseFilename) {
+                                      console.log("Trying lowercase version:", lowercaseFilename);
+                                      (e.target as HTMLImageElement).src = `${pathParts[0]}/ranks/${lowercaseFilename}`;
+                                      return;
+                                    }
+                                  }
+
+                                  // Hide the image if all attempts fail
                                   (e.target as HTMLImageElement).style.display = 'none';
                                 }}
                               />
