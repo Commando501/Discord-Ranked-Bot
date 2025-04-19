@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 See [2025-Q2.md](./patch_logs/2025-Q2.md) for the most recent changes.
+- 2025-06-09: Fixed "body stream already read" error in rank icon upload functionality
 - 2025-06-08: Fixed rank icon upload JSON parsing error with improved error handling
 - 2025-06-07: Fixed rank icon upload path handling at line 122 in season-config.tsx
 - 2025-06-06: Fixed rank icon upload functionality and file path handling

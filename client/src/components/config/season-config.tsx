@@ -124,6 +124,9 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
           body: formData,
         });
 
+        // Clone the response before reading it
+        const responseClone = response.clone();
+
         if (!response.ok) {
           const responseText = await response.text();
           throw new Error(`Failed to upload icon: ${responseText.substring(0, 100)}`);
@@ -131,9 +134,9 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
 
         let data;
         try {
-          data = await response.json();
+          data = await responseClone.json();
         } catch (parseError) {
-          console.error("Error parsing response:", await response.text());
+          console.error("Error parsing response");
           throw new Error('Server response is not valid JSON');
         }
 
