@@ -125,13 +125,23 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
         });
 
         if (!response.ok) {
-          throw new Error('Failed to upload icon');
+          const responseText = await response.text();
+          throw new Error(`Failed to upload icon: ${responseText.substring(0, 100)}`);
         }
 
-        const data = await response.json();
+        let data;
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error("Error parsing response:", await response.text());
+          throw new Error('Server response is not valid JSON');
+        }
 
         // Set the file path from the server response using the path returned from the server
-        const iconPath = data.file.path;
+        const iconPath = data?.file?.path;
+        if (!iconPath) {
+          throw new Error('Invalid server response: missing file path');
+        }
         setNewRankTierIcon(iconPath);
 
         // Show a success message using the pre-defined toast from useToast hook
