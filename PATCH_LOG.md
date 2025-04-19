@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 See [2025-Q2.md](./patch_logs/2025-Q2.md) for the most recent changes.
+- 2025-06-03: Fixed invalid hook call in toast update function during rank image uploads
 - 2025-06-02: Fixed toast update function error during rank image uploads
 - 2025-06-01: Fixed toast control object creation during rank image uploads
 - 2025-05-31: Fixed toast function return error during rank image uploads

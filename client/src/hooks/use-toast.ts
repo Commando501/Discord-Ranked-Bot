@@ -166,6 +166,7 @@ function toast({ ...props }: Toast) {
   }
 
   // Safely create toast control object to prevent errors
+  // Create a stable toast control object that doesn't invoke hooks in callbacks
   const toastControls = {
     id: id,
     dismiss: () => {
@@ -177,10 +178,12 @@ function toast({ ...props }: Toast) {
     },
     update: (props: ToasterToast) => {
       try {
-        return update(props);
+        // Don't return the result of update to avoid potential hook issues
+        update(props);
+        return toastControls;
       } catch (error) {
         console.error("Error in update function:", error);
-        return { id, dismiss: () => {}, update: () => {} };
+        return toastControls;
       }
     }
   };
