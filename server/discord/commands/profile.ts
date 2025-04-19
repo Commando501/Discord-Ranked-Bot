@@ -83,6 +83,22 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       if (rankTiers.length > 0) {
         logger.info(`Found ${rankTiers.length} rank tiers. First tier: ${JSON.stringify(rankTiers[0])}, Last tier: ${JSON.stringify(rankTiers[rankTiers.length-1])}`);
         
+        // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers
+        try {
+          const configPath = path.join(process.cwd(), 'discordbot-config.json');
+          if (fs.existsSync(configPath)) {
+            const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            if (configData.seasonManagement && configData.seasonManagement.rankTiers && 
+                configData.seasonManagement.rankTiers.length > 0) {
+              // Replace with config ranks if they exist - this ensures we use the complete set
+              rankTiers = configData.seasonManagement.rankTiers;
+              logger.info(`Using ${rankTiers.length} detailed rank tiers directly from config file`);
+            }
+          }
+        } catch (configError) {
+          logger.error(`Error loading detailed rank tiers from config: ${configError}`);
+        }
+        
         // Sort tiers by MMR threshold (highest first) to ensure correct rank determination
         const sortedTiers = [...rankTiers].sort((a, b) => b.mmrThreshold - a.mmrThreshold);
         
@@ -90,6 +106,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         for (const tier of sortedTiers) {
           if (player.mmr >= tier.mmrThreshold) {
             playerRank = tier;
+            logger.info(`Selected rank "${tier.name}" for player with MMR ${player.mmr} (threshold: ${tier.mmrThreshold})`);
             break;
           }
         }

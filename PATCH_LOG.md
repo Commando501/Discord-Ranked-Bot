@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 
+- 2025-06-28: Fixed Discord profile command to always load rank tiers directly from config file
 - 2025-06-28: Fixed Discord profile command rank determination to properly use config tiers instead of defaultRankTiers
 - 2025-06-28: Fixed Discord profile command to use config-defined rank tiers instead of defaults
 - 2025-06-28: Fixed Discord profile command to properly display complete rank tier names (e.g., "Silver 3" instead of just "Silver")
