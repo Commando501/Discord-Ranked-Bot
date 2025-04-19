@@ -5,7 +5,6 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 
-- 2025-06-19: Enhanced rank icon path resolution and implemented fallback mechanisms for icon display
 - 2025-06-19: Fixed rank icons not displaying properly on the leaderboards page
 - 2025-06-18: Fixed leaderboard display to properly show rank tier MMR ranges and icons
 
