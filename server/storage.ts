@@ -14,6 +14,7 @@ import {
   players, queue, matches, teams, teamPlayers, matchVotes, voteKicks, voteKickVotes
 } from "@shared/schema";
 import { defaultBotConfig, BotConfig } from "@shared/botConfig";
+import { defaultRankTiers, RankTier } from "@shared/rankSystem";
 import { db } from './db';
 
 // Path to the configuration file
@@ -27,6 +28,7 @@ export interface IStorage {
   createPlayer(player: InsertPlayer): Promise<Player>;
   updatePlayer(id: number, data: Partial<Player>): Promise<Player | undefined>;
   listTopPlayers(limit: number): Promise<Player[]>;
+  getRankTiers(): Promise<RankTier[]>;
 
   // Queue operations
   addPlayerToQueue(queueEntry: InsertQueue): Promise<Queue>;
@@ -695,6 +697,18 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Bot configuration operations
+  async getRankTiers(): Promise<RankTier[]> {
+    try {
+      // For now, we'll return default rank tiers since the actual DB implementation
+      // for rank tiers is not available in the current codebase
+      // This can be extended later to read from a database table
+      return this.botConfig.rankTiers || defaultRankTiers;
+    } catch (error) {
+      console.error('Error in getRankTiers:', error);
+      return defaultRankTiers;
+    }
+  }
+
   async getBotConfig(): Promise<BotConfig> {
     return this.botConfig;
   }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RankTier } from "./rankSystem";
 
 // General Bot Settings
 export const generalConfigSchema = z.object({
@@ -127,6 +128,8 @@ export const botConfigSchema = z.object({
   notifications: notificationConfigSchema,
   integrations: integrationConfigSchema,
   dataManagement: dataManagementConfigSchema,
+  rankTiers: z.array(rankTierSchema).default(defaultRankTiers), //Added rankTiers here.
+
 });
 
 // Types
@@ -188,6 +191,7 @@ export const defaultBotConfig: BotConfig = {
     mmrResetType: 'soft',
     placementMatchRequirements: 10,
     rewardTiers: [],
+    rankTiers: defaultRankTiers,
     enableEndOfSeasonAnnouncements: true,
   },
   matchRules: {
@@ -232,4 +236,5 @@ export const defaultBotConfig: BotConfig = {
     backupSchedule: 'weekly',
     enableDataImport: false,
   },
+  rankTiers: defaultRankTiers,
 };

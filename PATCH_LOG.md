@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 
+- 2025-06-27: Fixed "Unranked" display issue by implementing getRankTiers method in storage interface
 - 2025-06-26: Added additional error handling, debugging, and resilience to Discord profile command
 - 2025-06-26: Fixed Discord profile command error with enhanced rank icon path resolution and improved error handling
 - 2025-06-25: Added rank icons to Discord bot profile commands
