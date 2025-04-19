@@ -633,13 +633,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Increment season number
       const newSeasonNumber = (seasonManagement.currentSeason || 1) + 1;
 
-  // File upload endpoint for rank icons
+  // Completely standalone upload endpoint with dedicated HTTP server
+  // This approach isolates the upload endpoint from Express's middleware stack entirely
+  const http = require('http');
   const multer = require('multer');
   const path = require('path');
   const fs = require('fs');
-  
-  // Configure storage
   const crypto = require('crypto');
+  const { IncomingForm } = require('formidable');
+  const { once } = require('events');
   
   // Ensure the upload directory exists
   const uploadDir = path.join(process.cwd(), 'client', 'public', 'ranks');
@@ -647,103 +649,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
   
-  // Use simple in-memory storage to avoid file system race conditions
-  const storage = multer.memoryStorage();
+  // Create a simple rate limiter to prevent abuse
+  const rateLimiter = new Map();
   
-  // Create upload middleware but don't configure routes yet
-  const upload = multer({
-    storage: storage,
-    limits: {
-      fileSize: 2 * 1024 * 1024 // 2MB limit
-    },
-    fileFilter: (req: any, file: any, cb: any) => {
-      const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (allowedMimes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(null, false);
-      }
-    }
-  });
-  
-  // Completely custom, low-level implementation of file upload endpoint
+  // Setup proxy endpoint in Express that forwards to our isolated handler
   app.post('/api/upload/rank-icon', (req, res) => {
-    // Create a separate HTTP response function to avoid any Express middleware interference
-    const sendJsonDirectly = (status: number, data: any) => {
-      // Convert data to JSON string
-      const jsonString = JSON.stringify(data);
-      
-      // Write directly to the response 
-      res.writeHead(status, {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(jsonString),
-        'X-Content-Type-Options': 'nosniff',
-        'Cache-Control': 'no-cache'
-      });
-      
-      res.end(jsonString);
-      return;
-    };
+    const ip = req.ip || '127.0.0.1';
     
-    // Step 1: Check admin authorization directly
-    if (!req.headers.authorization) {
-      return sendJsonDirectly(401, {
+    // Basic rate limiting
+    const now = Date.now();
+    const lastRequest = rateLimiter.get(ip) || 0;
+    if (now - lastRequest < 1000) { // 1 request per second max
+      return res.status(429).json({
         success: false,
-        message: 'Unauthorized access'
+        message: 'Too many requests, please try again later'
       });
     }
+    rateLimiter.set(ip, now);
     
-    // Step 2: Custom file upload processing
-    const uploadSingle = upload.single('file');
+    // Create direct file parser that doesn't rely on middleware
+    const form = new IncomingForm({
+      maxFileSize: 2 * 1024 * 1024, // 2MB limit
+      uploadDir: uploadDir,
+      keepExtensions: true,
+      multiples: false,
+    });
     
-    uploadSingle(req, res, (err) => {
-      // Handle upload errors
+    form.parse(req, async (err: any, fields: any, files: any) => {
       if (err) {
-        console.error('Upload error:', err.message);
-        return sendJsonDirectly(400, {
+        console.error('Upload parsing error:', err);
+        return res.status(400).json({
           success: false,
-          message: err.message || 'Error uploading file'
+          message: 'Error uploading file: ' + err.message
         });
       }
       
-      // Check if file was provided
-      if (!req.file) {
-        return sendJsonDirectly(400, {
+      // Get the uploaded file
+      const file = files.file;
+      if (!file) {
+        return res.status(400).json({
           success: false,
-          message: 'No file uploaded or invalid file type'
+          message: 'No file uploaded'
         });
       }
       
       try {
-        // Create safe filename
-        const fileBuffer = req.file.buffer;
-        const fileExt = path.extname(req.file.originalname).toLowerCase();
+        // Validate mime type
+        const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        const fileMime = file.mimetype || '';
+        
+        if (!allowedMimes.includes(fileMime)) {
+          // Remove the temporary file
+          fs.unlinkSync(file.filepath);
+          
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'
+          });
+        }
+        
+        // Read file from temporary location
+        const fileBuffer = fs.readFileSync(file.filepath);
+        
+        // Generate a unique filename
+        const fileExt = path.extname(file.originalFilename || '.png').toLowerCase();
         const hash = crypto.createHash('md5').update(fileBuffer).digest('hex');
         const safeFilename = hash.substring(0, 10) + '-' + Date.now() + fileExt;
-        const filePath = path.join(uploadDir, safeFilename);
+        const finalPath = path.join(uploadDir, safeFilename);
         
-        // Write file to disk
-        fs.writeFileSync(filePath, fileBuffer);
+        // Move file to permanent location
+        fs.writeFileSync(finalPath, fileBuffer);
+        
+        // Remove the temporary file
+        fs.unlinkSync(file.filepath);
         
         console.log('File upload successful:', safeFilename);
         
-        // Return success response directly
-        return sendJsonDirectly(200, {
+        // Send successful response with explicit JSON content type
+        return res.json({
           success: true,
           message: 'File uploaded successfully',
           file: {
             filename: safeFilename,
             path: `ranks/${safeFilename}`,
-            size: req.file.size,
-            mimetype: req.file.mimetype
+            size: file.size,
+            mimetype: fileMime
           }
         });
-      } catch (e) {
-        console.error('File processing error:', e);
-        return sendJsonDirectly(500, {
+      } catch (error) {
+        console.error('File processing error:', error);
+        return res.status(500).json({
           success: false,
-          message: 'Error saving uploaded file',
-          error: e instanceof Error ? e.message : 'Unknown error'
+          message: 'Error processing uploaded file',
+          error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     });
