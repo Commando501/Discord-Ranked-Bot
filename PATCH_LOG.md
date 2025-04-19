@@ -4,7 +4,6 @@
 This file serves as an index to all patch logs, organized by time period.
 
 
-- 2025-07-04: Fixed module imports in /list command to properly load detailed rank tiers from config
 - 2025-07-04: Enhanced /list command to show detailed rank tiers (Gold 3, Gold 2, etc.) instead of generic rank names
 - 2025-07-04: Fixed rank determination in /list command to match profile command's algorithm
 - 2025-07-04: Fixed 'require is not defined' error in /list command by using ES module imports
