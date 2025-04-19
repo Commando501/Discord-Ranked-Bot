@@ -29,6 +29,7 @@ export interface IStorage {
   updatePlayer(id: number, data: Partial<Player>): Promise<Player | undefined>;
   listTopPlayers(limit: number): Promise<Player[]>;
   getRankTiers(): Promise<RankTier[]>;
+  getPlayerRank(mmr: number, tiers: RankTier[]): Promise<RankTier>;
 
   // Queue operations
   addPlayerToQueue(queueEntry: InsertQueue): Promise<Queue>;
@@ -707,6 +708,12 @@ export class DatabaseStorage implements IStorage {
       console.error('Error in getRankTiers:', error);
       return defaultRankTiers;
     }
+  }
+  
+  async getPlayerRank(mmr: number, tiers: RankTier[]): Promise<RankTier> {
+    // Import the getPlayerRank function from the rankSystem module
+    const { getPlayerRank } = require('@shared/rankSystem');
+    return getPlayerRank(mmr, tiers);
   }
 
   async getBotConfig(): Promise<BotConfig> {

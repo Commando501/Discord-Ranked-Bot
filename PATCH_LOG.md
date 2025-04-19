@@ -4,6 +4,7 @@
 This file serves as an index to all patch logs, organized by time period.
 
 
+- 2025-07-04: Fixed getPlayerRank missing method in storage interface that was breaking /list command
 - 2025-07-04: Enhanced /list command with rank emojis showing player's current rank tier
 
 
