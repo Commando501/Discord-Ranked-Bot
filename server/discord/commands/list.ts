@@ -151,7 +151,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           rankEmoji = rankEmojiMap[playerRank.name] + " ";
         }
 
-        return `${index + 1}. ${rankEmoji}${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+        return `${index + 1}. ${entry.player.username} [${playerRank.name} ${rankEmoji}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
       });
 
       const queueList = (await Promise.all(queueListPromises)).join("\n");
@@ -489,7 +489,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 rankEmoji = rankEmojiMap[playerRank.name] + " ";
               }
 
-              return `${index + 1}. ${rankEmoji}${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+              return `${index + 1}. ${entry.player.username} [${playerRank.name} ${rankEmoji}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
             });
 
             const queueList = (await Promise.all(queueListPromises)).join("\n");
@@ -775,7 +775,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
                 logger.info(`Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound} against MMR ${entry.player.mmr}`);
 
-                if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
+                if (entry.player.mmr >= lowerBound && entry.player.mmr<= upperBound) {
                   foundTier = currentTier;
                   logger.info(`MATCH FOUND: Player MMR ${entry.player.mmr} belongs to ${foundTier.name}`);
                   logger.info(`This tier's range is ${lowerBound} to ${upperBound}`);
@@ -833,7 +833,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 rankEmoji = rankEmojiMap[playerRank.name] + " ";
               }
 
-              return `${index + 1}. ${rankEmoji}${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+              return `${index + 1}. ${entry.player.username} [${playerRank.name} ${rankEmoji}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
             });
 
             const queueList = (await Promise.all(queueListPromises)).join("\n");

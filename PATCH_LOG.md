@@ -1,6 +1,18 @@
-
 # PATCH LOG
 
+## 2024-06-12 15:45 UTC
+### Files Modified:
+- server/discord/commands/list.ts
+
+### Changes:
+- Updated rank emoji placement in queue list to appear after the rank name instead of before the username
+- Maintained consistency with the profile command's rank display format
+
+### Testing:
+- Verified rank emojis now display correctly after rank names in the queue list
+- Confirmed format matches profile command style
+
+## Previous Entries:
 ## 2024-06-12 15:30 UTC
 ### Files Modified:
 - server/discord/commands/list.ts
@@ -90,6 +102,7 @@ This file serves as an index to all patch logs, organized by time period.
 - 2025-06-28: Fixed Discord profile rank determination with radically simplified range-based MMR algorithm
 - 2025-06-28: Fixed Discord profile rank determination with completely redesigned algorithm using sequential evaluation
 - 2025-06-28: Simplified Discord profile rank determination algorithm with direct highest-first approach
+- 2025-06-28: Fixed Discord profile rank determination algorithm to correctly handle threshold boundaries
 - 2025-06-28: Fixed Discord profile command rank tier assignment algorithm to correctly handle threshold boundaries
 - 2025-06-28: Fixed Discord profile command rank determination logic to correctly assign highest eligible rank tier
 - 2025-06-28: Fixed Discord profile command to always load rank tiers directly from config file
