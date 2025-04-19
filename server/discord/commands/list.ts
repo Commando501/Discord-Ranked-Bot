@@ -38,7 +38,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     if (queuePlayers.length > 0) {
       // Get rank tiers
-      const rankTiers = await storage.getRankTiers();
+      let rankTiers = await storage.getRankTiers();
 
       // Build queue list with rank info
       const queueListPromises = queuePlayers.map(async (entry, index) => {
@@ -46,10 +46,31 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         // Get player rank using the same method as the profile command
         let playerRank = null;
 
+        // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          const configPath = path.join(process.cwd(), 'discordbot-config.json');
+
+          if (fs.existsSync(configPath)) {
+            const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            if (configData.seasonManagement && configData.seasonManagement.rankTiers && 
+                configData.seasonManagement.rankTiers.length > 0) {
+              // Replace with config ranks if they exist - this ensures we use the complete set
+              rankTiers = configData.seasonManagement.rankTiers;
+            }
+          }
+        } catch (configError) {
+          logger.error(`Error loading detailed rank tiers from config: ${configError}`);
+        }
+
         // Sort tiers by threshold in ascending order
         const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
 
         // Find the appropriate tier by checking MMR ranges explicitly
+        let foundTier = null;
+
+        // For each tier, explicitly define its range and check if player MMR falls within it
         for (let i = 0; i < sortedTiers.length; i++) {
           const currentTier = sortedTiers[i];
           const prevTier = i > 0 ? sortedTiers[i - 1] : null;
@@ -59,10 +80,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
 
           if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
-            playerRank = currentTier;
+            foundTier = currentTier;
             break;
           }
         }
+
+        // If tier found, use it
+        if (foundTier) {
+          playerRank = foundTier;
+        }
+
 
         // If no tier found, use the lowest one
         if (!playerRank && sortedTiers.length > 0) {
@@ -334,7 +361,25 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
           if (queuePlayers.length > 0) {
             // Get rank tiers
-            const rankTiers = await storage.getRankTiers();
+            let rankTiers = await storage.getRankTiers();
+
+            // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers
+            try {
+              const fs = require('fs');
+              const path = require('path');
+              const configPath = path.join(process.cwd(), 'discordbot-config.json');
+
+              if (fs.existsSync(configPath)) {
+                const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                if (configData.seasonManagement && configData.seasonManagement.rankTiers && 
+                    configData.seasonManagement.rankTiers.length > 0) {
+                  // Replace with config ranks if they exist - this ensures we use the complete set
+                  rankTiers = configData.seasonManagement.rankTiers;
+                }
+              }
+            } catch (configError) {
+              logger.error(`Error loading detailed rank tiers from config: ${configError}`);
+            }
 
             // Build queue list with rank info
             const queueListPromises = queuePlayers.map(async (entry, index) => {
@@ -346,6 +391,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
 
               // Find the appropriate tier by checking MMR ranges explicitly
+              let foundTier = null;
+
+              // For each tier, explicitly define its range and check if player MMR falls within it
               for (let i = 0; i < sortedTiers.length; i++) {
                 const currentTier = sortedTiers[i];
                 const prevTier = i > 0 ? sortedTiers[i - 1] : null;
@@ -355,9 +403,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
 
                 if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
-                  playerRank = currentTier;
+                  foundTier = currentTier;
                   break;
                 }
+              }
+
+              // If tier found, use it
+              if (foundTier) {
+                playerRank = foundTier;
               }
 
               // If no tier found, use the lowest one
@@ -636,7 +689,25 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
           if (queuePlayers.length > 0) {
             // Get rank tiers
-            const rankTiers = await storage.getRankTiers();
+            let rankTiers = await storage.getRankTiers();
+
+            // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers
+            try {
+              const fs = require('fs');
+              const path = require('path');
+              const configPath = path.join(process.cwd(), 'discordbot-config.json');
+
+              if (fs.existsSync(configPath)) {
+                const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                if (configData.seasonManagement && configData.seasonManagement.rankTiers && 
+                    configData.seasonManagement.rankTiers.length > 0) {
+                  // Replace with config ranks if they exist - this ensures we use the complete set
+                  rankTiers = configData.seasonManagement.rankTiers;
+                }
+              }
+            } catch (configError) {
+              logger.error(`Error loading detailed rank tiers from config: ${configError}`);
+            }
 
             // Build queue list with rank info
             const queueListPromises = queuePlayers.map(async (entry, index) => {
@@ -648,6 +719,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
 
               // Find the appropriate tier by checking MMR ranges explicitly
+              let foundTier = null;
+
+              // For each tier, explicitly define its range and check if player MMR falls within it
               for (let i = 0; i < sortedTiers.length; i++) {
                 const currentTier = sortedTiers[i];
                 const prevTier = i > 0 ? sortedTiers[i - 1] : null;
@@ -657,9 +731,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
 
                 if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
-                  playerRank = currentTier;
+                  foundTier = currentTier;
                   break;
                 }
+              }
+
+              // If tier found, use it
+              if (foundTier) {
+                playerRank = foundTier;
               }
 
               // If no tier found, use the lowest one
