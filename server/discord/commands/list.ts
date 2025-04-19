@@ -122,7 +122,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         let rankEmoji = "";
 
         // Import the emoji helper and rank emoji map for fallback
-        import { getEmojiHelper, rankEmojiMap } from '../helpers/emojiHelper';
+        const { getEmojiHelper, rankEmojiMap } = require('../helpers/emojiHelper');
         
         // Get emoji helper instance
         const emojiHelper = getEmojiHelper();
