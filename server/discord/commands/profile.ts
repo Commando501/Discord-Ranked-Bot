@@ -57,13 +57,36 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     let rankTiers = [];
     let playerRank = null;
     try {
+      // First try to get rank tiers from database/storage
       rankTiers = await storage.getRankTiers() || [];
+      
       if (rankTiers.length === 0) {
-        logger.warn(`No rank tiers found when processing profile for user ${targetUser.id}`);
+        logger.warn(`No rank tiers found in storage when processing profile for user ${targetUser.id}, checking config file`);
+        
+        // If no tiers in database, try to get them from config
+        try {
+          const configPath = path.join(process.cwd(), 'discordbot-config.json');
+          if (fs.existsSync(configPath)) {
+            const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            if (configData.seasonManagement && configData.seasonManagement.rankTiers && 
+                configData.seasonManagement.rankTiers.length > 0) {
+              rankTiers = configData.seasonManagement.rankTiers;
+              logger.info(`Loaded ${rankTiers.length} rank tiers from config file`);
+            }
+          }
+        } catch (configError) {
+          logger.error(`Error loading rank tiers from config file: ${configError}`);
+        }
       }
-      playerRank = getPlayerRank(player.mmr, rankTiers);
-      if (!playerRank && rankTiers.length > 0) {
-        logger.warn(`Could not determine rank for player with MMR ${player.mmr}`);
+      
+      // Determine player's rank using the loaded tiers
+      if (rankTiers.length > 0) {
+        playerRank = getPlayerRank(player.mmr, rankTiers);
+        if (!playerRank) {
+          logger.warn(`Could not determine rank for player with MMR ${player.mmr}`);
+        }
+      } else {
+        logger.warn(`No rank tiers available to determine rank for player with MMR ${player.mmr}`);
       }
       
       // Log the exact rank information to verify
