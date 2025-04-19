@@ -130,8 +130,8 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
 
         const data = await response.json();
 
-        // Set the file path from the server response
-        const iconPath = `ranks/${file.name}`;
+        // Set the file path from the server response using the path returned from the server
+        const iconPath = data.file.path;
         setNewRankTierIcon(iconPath);
 
         // Show a success message using the pre-defined toast from useToast hook
