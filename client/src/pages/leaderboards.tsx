@@ -411,7 +411,7 @@ export default function LeaderboardsPage() {
                     <div className="h-72 relative bg-black/5 dark:bg-white/5 rounded-lg p-4 backdrop-blur-sm">
                       <h3 className="text-sm font-medium mb-3 text-muted-foreground">Player Distribution</h3>
                       {rankDistribution.length > 0 ? (
-                        <div className="flex items-end h-[calc(100%-30px)] gap-1">
+                        <div className="flex items-end h-[calc(100%-30px)] gap-1 overflow-x-hidden">
                           {rankDistribution
                             .sort((a, b) => {
                               // Find tiers by name
@@ -437,10 +437,16 @@ export default function LeaderboardsPage() {
                                 }
                               );
                               
+                              // Determine how many tiers there are to adjust spacing
+                              const totalTiers = rankDistribution.length;
+                              // If we have more than 8 tiers, adjust sizing to prevent overflow
+                              const isCompact = totalTiers > 8;
+                              
                               return (
                                 <div 
                                   key={item.rank} 
-                                  className="flex-1 mx-0.5 flex flex-col items-center justify-end group"
+                                  className={`flex-1 ${isCompact ? 'mx-0.5' : 'mx-1'} flex flex-col items-center justify-end group`}
+                                  style={{ minWidth: isCompact ? '28px' : '32px' }}
                                 >
                                   <div className="absolute top-12 text-xs px-3 py-2 pointer-events-none bg-background/95 border shadow-md opacity-0 group-hover:opacity-100 transition-all rounded-md z-10 text-center transform -translate-y-2 group-hover:translate-y-0 duration-200">
                                     <div className="font-bold" style={{ color }}>{item.rank}</div>
@@ -454,19 +460,24 @@ export default function LeaderboardsPage() {
                                       background: `linear-gradient(to top, ${color}, ${lighterColor})`,
                                     }}
                                   ></div>
-                                  <div className="flex items-center justify-center mt-2 h-6">
+                                  <div className="flex flex-col items-center justify-center mt-2 h-10">
                                     {tier?.icon && (
                                       <img 
                                         src={getRankIconUrl(tier.icon)} 
                                         alt={tier.name}
-                                        className="h-5 w-5 object-contain mr-1"
+                                        className="h-5 w-5 object-contain mb-1"
                                         onError={(e) => {
                                           const img = e.target as HTMLImageElement;
                                           img.style.display = 'none';
                                         }}
                                       />
                                     )}
-                                    <div className="text-xs font-medium truncate w-full text-center">{item.rank}</div>
+                                    <div className="text-xs font-medium truncate w-full text-center" style={{ 
+                                      maxWidth: isCompact ? '32px' : '40px',
+                                      fontSize: isCompact ? '0.65rem' : '0.75rem' 
+                                    }}>
+                                      {item.rank}
+                                    </div>
                                   </div>
                                 </div>
                               );

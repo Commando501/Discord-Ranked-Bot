@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 
+- 2025-06-23: Fixed rank distribution display where rank emblems were feeding into the side of the screen
 - 2025-06-22: Enhanced rank distribution visualization with improved visual design and added rank pyramid
 - 2025-06-22: Restored rank distribution visualization and highest win rate leaderboard
 - 2025-06-21: Fixed rank icons display with improved direct path resolution and multiple fallback strategies
