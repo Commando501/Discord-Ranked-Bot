@@ -99,37 +99,52 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           logger.error(`Error loading detailed rank tiers from config: ${configError}`);
         }
         
-        // RADICAL SIMPLIFICATION: Use clear MMR range boundaries
-        // Sort tiers by threshold in ascending order 
+        // CORRECT TIER DETERMINATION:
+        // MMR thresholds define the MINIMUM MMR required for each tier
+        // Tiers are assigned based on where the player's MMR falls between adjacent thresholds
+        
+        // Sort tiers by threshold in ascending order
         const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
         
-        // Find the highest tier where the player's MMR is AT LEAST the threshold
-        // This fundamentally changes how we think about tiers - each tier defines
-        // its LOWER bound, and the next tier defines the UPPER bound
-        let foundTier = null;
+        // Find the highest tier the player qualifies for (tierThreshold <= playerMMR)
+        // and the next tier they don't qualify for yet (nextTierThreshold > playerMMR)
+        let correctTier = null;
         
-        // Iterate through tiers (starts with lowest MMR threshold)
+        // Start from the lowest tier and work our way up
         for (let i = 0; i < sortedTiers.length; i++) {
           const currentTier = sortedTiers[i];
           
-          // If player meets or exceeds this threshold, they're at least this tier
+          // Check if player qualifies for this tier
           if (player.mmr >= currentTier.mmrThreshold) {
-            foundTier = currentTier;
-            // Don't break - keep looking for a higher tier they qualify for
-          } else {
-            // As soon as we find a tier with threshold higher than player's MMR, stop
-            break;
+            correctTier = currentTier;
+            
+            // Next higher tier (if any) establishes upper bound
+            const nextTierIndex = i + 1;
+            
+            // If there's a next tier and player meets or exceeds its threshold too,
+            // we'll continue the loop and set correctTier to that higher tier
+            if (nextTierIndex < sortedTiers.length && 
+                player.mmr >= sortedTiers[nextTierIndex].mmrThreshold) {
+              // Continue to check higher tiers
+              continue;
+            } else {
+              // Player doesn't qualify for next tier, so this is their correct tier
+              break;
+            }
           }
         }
         
-        if (foundTier) {
-          playerRank = foundTier;
+        if (correctTier) {
+          playerRank = correctTier;
           
-          // For logging, find the next tier's threshold to show the range
+          // Find the next tier's threshold to show range in logs
           const tierIndex = sortedTiers.findIndex(t => t.name === playerRank.name);
-          const nextTierThreshold = tierIndex < sortedTiers.length - 1 ? sortedTiers[tierIndex + 1].mmrThreshold : "MAX";
+          const nextTierThreshold = tierIndex < sortedTiers.length - 1 ? 
+                                    sortedTiers[tierIndex + 1].mmrThreshold : "MAX";
           
-          logger.info(`RANGE-BASED ALGORITHM: Selected rank "${playerRank.name}" for player with MMR ${player.mmr}. This tier applies from ${playerRank.mmrThreshold} to ${nextTierThreshold - 1}`);
+          // Log with detailed information about the exact range
+          logger.info(`CORRECTED ALGORITHM: Selected rank "${playerRank.name}" for player with MMR ${player.mmr}. ` +
+                     `This tier applies from ${playerRank.mmrThreshold} up to but not including ${nextTierThreshold}.`);
         }
         
         // If no tier is found, use the lowest tier
