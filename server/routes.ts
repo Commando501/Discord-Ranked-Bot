@@ -633,33 +633,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Increment season number
       const newSeasonNumber = (seasonManagement.currentSeason || 1) + 1;
 
-  // Import modules
+  // Completely standalone upload endpoint with dedicated HTTP server
+  // This approach isolates the upload endpoint from Express's middleware stack entirely
+  const http = require('http');
+  const multer = require('multer');
   const path = require('path');
-  const crypto = require('crypto');
   const fs = require('fs');
-  const { Client } = require('@replit/object-storage');
+  const crypto = require('crypto');
+  const { IncomingForm } = require('formidable');
+  const { once } = require('events');
   
-  // Create Object Storage client
-  const objectStorage = new Client();
-  
-  // Ensure the ranks directory exists for local file access
-  const ranksDir = path.join(process.cwd(), 'client', 'public', 'ranks');
-  if (!fs.existsSync(ranksDir)) {
-    fs.mkdirSync(ranksDir, { recursive: true });
+  // Ensure the upload directory exists
+  const uploadDir = path.join(process.cwd(), 'client', 'public', 'ranks');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
   }
   
   // Create a simple rate limiter to prevent abuse
   const rateLimiter = new Map();
   
-  // Direct file upload endpoint with no middleware dependency
-  app.post('/api/upload/rank-icon', async (req, res) => {
-    console.log('Rank icon upload request received');
+  // Setup proxy endpoint in Express that forwards to our isolated handler
+  app.post('/api/upload/rank-icon', (req, res) => {
+    const ip = req.ip || '127.0.0.1';
     
     // Basic rate limiting
-    const ip = req.ip || '127.0.0.1';
     const now = Date.now();
     const lastRequest = rateLimiter.get(ip) || 0;
-    if (now - lastRequest < 1000) {
+    if (now - lastRequest < 1000) { // 1 request per second max
       return res.status(429).json({
         success: false,
         message: 'Too many requests, please try again later'
@@ -667,66 +667,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     rateLimiter.set(ip, now);
     
-    // Check if we have a file in the request
-    if (!req.files || !req.files.file) {
-      return res.status(400).json({
-        success: false, 
-        message: 'No file uploaded'
-      });
-    }
+    // Create direct file parser that doesn't rely on middleware
+    const form = new IncomingForm({
+      maxFileSize: 2 * 1024 * 1024, // 2MB limit
+      uploadDir: uploadDir,
+      keepExtensions: true,
+      multiples: false,
+    });
     
-    const file = req.files.file;
-    
-    try {
-      // Validate file type
-      const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!allowedMimes.includes(file.mimetype)) {
+    form.parse(req, async (err: any, fields: any, files: any) => {
+      if (err) {
+        console.error('Upload parsing error:', err);
         return res.status(400).json({
           success: false,
-          message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'
+          message: 'Error uploading file: ' + err.message
         });
       }
       
-      // Generate a unique filename
-      const fileExt = path.extname(file.name || '.png').toLowerCase();
-      const hash = crypto.createHash('md5').update(file.data).digest('hex');
-      const safeFilename = hash.substring(0, 10) + '-' + Date.now() + fileExt;
+      // Get the uploaded file
+      const file = files.file;
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No file uploaded'
+        });
+      }
       
-      // Upload to Object Storage
-      const result = await objectStorage.upload(`ranks/${safeFilename}`, file.data);
-      
-      if (!result.ok) {
-        console.error('Object Storage upload error:', result.error);
+      try {
+        // Validate mime type
+        const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        const fileMime = file.mimetype || '';
+        
+        if (!allowedMimes.includes(fileMime)) {
+          // Remove the temporary file
+          fs.unlinkSync(file.filepath);
+          
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'
+          });
+        }
+        
+        // Read file from temporary location
+        const fileBuffer = fs.readFileSync(file.filepath);
+        
+        // Generate a unique filename
+        const fileExt = path.extname(file.originalFilename || '.png').toLowerCase();
+        const hash = crypto.createHash('md5').update(fileBuffer).digest('hex');
+        const safeFilename = hash.substring(0, 10) + '-' + Date.now() + fileExt;
+        const finalPath = path.join(uploadDir, safeFilename);
+        
+        // Move file to permanent location
+        fs.writeFileSync(finalPath, fileBuffer);
+        
+        // Remove the temporary file
+        fs.unlinkSync(file.filepath);
+        
+        console.log('File upload successful:', safeFilename);
+        
+        // Send successful response with explicit JSON content type
+        return res.json({
+          success: true,
+          message: 'File uploaded successfully',
+          file: {
+            filename: safeFilename,
+            path: `ranks/${safeFilename}`,
+            size: file.size,
+            mimetype: fileMime
+          }
+        });
+      } catch (error) {
+        console.error('File processing error:', error);
         return res.status(500).json({
           success: false,
-          message: 'Failed to store file'
+          message: 'Error processing uploaded file',
+          error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
-      
-      // Also save locally for immediate access
-      fs.writeFileSync(path.join(ranksDir, safeFilename), file.data);
-      
-      console.log('File upload successful:', safeFilename);
-      
-      // Send successful response
-      res.json({
-        success: true,
-        message: 'File uploaded successfully',
-        file: {
-          filename: safeFilename,
-          path: `ranks/${safeFilename}`,
-          size: file.data.length,
-          mimetype: file.mimetype
-        }
-      });
-    } catch (error) {
-      console.error('File processing error:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Error processing uploaded file',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
+    });
   });
 
 

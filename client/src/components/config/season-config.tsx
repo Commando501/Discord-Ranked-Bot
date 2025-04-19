@@ -106,7 +106,7 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
 
   // Get toast from the hook at component level
   const { toast } = useToast();
-
+  
   // Handle rank icon file upload
   const handleRankIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
