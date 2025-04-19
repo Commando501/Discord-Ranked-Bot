@@ -5,8 +5,6 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 
-- 2025-07-04: Added rank emblems display next to player MMR in /list command
-
 - 2025-07-03: Enhanced /list command with auto-refreshing embeds for real-time queue updates
 
 - 2025-07-02: Added interactive buttons to /list command for joining and leaving queue

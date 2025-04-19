@@ -37,17 +37,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       .setDescription(`${queuePlayers.length} players in queue`);
 
     if (queuePlayers.length > 0) {
-      // Get rank tiers
-      const rankTiers = await storage.getRankTiers();
+      const queueList = queuePlayers
+        .map((entry, index) => {
+          const waitTime = formatDuration(entry.joinedAt);
+          return `${index + 1}. ${entry.player.username} (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+        })
+        .join("\n");
 
-      // Build player list with rank information
-      const queueList = await Promise.all(queuePlayers.map(async (entry, index) => {
-        const waitTime = formatDuration(entry.joinedAt);
-        const playerRank = getPlayerRank(entry.player.mmr, rankTiers);
-        return `${index + 1}. ${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
-      }));
-
-      queueEmbed.addFields({ name: "Players", value: queueList.join("\n") });
+      queueEmbed.addFields({ name: "Players", value: queueList });
     }
 
     // Create matches embed
@@ -262,17 +259,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             .setDescription(`${queuePlayers.length} players in queue`);
 
           if (queuePlayers.length > 0) {
-            // Get rank tiers
-            const rankTiers = await storage.getRankTiers();
+            const queueList = queuePlayers
+              .map((entry, index) => {
+                const waitTime = formatDuration(entry.joinedAt);
+                return `${index + 1}. ${entry.player.username} (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+              })
+              .join("\n");
 
-            // Build player list with rank information
-            const queueList = await Promise.all(queuePlayers.map(async (entry, index) => {
-              const waitTime = formatDuration(entry.joinedAt);
-              const playerRank = getPlayerRank(entry.player.mmr, rankTiers);
-              return `${index + 1}. ${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
-            }));
-
-            updatedQueueEmbed.addFields({ name: "Players", value: queueList.join("\n") });
+            updatedQueueEmbed.addFields({ name: "Players", value: queueList });
           }
 
           // If there are active matches, re-create match embeds
@@ -487,17 +481,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             .setDescription(`${queuePlayers.length} players in queue`);
 
           if (queuePlayers.length > 0) {
-            // Get rank tiers
-            const rankTiers = await storage.getRankTiers();
+            const queueList = queuePlayers
+              .map((entry, index) => {
+                const waitTime = formatDuration(entry.joinedAt);
+                return `${index + 1}. ${entry.player.username} (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+              })
+              .join("\n");
 
-            // Build player list with rank information
-            const queueList = await Promise.all(queuePlayers.map(async (entry, index) => {
-              const waitTime = formatDuration(entry.joinedAt);
-              const playerRank = getPlayerRank(entry.player.mmr, rankTiers);
-              return `${index + 1}. ${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
-            }));
-
-            updatedQueueEmbed.addFields({ name: "Players", value: queueList.join("\n") });
+            updatedQueueEmbed.addFields({ name: "Players", value: queueList });
           }
 
           // If there are active matches, re-create match embeds
@@ -578,7 +569,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           // Don't need to notify the user since they got a direct ephemeral response
         }
       });
-
     }
   } catch (error) {
     logger.error(`Error in list command:`, error);
