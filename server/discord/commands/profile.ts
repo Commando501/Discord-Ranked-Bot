@@ -8,6 +8,9 @@ import { storage } from "../../storage";
 import { logger } from "../../bot/utils/logger";
 import { PlayerService } from "../../bot/services/playerService";
 import { MatchService } from "../../bot/services/matchService";
+import { getPlayerRank } from "../../../shared/rankSystem";
+import * as fs from "fs";
+import * as path from "path";
 
 export const data = new SlashCommandBuilder()
   .setName("profile")
@@ -50,16 +53,46 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const winRate =
       totalGames > 0 ? Math.round((player.wins / totalGames) * 100) : 0;
 
+    // Get rank tiers and determine player's rank
+    const rankTiers = await storage.getRankTiers();
+    const playerRank = getPlayerRank(player.mmr, rankTiers);
+    
+    // Find rank icon if available
+    let rankIconAttachment = null;
+    if (playerRank) {
+      const rankName = playerRank.name.replace(/\s+/g, '');
+      const iconPath = path.join(process.cwd(), 'client', 'public', 'ranks', `${rankName}.png`);
+      
+      // Try different variations if the exact match is not found
+      const iconPaths = [
+        iconPath,
+        path.join(process.cwd(), 'client', 'public', 'ranks', `${rankName.toLowerCase()}.png`),
+        // Try with first letter capitalized
+        path.join(process.cwd(), 'client', 'public', 'ranks', `${rankName.charAt(0).toUpperCase() + rankName.slice(1).toLowerCase()}.png`)
+      ];
+      
+      for (const path of iconPaths) {
+        if (fs.existsSync(path)) {
+          rankIconAttachment = { attachment: path, name: 'rank.png' };
+          break;
+        }
+      }
+    }
+
     // Get recent matches for this player
     const matches = await storage.getPlayerMatches(player.id, 5);
 
-    // Create profile embed
+    // Create profile embed with rank info
     const embed = new EmbedBuilder()
-      .setColor("#5865F2") // Discord blurple
+      .setColor(playerRank?.color || "#5865F2")
       .setTitle(`${targetUser.username}'s Profile`)
-      .setThumbnail(targetUser.displayAvatarURL())
+      .setThumbnail(rankIconAttachment ? 'attachment://rank.png' : targetUser.displayAvatarURL())
       .addFields(
-        { name: "MMR Rating", value: `${player.mmr}`, inline: true },
+        { 
+          name: "Rank & MMR", 
+          value: `${playerRank?.name || "Unranked"} (${player.mmr} MMR)`, 
+          inline: true 
+        },
         {
           name: "Win/Loss",
           value: `${player.wins}W / ${player.losses}L`,
@@ -115,7 +148,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       text: `Player since ${new Date(player.createdAt).toLocaleDateString()}`,
     });
 
-    await interaction.editReply({ embeds: [embed] });
+    // Send the reply with the rank icon attachment if available
+    const replyOptions = {
+      embeds: [embed],
+      files: rankIconAttachment ? [rankIconAttachment] : []
+    };
+
+    await interaction.editReply(replyOptions);
   } catch (error) {
     logger.error("Error executing profile command", {
       error,

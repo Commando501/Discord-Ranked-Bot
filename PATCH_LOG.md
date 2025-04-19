@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 
+- 2025-06-25: Added rank icons to Discord bot profile commands
 - 2025-06-24: Removed player distribution section from rank distribution visualization
 - 2025-06-23: Fixed rank distribution display where rank emblems were feeding into the side of the screen
 - 2025-06-22: Enhanced rank distribution visualization with improved visual design and added rank pyramid
