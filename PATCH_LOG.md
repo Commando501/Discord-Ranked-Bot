@@ -1,6 +1,26 @@
 
 # PATCH LOG
 
+## 2024-06-12 15:30 UTC
+### Files Modified:
+- server/discord/commands/list.ts
+
+### Changes:
+- Fixed syntax error in the /list command that was causing server startup failure
+- Improved rank emoji display in queue list by ensuring proper handling of null/undefined playerRank
+- Ensured consistent emoji display for players in queue
+
+### Testing:
+- Verified server starts successfully
+- Confirmed rank emojis display correctly next to player ranks in the queue list
+
+## Previous Entries:
+<!-- Insert previous log entries here -->
+
+
+
+# PATCH LOG
+
 ### 2025-06-29 14:30:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 

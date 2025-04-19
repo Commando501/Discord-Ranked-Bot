@@ -147,7 +147,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         };
 
         // Get the emoji for this rank if it exists
-        if (rankEmojiMap[playerRank.name]) {
+        if (playerRank && rankEmojiMap[playerRank.name]) {
           rankEmoji = rankEmojiMap[playerRank.name] + " ";
         }
 
@@ -485,7 +485,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               };
 
               // Get the emoji for this rank if it exists
-              if (rankEmojiMap[playerRank.name]) {
+              if (playerRank && rankEmojiMap[playerRank.name]) {
                 rankEmoji = rankEmojiMap[playerRank.name] + " ";
               }
 
@@ -829,7 +829,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               };
 
               // Get the emoji for this rank if it exists
-              if (rankEmojiMap[playerRank.name]) {
+              if (playerRank && rankEmojiMap[playerRank.name]) {
                 rankEmoji = rankEmojiMap[playerRank.name] + " ";
               }
 
