@@ -100,8 +100,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         }
         
         // COMPLETE ALGORITHM REWRITE:
-        // Each tier's threshold is the LOWER bound of its range
-        // The upper bound is the next tier's threshold - 1
+        // Each tier's threshold is the UPPER bound of its range (threshold and below)
+        // The lower bound is the previous tier's threshold + 1 or 0 for the lowest tier
         
         // Sort tiers by threshold in ascending order
         const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
@@ -116,18 +116,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         // For each tier, explicitly define its range and check if player MMR falls within it
         for (let i = 0; i < sortedTiers.length; i++) {
           const currentTier = sortedTiers[i];
-          const nextTier = i < sortedTiers.length - 1 ? sortedTiers[i + 1] : null;
+          const prevTier = i > 0 ? sortedTiers[i - 1] : null;
           
-          // Lower bound is inclusive (>=), upper bound is exclusive (<)
-          const lowerBound = currentTier.mmrThreshold;
-          const upperBound = nextTier ? nextTier.mmrThreshold : Number.MAX_SAFE_INTEGER;
+          // Upper bound is inclusive (<=), lower bound is previous tier's threshold + 1 or 0
+          const upperBound = currentTier.mmrThreshold;
+          const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
           
-          logger.info(`Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound-1} against MMR ${player.mmr}`);
+          logger.info(`Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound} against MMR ${player.mmr}`);
           
-          if (player.mmr >= lowerBound && player.mmr < upperBound) {
+          if (player.mmr >= lowerBound && player.mmr <= upperBound) {
             foundTier = currentTier;
             logger.info(`MATCH FOUND: Player MMR ${player.mmr} belongs to ${foundTier.name}`);
-            logger.info(`This tier's range is ${lowerBound} to ${upperBound-1}`);
+            logger.info(`This tier's range is ${lowerBound} to ${upperBound}`);
             break;
           }
         }
@@ -147,8 +147,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           
           // Show exact tier boundaries for easier verification
           logger.info(`CORRECTED ALGORITHM: Selected rank "${playerRank.name}" for player with MMR ${player.mmr}.`);
-          logger.info(`This tier's threshold is ${playerRank.mmrThreshold}, next tier threshold is ${nextTierThreshold}.`);
-          logger.info(`Valid MMR range for ${playerRank.name}: ${playerRank.mmrThreshold} up to but not including ${nextTierThreshold}.`);
+          
+          // Get the previous tier threshold to determine the lower bound
+          const tierIndex = sortedTiers.findIndex(t => t.name === playerRank.name);
+          const prevTierThreshold = tierIndex > 0 ? sortedTiers[tierIndex - 1].mmrThreshold : -1;
+          
+          logger.info(`This tier's threshold (upper bound) is ${playerRank.mmrThreshold}.`);
+          logger.info(`Valid MMR range for ${playerRank.name}: ${prevTierThreshold + 1} to ${playerRank.mmrThreshold}.`);
         }
         
         // If no tier is found, use the lowest tier
