@@ -453,14 +453,24 @@ export default function LeaderboardsPage() {
                                   {(() => {
                                     const playerRank = getPlayerRank(player.mmr, getRankTiers());
                                     return playerRank.icon ? (
-                                      <img 
-                                        src={playerRank.icon} 
-                                        alt={`${playerRank.name} rank`}
-                                        className="w-4 h-4 mr-1 object-contain"
-                                        onError={(e) => {
-                                          (e.target as HTMLImageElement).style.display = 'none';
-                                        }}
-                                      />
+                                      <div className="flex items-center mr-1">
+                                        <img 
+                                          src={playerRank.icon} 
+                                          alt={`${playerRank.name} rank`}
+                                          className="w-4 h-4 object-contain"
+                                          onError={(e) => {
+                                            (e.target as HTMLImageElement).style.display = 'none';
+                                            // Display color box as fallback
+                                            e.currentTarget.parentElement!.innerHTML = 
+                                              `<div class="w-3 h-3 mr-1 rounded-sm" style="background-color: ${playerRank.color || '#40444B'}"></div>`;
+                                          }}
+                                        />
+                                      </div>
+                                    ) : playerRank.color ? (
+                                      <div 
+                                        className="w-3 h-3 mr-1 rounded-sm" 
+                                        style={{ backgroundColor: playerRank.color }}
+                                      ></div>
                                     ) : null;
                                   })()}
                                   <span className="text-[#DCDDDE]">{player.username}#{player.discriminator}</span>
@@ -636,18 +646,26 @@ export default function LeaderboardsPage() {
                             className="col-span-5 sm:col-span-1 rounded-lg p-3 text-center"
                             style={{ backgroundColor: tier.color || '#40444B' }}
                           >
-                            {tier.icon && (
-                              <div className="flex justify-center mb-1">
+                            <div className="flex justify-center mb-1 h-8">
+                              {tier.icon ? (
                                 <img 
                                   src={tier.icon} 
                                   alt={`${tier.name} rank`} 
                                   className="w-8 h-8 object-contain"
                                   onError={(e) => {
                                     (e.target as HTMLImageElement).style.display = 'none';
+                                    // Display a color circle instead as fallback
+                                    e.currentTarget.parentElement!.innerHTML = 
+                                      `<div class="w-6 h-6 rounded-full" style="background-color: ${tier.color || '#40444B'}"></div>`;
                                   }}
                                 />
-                              </div>
-                            )}
+                              ) : tier.color && (
+                                <div 
+                                  className="w-6 h-6 rounded-full" 
+                                  style={{ backgroundColor: tier.color }}
+                                ></div>
+                              )}
+                            </div>
                             <div className="font-medium text-white">{tier.name}</div>
                             <div className="text-xs text-white/80">
                               {tier.mmrThreshold} {nextTier ? '- ' + (nextTier.mmrThreshold - 1) : '+'}
