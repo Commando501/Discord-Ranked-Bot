@@ -82,6 +82,42 @@
         "color": "#CD7F32",
         "icon": "client/public/ranks/Bronze1.png",
         "description": "bronze"
+      },
+      {
+        "name": "Silver 3",
+        "mmrThreshold": 699,
+        "color": "#3BA55C",
+        "description": "Silver"
+      },
+      {
+        "name": "Silver 2",
+        "mmrThreshold": 849,
+        "color": "#3BA55C",
+        "description": "silver"
+      },
+      {
+        "name": "Silver 1",
+        "mmrThreshold": 999,
+        "color": "#3BA55C",
+        "description": "silver"
+      },
+      {
+        "name": "Gold 3",
+        "mmrThreshold": 1149,
+        "color": "#3BA55C",
+        "description": "gold"
+      },
+      {
+        "name": "Gold 2",
+        "mmrThreshold": 1299,
+        "color": "#3BA55C",
+        "description": "Gold"
+      },
+      {
+        "name": "Gold 1",
+        "mmrThreshold": 1449,
+        "color": "#3BA55C",
+        "description": "gold"
       }
     ],
     "enableEndOfSeasonAnnouncements": true
