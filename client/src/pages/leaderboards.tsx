@@ -21,6 +21,8 @@ const getWinRate = (wins: number, losses: number) => {
 
 export default function LeaderboardsPage() {
   const [rankTiers, setRankTiers] = useState<RankTier[]>([]);
+  const [rankDistribution, setRankDistribution] = useState<{rank: string, count: number, percentage: number}[]>([]);
+  const [highestWinRatePlayers, setHighestWinRatePlayers] = useState<Player[]>([]);
 
   // Get configuration data
   const { data: configData, isLoading: isConfigLoading } = useQuery<BotConfig>({
@@ -46,12 +48,77 @@ export default function LeaderboardsPage() {
     }
   });
 
+  // Get all players for rank distribution and win rate calculation
+  const { data: allPlayers, isLoading: isLoadingAllPlayers } = useQuery<Player[]>({
+    queryKey: ['allPlayers'],
+    queryFn: async () => {
+      const response = await fetch('/api/admin/players');
+      if (!response.ok) {
+        throw new Error('Failed to fetch all players');
+      }
+      return response.json();
+    }
+  });
+
   // Effect to extract rank tiers from config
   useEffect(() => {
     if (configData && configData.seasonManagement && configData.seasonManagement.rankTiers) {
       setRankTiers(configData.seasonManagement.rankTiers);
     }
   }, [configData]);
+
+  // Effect to calculate rank distribution
+  useEffect(() => {
+    if (rankTiers.length > 0 && allPlayers && allPlayers.length > 0) {
+      // Sort tiers by MMR threshold (ascending)
+      const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+      
+      // Initialize counts
+      const distribution = sortedTiers.map(tier => ({
+        rank: tier.name,
+        count: 0,
+        percentage: 0,
+        color: tier.color || '#ffffff'
+      }));
+      
+      // Count players in each rank
+      allPlayers.forEach(player => {
+        const playerRank = getPlayerRank(player.mmr, sortedTiers);
+        if (playerRank) {
+          const rankIndex = distribution.findIndex(d => d.rank === playerRank.name);
+          if (rankIndex >= 0) {
+            distribution[rankIndex].count++;
+          }
+        }
+      });
+      
+      // Calculate percentages
+      distribution.forEach(item => {
+        item.percentage = Math.round((item.count / allPlayers.length) * 100);
+      });
+      
+      setRankDistribution(distribution);
+    }
+  }, [rankTiers, allPlayers]);
+
+  // Effect to calculate highest win rate players
+  useEffect(() => {
+    if (allPlayers && allPlayers.length > 0) {
+      // Filter players with at least 5 games played
+      const playersWithGames = allPlayers.filter(player => 
+        (player.wins + player.losses) >= 5
+      );
+      
+      // Sort by win rate
+      const sortedByWinRate = [...playersWithGames].sort((a, b) => {
+        const winRateA = a.wins / (a.wins + a.losses);
+        const winRateB = b.wins / (b.wins + b.losses);
+        return winRateB - winRateA;
+      });
+      
+      setHighestWinRatePlayers(sortedByWinRate.slice(0, 10));
+    }
+  }, [allPlayers]);
 
   const handleRefresh = () => {
     refetch();
@@ -223,6 +290,202 @@ export default function LeaderboardsPage() {
                     })}
                   </TableBody>
                 </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Highest Win Rate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingAllPlayers ? (
+                <p>Loading win rate data...</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">Rank</TableHead>
+                      <TableHead>Player</TableHead>
+                      <TableHead>Tier</TableHead>
+                      <TableHead className="text-right">Games</TableHead>
+                      <TableHead className="text-right">W/L</TableHead>
+                      <TableHead className="text-right">Win Rate</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {highestWinRatePlayers?.map((player, index) => {
+                      const rankTier = getPlayerRankTier(player.mmr, rankTiers);
+                      const totalGames = player.wins + player.losses;
+                      const winRate = totalGames > 0
+                        ? ((player.wins / totalGames) * 100).toFixed(1)
+                        : "0.0";
+
+                      return (
+                        <TableRow key={player.id}>
+                          <TableCell className="font-medium">{index + 1}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center">
+                              <Avatar className="h-8 w-8 mr-2">
+                                <AvatarImage src={player.avatar ? `https://cdn.discordapp.com/avatars/${player.discordId}/${player.avatar}.png` : undefined} alt={player.username} />
+                                <AvatarFallback className="bg-[#5865F2] text-white text-xs">{getInitials(player.username)}</AvatarFallback>
+                              </Avatar>
+                              <span>{player.username}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {rankTier?.icon && (
+                                <img 
+                                  src={getRankIconUrl(rankTier.icon)} 
+                                  alt={rankTier.name}
+                                  className="h-6 w-6 object-contain"
+                                  onError={(e) => {
+                                    const img = e.target as HTMLImageElement;
+                                    const originalSrc = img.src;
+                                    console.error("Failed to load image:", originalSrc);
+                                    
+                                    // Create direct paths to try
+                                    const attempts = [];
+                                    
+                                    // Extract the tier name and try direct paths
+                                    const tierName = rankTier.name.replace(/\s+/g, '');
+                                    attempts.push(`/ranks/${tierName}.png`);
+                                    attempts.push(`/ranks/${tierName.toLowerCase()}.png`);
+                                    
+                                    // Try with separate rank and number
+                                    if (rankTier.name.includes(' ')) {
+                                      const [rank, number] = rankTier.name.split(' ');
+                                      attempts.push(`/ranks/${rank}${number}.png`);
+                                      attempts.push(`/ranks/${rank.toLowerCase()}${number}.png`);
+                                      attempts.push(`/ranks/${rank}${number}.PNG`);
+                                    }
+                                    
+                                    // Try each alternative path
+                                    let attemptIndex = 0;
+                                    const tryNextPath = () => {
+                                      if (attemptIndex < attempts.length) {
+                                        console.log(`Trying rank icon path (${attemptIndex + 1}/${attempts.length}):`, attempts[attemptIndex]);
+                                        img.src = attempts[attemptIndex];
+                                        attemptIndex++;
+                                      } else {
+                                        // Just hide the image if all attempts fail
+                                        img.style.display = 'none';
+                                      }
+                                    };
+
+                                    // Start trying alternative paths
+                                    img.onerror = tryNextPath;
+                                    tryNextPath();
+                                  }}
+                                />
+                              )}
+                              <span style={{ color: rankTier?.color || 'inherit' }}>
+                                {rankTier?.name || 'Unranked'}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">{totalGames}</TableCell>
+                          <TableCell className="text-right">{player.wins}/{player.losses}</TableCell>
+                          <TableCell className="text-right">{winRate}%</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Rank Distribution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingAllPlayers ? (
+                <p>Loading rank distribution data...</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Rank distribution bar chart */}
+                    <div className="h-60 relative">
+                      {rankDistribution.length > 0 ? (
+                        <div className="flex items-end h-full">
+                          {rankDistribution
+                            .sort((a, b) => {
+                              // Find tiers by name
+                              const tierA = rankTiers.find(t => t.name === a.rank);
+                              const tierB = rankTiers.find(t => t.name === b.rank);
+                              // Sort by MMR threshold if found
+                              return (tierA?.mmrThreshold || 0) - (tierB?.mmrThreshold || 0);
+                            })
+                            .map((item, index) => {
+                              const tier = rankTiers.find(t => t.name === item.rank);
+                              return (
+                                <div 
+                                  key={item.rank} 
+                                  className="flex-1 mx-1 flex flex-col items-center justify-end group"
+                                >
+                                  <div className="text-xs mb-1 opacity-0 group-hover:opacity-100 transition-opacity text-center">
+                                    {item.count} players<br/>({item.percentage}%)
+                                  </div>
+                                  <div 
+                                    className="w-full rounded-t transition-all hover:opacity-90"
+                                    style={{ 
+                                      height: `${Math.max(5, (item.percentage || 1) * 2)}%`, 
+                                      backgroundColor: tier?.color || '#6f7280',
+                                    }}
+                                  ></div>
+                                  <div className="text-xs mt-1 truncate w-full text-center">{item.rank}</div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <p className="text-gray-400">No rank distribution data available</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Rank distribution table */}
+                    <div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Rank</TableHead>
+                            <TableHead className="text-right">Players</TableHead>
+                            <TableHead className="text-right">Percentage</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rankDistribution
+                            .sort((a, b) => {
+                              // Find tiers by name
+                              const tierA = rankTiers.find(t => t.name === a.rank);
+                              const tierB = rankTiers.find(t => t.name === b.rank);
+                              // Sort by MMR threshold descending
+                              return (tierB?.mmrThreshold || 0) - (tierA?.mmrThreshold || 0);
+                            })
+                            .map((item) => {
+                              const tier = rankTiers.find(t => t.name === item.rank);
+                              return (
+                                <TableRow key={item.rank}>
+                                  <TableCell>
+                                    <span style={{ color: tier?.color || 'inherit' }}>
+                                      {item.rank}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-right">{item.count}</TableCell>
+                                  <TableCell className="text-right">{item.percentage}%</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
