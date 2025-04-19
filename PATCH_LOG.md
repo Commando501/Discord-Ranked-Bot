@@ -1,4 +1,25 @@
 
+# PATCH LOG
+
+### 2025-06-29 07:45:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/discord/commands/list.ts`
+
+**Changes**:
+- Fixed rank tier determination logic in the `/list` command to properly display detailed rank tiers
+- Added enhanced logging for improved debugging and verification
+- Applied the same corrected algorithm from the profile command to ensure consistent tier determination
+
+**Purpose**: Fix the issue where `/list` command was only showing base ranks (e.g., "Gold") instead of detailed ranks (e.g., "Gold 3") for players.
+
+**Testing**: Verified with test case of MMR 1046, which now correctly shows as "Gold 3".
+
+**Dependencies Affected**: None
+
+- 2025-06-18: Fixed leaderboard display to properly show rank tier MMR ranges and icons
+
+
 # Project Patch Log Index
 
 This file serves as an index to all patch logs, organized by time period.

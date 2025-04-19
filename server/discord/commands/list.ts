@@ -79,8 +79,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           const upperBound = currentTier.mmrThreshold;
           const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
 
+          logger.info(`Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound} against MMR ${entry.player.mmr}`);
+
           if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
             foundTier = currentTier;
+            logger.info(`MATCH FOUND: Player MMR ${entry.player.mmr} belongs to ${foundTier.name}`);
+            logger.info(`This tier's range is ${lowerBound} to ${upperBound}`);
             break;
           }
         }
@@ -402,8 +406,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 const upperBound = currentTier.mmrThreshold;
                 const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
 
+                logger.info(`Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound} against MMR ${entry.player.mmr}`);
+
                 if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
                   foundTier = currentTier;
+                  logger.info(`MATCH FOUND: Player MMR ${entry.player.mmr} belongs to ${foundTier.name}`);
+                  logger.info(`This tier's range is ${lowerBound} to ${upperBound}`);
                   break;
                 }
               }
@@ -730,8 +738,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 const upperBound = currentTier.mmrThreshold;
                 const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
 
+                logger.info(`Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound} against MMR ${entry.player.mmr}`);
+
                 if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
                   foundTier = currentTier;
+                  logger.info(`MATCH FOUND: Player MMR ${entry.player.mmr} belongs to ${foundTier.name}`);
+                  logger.info(`This tier's range is ${lowerBound} to ${upperBound}`);
                   break;
                 }
               }
@@ -767,7 +779,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 'Silver 1': '<:Silver1:1363039677724233849>',
                 'Gold 3': '<:Gold3:1363042192196632666>',
                 'Gold 2': '<:Gold2:1363042203340902530>',
-                'Gold 1': '<:Gold1:1363042214715986041>',
+                'Gold 1': '<:Gold1:1362214715986041>',
                 'Platinum 3': '<:Platinum3:1363039687358287872>',
                 'Platinum 2': '<:Platinum2:1363039694878806186>',
                 'Platinum 1': '<:Platinum1:1363039703909138502>',
