@@ -455,10 +455,11 @@ export default function LeaderboardsPage() {
                                     return playerRank.icon ? (
                                       <div className="flex items-center mr-1">
                                         <img 
-                                          src={playerRank.icon} 
+                                          src={playerRank.icon.startsWith('/') ? playerRank.icon : `/${playerRank.icon}`} 
                                           alt={`${playerRank.name} rank`}
                                           className="w-4 h-4 object-contain"
                                           onError={(e) => {
+                                            console.log(`Failed to load icon: ${playerRank.icon}`);
                                             (e.target as HTMLImageElement).style.display = 'none';
                                             // Display color box as fallback
                                             e.currentTarget.parentElement!.innerHTML = 
@@ -649,10 +650,11 @@ export default function LeaderboardsPage() {
                             <div className="flex justify-center mb-1 h-8">
                               {tier.icon ? (
                                 <img 
-                                  src={tier.icon} 
+                                  src={tier.icon.startsWith('/') ? tier.icon : `/${tier.icon}`} 
                                   alt={`${tier.name} rank`} 
                                   className="w-8 h-8 object-contain"
                                   onError={(e) => {
+                                    console.log(`Failed to load icon: ${tier.icon}`);
                                     (e.target as HTMLImageElement).style.display = 'none';
                                     // Display a color circle instead as fallback
                                     e.currentTarget.parentElement!.innerHTML = 
