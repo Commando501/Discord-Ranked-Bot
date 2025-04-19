@@ -187,7 +187,7 @@ function toast({ ...props }: Toast) {
       }
     }
   };
-  
+
   return toastControls;
 }
 
@@ -210,5 +210,10 @@ function useToast() {
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
 }
+
+// Standalone toast function for use in non-component contexts
+export const showToast = (props: Toast) => {
+  return toast(props);
+};
 
 export { useToast, toast }
