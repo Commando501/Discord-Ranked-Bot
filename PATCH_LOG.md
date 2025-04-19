@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 See [2025-Q2.md](./patch_logs/2025-Q2.md) for the most recent changes.
+- 2025-05-31: Fixed toast function return error during rank image uploads
 - 2025-05-30: Fixed toast notification errors during rank image uploads
 - 2025-05-29: Fixed incorrect toast import in season-config.tsx
 - 2025-05-28: Fixed React hooks rules violation in leaderboards.tsx

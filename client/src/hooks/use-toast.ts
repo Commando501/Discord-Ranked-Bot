@@ -165,10 +165,19 @@ function toast({ ...props }: Toast) {
     console.error("Error dispatching toast:", error)
   }
 
-  return {
-    id: id,
-    dismiss,
-    update,
+  try {
+    return {
+      id: id,
+      dismiss,
+      update,
+    }
+  } catch (error) {
+    console.error("Error in toast return:", error);
+    return {
+      id: id,
+      dismiss: () => {},
+      update: () => {},
+    }
   }
 }
 
