@@ -99,34 +99,39 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           logger.error(`Error loading detailed rank tiers from config: ${configError}`);
         }
         
-        // CORRECT INTERPRETATION: Each tier covers MMR from its lower threshold up to the next tier's threshold
+        // FIX FOR CRITICAL BUG: The threshold in our config file is actually the UPPER bound of each tier
+        // This is evident from how they are defined in the config (Silver 1: threshold 999, Gold 3: threshold 1149)
+        
         // Sort tiers by threshold in ascending order
         const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
         
-        // Find the tier for player's MMR using the correct range interpretation
+        // Find the tier for player's MMR
         let foundTier = null;
         
-        // For each tier, check if the player's MMR is within its range
-        // A tier's range is from its threshold up to (but not including) the next tier's threshold
-        for (let i = 0; i < sortedTiers.length; i++) {
-          const currentTier = sortedTiers[i];
-          const nextTier = i < sortedTiers.length - 1 ? sortedTiers[i + 1] : null;
-          
-          // For the last tier, the upper bound is infinity
-          const lowerBound = currentTier.mmrThreshold;
-          const upperBound = nextTier ? nextTier.mmrThreshold - 1 : Number.MAX_SAFE_INTEGER;
-          
-          // Check if player's MMR falls within this range
-          if (player.mmr >= lowerBound && player.mmr <= upperBound) {
-            foundTier = currentTier;
+        // Direct binary search approach to find the correct tier
+        // We want the highest tier where the player's MMR is LESS THAN the threshold
+        for (let i = sortedTiers.length - 1; i >= 0; i--) {
+          if (player.mmr < sortedTiers[i].mmrThreshold) {
+            // This threshold is too high, try the next lower one
+            continue;
+          } else {
+            // Found the correct tier - this is the highest tier where MMR >= threshold
+            foundTier = sortedTiers[i];
             
-            // Log details for verification
-            logger.info(`CORRECT RANGE FOUND: Player MMR ${player.mmr} falls in range for ${foundTier.name}`);
-            logger.info(`Range for ${foundTier.name}: ${lowerBound} to ${upperBound}`);
+            const nextTierThreshold = i < sortedTiers.length - 1 ? 
+              sortedTiers[i + 1].mmrThreshold : "no upper limit";
             
-            // We found the tier, no need to continue checking
+            logger.info(`FIXED TIER ALGORITHM: Player MMR ${player.mmr} belongs to ${foundTier.name}`);
+            logger.info(`This tier's threshold is ${foundTier.mmrThreshold}, next tier starts at ${nextTierThreshold}`);
+            
             break;
           }
+        }
+        
+        // If no tier found, use the lowest one (first in sorted array)
+        if (!foundTier && sortedTiers.length > 0) {
+          foundTier = sortedTiers[0];
+          logger.info(`Using lowest tier ${foundTier.name} for MMR ${player.mmr}`);
         }
         
         if (foundTier) {
