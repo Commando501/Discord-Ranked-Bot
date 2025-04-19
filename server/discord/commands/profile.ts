@@ -99,30 +99,30 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           logger.error(`Error loading detailed rank tiers from config: ${configError}`);
         }
         
-        // Define a clear function to find the appropriate tier for a given MMR
-        const tiersBetween = (mmr: number, tiers: any[]): any => {
-          // Sort tiers by threshold in ascending order
-          const sortedTiers = [...tiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
-          
-          // Find the highest tier whose threshold is less than or equal to the player's MMR
-          let appropriateTier = sortedTiers[0]; // Default to lowest tier
-          
-          for (let i = 0; i < sortedTiers.length; i++) {
-            const tier = sortedTiers[i];
-            
-            if (mmr >= tier.mmrThreshold) {
-              appropriateTier = tier;
-            } else {
-              // Once we find a tier with threshold higher than MMR, break
-              break;
-            }
-          }
-          
-          return appropriateTier;
-        };
+        // SIMPLIFIED SOLUTION: For each MMR, find which tier range it falls into
+        // Sort tiers by threshold in ascending order
+        const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+        let appropriateTier = sortedTiers[0]; // Default to lowest tier
         
-        // Apply the function to find the appropriate tier
-        const appropriateTier = tiersBetween(player.mmr, rankTiers);
+        // Simple algorithm: Scan through tiers to find which range the player's MMR falls into
+        for (let i = 0; i < sortedTiers.length - 1; i++) {
+          const currentTier = sortedTiers[i];
+          const nextTier = sortedTiers[i + 1];
+          
+          // If player's MMR is between current tier threshold and next tier threshold
+          if (player.mmr >= currentTier.mmrThreshold && player.mmr < nextTier.mmrThreshold) {
+            appropriateTier = currentTier;
+            logger.info(`DEBUG: MMR ${player.mmr} is between ${currentTier.name} (${currentTier.mmrThreshold}) and ${nextTier.name} (${nextTier.mmrThreshold})`);
+            break;
+          }
+        }
+        
+        // Handle case for highest tier (when MMR >= highest tier threshold)
+        const highestTier = sortedTiers[sortedTiers.length - 1];
+        if (player.mmr >= highestTier.mmrThreshold) {
+          appropriateTier = highestTier;
+          logger.info(`DEBUG: MMR ${player.mmr} is in highest tier ${highestTier.name} (${highestTier.mmrThreshold}+)`);
+        }
         
         if (appropriateTier) {
           playerRank = appropriateTier;
