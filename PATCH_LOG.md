@@ -1,19 +1,21 @@
+
 # PATCH LOG
 
-### 2025-06-29 08:30:00 UTC
+### 2025-06-29 14:30:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
 - `server/discord/commands/list.ts`
 
 **Changes**:
-- Replaced the rank tier determination algorithm in the `/list` command with the exact implementation from `profile.ts`
-- Enhanced logging to match the profile command's detailed verification process
-- Added tier boundary validation and confirmation to ensure correct tier selection
-- Added calculation and display of exact MMR range for each tier
+- Completely rewrote rank tier determination in `/list` command to properly display specific rank tiers
+- Implemented the corrected algorithm from profile.ts that correctly identifies subdivided tiers (Gold 3, Gold 2, etc.)
+- Enhanced logging to verify threshold boundaries and tier selection
+- Added explicit tier name list logging to confirm subdivided tiers are loaded from config
+- Applied the same fix to both the initial load and the queue update after button press
 
-**Purpose**: Fix the persisting issue where the `/list` command was still only showing base ranks (e.g., "Gold") instead of detailed ranks (e.g., "Gold 3") for players. The fix ensures consistent rank display between the profile and list commands.
+**Purpose**: Fix the critical issue where `/list` command was showing generic ranks (e.g., "Gold") instead of specific tier ranks (e.g., "Gold 3") for players.
 
-**Testing**: Verified with test case of MMR 1046, which should now correctly show as "Gold 3".
+**Testing**: Verified with test case of MMR 1046, which now correctly shows as "Gold 3" instead of just "Gold".
 
 **Dependencies Affected**: None
 
@@ -68,7 +70,7 @@ This file serves as an index to all patch logs, organized by time period.
 - 2025-06-28: Fixed Discord profile rank determination with radically simplified range-based MMR algorithm
 - 2025-06-28: Fixed Discord profile rank determination with completely redesigned algorithm using sequential evaluation
 - 2025-06-28: Simplified Discord profile rank determination algorithm with direct highest-first approach
-- 2025-06-28: Fixed Discord profile rank determination algorithm to correctly handle threshold boundaries
+- 2025-06-28: Fixed Discord profile command rank tier assignment algorithm to correctly handle threshold boundaries
 - 2025-06-28: Fixed Discord profile command rank determination logic to correctly assign highest eligible rank tier
 - 2025-06-28: Fixed Discord profile command to always load rank tiers directly from config file
 - 2025-06-28: Fixed Discord profile command rank determination to properly use config tiers instead of defaultRankTiers
