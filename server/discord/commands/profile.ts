@@ -99,16 +99,24 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           logger.error(`Error loading detailed rank tiers from config: ${configError}`);
         }
         
-        // Sort tiers by MMR threshold (highest first) to ensure correct rank determination
-        const sortedTiers = [...rankTiers].sort((a, b) => b.mmrThreshold - a.mmrThreshold);
+        // Sort tiers by MMR threshold (ascending) to get proper tier ordering
+        const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
         
-        // Find the first tier where the player's MMR is greater than or equal to the threshold
+        // Find the highest tier where player's MMR is >= threshold
+        let highestEligibleTier = null;
+        
         for (const tier of sortedTiers) {
           if (player.mmr >= tier.mmrThreshold) {
-            playerRank = tier;
-            logger.info(`Selected rank "${tier.name}" for player with MMR ${player.mmr} (threshold: ${tier.mmrThreshold})`);
+            highestEligibleTier = tier;
+          } else {
+            // Once we find a tier with threshold higher than player's MMR, we've found our rank
             break;
           }
+        }
+        
+        if (highestEligibleTier) {
+          playerRank = highestEligibleTier;
+          logger.info(`Selected rank "${playerRank.name}" for player with MMR ${player.mmr} (threshold: ${playerRank.mmrThreshold})`);
         }
         
         // If no tier is found, use the lowest tier
