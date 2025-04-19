@@ -1,5 +1,18 @@
 # PATCH LOG
 
+## 2024-06-12 16:05 UTC
+### Files Modified:
+- server/discord/commands/list.ts
+
+### Changes:
+- Fixed rank emoji display issue in queue list by correcting the positioning and spacing
+- Moved space from after emoji to before emoji for proper rendering
+- Ensured proper display of rank-specific emojis in the player list
+
+### Testing:
+- Verified emojis now display properly next to rank names
+- Confirmed consistent formatting between list and profile commands
+
 ## 2024-06-12 15:45 UTC
 ### Files Modified:
 - server/discord/commands/list.ts
