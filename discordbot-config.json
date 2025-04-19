@@ -45,7 +45,7 @@
     "seasonStartDate": "2025-03-14T02:07:44.514Z",
     "seasonEndDate": "2025-06-14T02:07:44.514Z",
     "mmrResetType": "soft",
-    "placementMatchRequirements": 10,
+    "placementMatchRequirements": 5,
     "rewardTiers": [],
     "rankTiers": [
       {
@@ -67,6 +67,20 @@
         "mmrThreshold": 299,
         "color": "#CD7F32",
         "icon": "/ranks/bronze3.png",
+        "description": "bronze"
+      },
+      {
+        "name": "Bronze 2",
+        "mmrThreshold": 424,
+        "color": "#CD7F32",
+        "icon": "/ranks/bronze2.png",
+        "description": "bronze"
+      },
+      {
+        "name": "Bronze 1",
+        "mmrThreshold": 549,
+        "color": "#CD7F32",
+        "icon": "/ranks/bronze1.png",
         "description": "bronze"
       }
     ],
