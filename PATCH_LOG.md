@@ -4,6 +4,10 @@
 This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
+
+- 2025-06-18: Fixed leaderboard display to properly show rank tier MMR ranges and icons
+
+
 See [2025-Q2.md](./patch_logs/2025-Q2.md) for the most recent changes.
 - 2025-06-17: Replaced multer with formidable for rank icon uploads to resolve persistent content-type issues
 - 2025-06-16: Rewrote rank icon upload implementation with direct memory-to-disk approach to fix content-type issues

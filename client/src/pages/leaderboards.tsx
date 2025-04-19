@@ -3,20 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { RefreshCcw } from "lucide-react";
 import { Player } from "@shared/schema";
 import { BotConfig } from '@shared/botConfig';
+import { RankTier, getPlayerRank } from '@shared/rankSystem';
 import AppLayout from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-
-interface RankTier {
-  name: string;
-  minMmr: number;
-  maxMmr: number;
-  color: string;
-  icon?: string;
-}
 
 const getInitials = (username: string) => {
     return username.substring(0, 2).toUpperCase();
@@ -29,11 +21,6 @@ const getWinRate = (wins: number, losses: number) => {
 
 export default function LeaderboardsPage() {
   const [rankTiers, setRankTiers] = useState<RankTier[]>([]);
-
-  // Function to get player rank tier based on MMR
-  const getPlayerRankTier = (mmr: number): RankTier | undefined => {
-    return rankTiers.find(tier => mmr >= tier.minMmr && mmr <= tier.maxMmr);
-  };
 
   // Get configuration data
   const { data: configData, isLoading: isConfigLoading } = useQuery<BotConfig>({
@@ -86,6 +73,32 @@ export default function LeaderboardsPage() {
 
     // Otherwise, ensure it has a leading slash
     return `/${iconPath}`;
+  };
+  
+  // Function to get player rank tier based on MMR
+  const getPlayerRankTier = (mmr: number): RankTier | undefined => {
+    if (rankTiers.length === 0) return undefined;
+    return getPlayerRank(mmr, rankTiers);
+  };
+  
+  // Function to get MMR range for a rank tier
+  const getRankTierRange = (tier: RankTier): string => {
+    if (!tier) return "N/A";
+    
+    // Sort tiers by MMR threshold (ascending)
+    const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+    
+    // Find the current tier index
+    const currentTierIndex = sortedTiers.findIndex(t => t.name === tier.name);
+    
+    // If it's the highest tier (last in sorted array)
+    if (currentTierIndex === sortedTiers.length - 1) {
+      return `${tier.mmrThreshold}+`;
+    }
+    
+    // Otherwise, show range from this tier's threshold to the next tier's threshold - 1
+    const nextTierThreshold = sortedTiers[currentTierIndex + 1].mmrThreshold;
+    return `${tier.mmrThreshold} - ${nextTierThreshold - 1}`;
   };
 
   return (
@@ -189,34 +202,38 @@ export default function LeaderboardsPage() {
                       <TableHead>Tier</TableHead>
                       <TableHead>MMR Range</TableHead>
                       <TableHead>Icon</TableHead>
+                      <TableHead>Description</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rankTiers.map((tier) => (
-                      <TableRow key={tier.name}>
-                        <TableCell>
-                          <span style={{ color: tier.color || 'inherit' }}>
-                            {tier.name}
-                          </span>
-                        </TableCell>
-                        <TableCell>{tier.minMmr} - {tier.maxMmr}</TableCell>
-                        <TableCell>
-                          {tier.icon ? (
-                            <img 
-                              src={getRankIconUrl(tier.icon)}
-                              alt={tier.name}
-                              className="h-8 w-8 object-contain"
-                              onError={(e) => {
-                                console.error("Failed to load image:", tier.icon);
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <span className="text-gray-400">No icon</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {rankTiers
+                      .sort((a, b) => b.mmrThreshold - a.mmrThreshold)
+                      .map((tier) => (
+                        <TableRow key={tier.name}>
+                          <TableCell>
+                            <span style={{ color: tier.color || 'inherit' }}>
+                              {tier.name}
+                            </span>
+                          </TableCell>
+                          <TableCell>{getRankTierRange(tier)}</TableCell>
+                          <TableCell>
+                            {tier.icon ? (
+                              <img 
+                                src={getRankIconUrl(tier.icon)}
+                                alt={tier.name}
+                                className="h-8 w-8 object-contain"
+                                onError={(e) => {
+                                  console.error("Failed to load image:", tier.icon);
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <span className="text-gray-400">No icon</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{tier.description}</TableCell>
+                        </TableRow>
+                      ))}
                   </TableBody>
                 </Table>
               )}
