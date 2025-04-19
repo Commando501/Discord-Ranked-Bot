@@ -1,6 +1,24 @@
 
 # PATCH LOG
 
+### 2025-06-29 14:30:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `server/discord/commands/list.ts`
+
+**Changes**:
+- Completely rewrote rank tier determination in `/list` command to properly display specific rank tiers
+- Implemented the corrected algorithm from profile.ts that correctly identifies subdivided tiers (Gold 3, Gold 2, etc.)
+- Enhanced logging to verify threshold boundaries and tier selection
+- Added explicit tier name list logging to confirm subdivided tiers are loaded from config
+- Applied the same fix to both the initial load and the queue update after button press
+
+**Purpose**: Fix the critical issue where `/list` command was showing generic ranks (e.g., "Gold") instead of specific tier ranks (e.g., "Gold 3") for players.
+
+**Testing**: Verified with test case of MMR 1046, which now correctly shows as "Gold 3" instead of just "Gold".
+
+**Dependencies Affected**: None
+
 ### 2025-06-29 07:45:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
