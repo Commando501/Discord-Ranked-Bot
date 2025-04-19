@@ -52,7 +52,7 @@
         "name": "Iron 2",
         "mmrThreshold": 99,
         "color": "#4D5458",
-        "icon": "/ranks/iron2.png",
+        "icon": "client/public/ranks/Iron2.png",
         "description": "iron"
       },
       {
@@ -66,21 +66,21 @@
         "name": "Bronze 3",
         "mmrThreshold": 299,
         "color": "#CD7F32",
-        "icon": "/ranks/bronze3.png",
+        "icon": "client/public/ranks/Bronze3.png",
         "description": "bronze"
       },
       {
         "name": "Bronze 2",
         "mmrThreshold": 424,
         "color": "#CD7F32",
-        "icon": "/ranks/bronze2.png",
+        "icon": "client/public/ranks/Bronze2.png",
         "description": "bronze"
       },
       {
         "name": "Bronze 1",
         "mmrThreshold": 549,
         "color": "#CD7F32",
-        "icon": "/ranks/bronze1.png",
+        "icon": "client/public/ranks/Bronze1.png",
         "description": "bronze"
       }
     ],
