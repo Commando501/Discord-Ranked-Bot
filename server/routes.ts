@@ -639,116 +639,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const fs = require('fs');
   
   // Configure storage
-  const rankIconsStorage = multer.diskStorage({
-    destination: function (req: any, file: any, cb: any) {
-      // Ensure the directory exists
-      const uploadDir = path.join(process.cwd(), 'client', 'public', 'ranks');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      cb(null, uploadDir);
-    },
-    filename: function (req: any, file: any, cb: any) {
-      // Generate a unique filename to avoid conflicts
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      const fileExt = path.extname(file.originalname);
-      const safeFilename = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const finalFilename = safeFilename.replace(fileExt, '') + '-' + uniqueSuffix + fileExt;
-      cb(null, finalFilename);
-    }
-  });
+  const multer = require('multer');
+  const path = require('path');
+  const fs = require('fs');
+  const crypto = require('crypto');
   
-  // Create a more restricted multer instance
-  const rankIconUpload = multer({ 
-    storage: rankIconsStorage,
+  // Ensure the upload directory exists
+  const uploadDir = path.join(process.cwd(), 'client', 'public', 'ranks');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  
+  // Use simple in-memory storage to avoid file system race conditions
+  const storage = multer.memoryStorage();
+  
+  // Create upload middleware but don't configure routes yet
+  const upload = multer({
+    storage: storage,
     limits: {
-      fileSize: 2 * 1024 * 1024, // 2MB limit
-      files: 1 // Only one file at a time
+      fileSize: 2 * 1024 * 1024 // 2MB limit
     },
     fileFilter: (req: any, file: any, cb: any) => {
-      // Accept only specific image MIME types
       const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       if (allowedMimes.includes(file.mimetype)) {
         cb(null, true);
       } else {
-        cb(new Error(`Only ${allowedMimes.join(', ')} files are allowed`), false);
+        cb(null, false);
       }
     }
-  }).single('file'); // Move the single() method here
+  });
   
-  // Completely bypass Express error handling for this route
+  // Completely custom, low-level implementation of file upload endpoint
   app.post('/api/upload/rank-icon', (req, res) => {
-    // Immediately set headers to prevent Express from overriding them later
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    
-    // Custom error handler that always returns JSON
-    const sendJsonResponse = (status, success, message, details = null) => {
-      console.log(`Upload ${success ? 'success' : 'error'} [${status}]:`, message);
+    // Create a separate HTTP response function to avoid any Express middleware interference
+    const sendJsonDirectly = (status: number, data: any) => {
+      // Convert data to JSON string
+      const jsonString = JSON.stringify(data);
       
-      // Force JSON content type again before sending
-      res.setHeader('Content-Type', 'application/json');
-      
-      // Ensure we have a proper JSON string
-      const jsonResponse = JSON.stringify({
-        success: success,
-        message: message,
-        details: details
-      });
-      
-      // Send raw to avoid any middleware transformations
+      // Write directly to the response 
       res.writeHead(status, {
         'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(jsonResponse)
+        'Content-Length': Buffer.byteLength(jsonString),
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'no-cache'
       });
-      res.end(jsonResponse);
+      
+      res.end(jsonString);
+      return;
     };
     
-    // Step 1: Admin authorization
-    try {
-      adminMiddleware(req, res, (adminErr) => {
-        if (adminErr) {
-          return sendJsonResponse(401, false, 'Unauthorized access', { source: 'admin_middleware' });
-        }
-        
-        // Step 2: File upload
-        rankIconUpload(req, res, (uploadErr) => {
-          // Handle multer errors
-          if (uploadErr) {
-            return sendJsonResponse(400, false, uploadErr.message || 'Error uploading file', { source: 'multer' });
-          }
-          
-          // Check if a file was provided
-          if (!req.file) {
-            return sendJsonResponse(400, false, 'No file uploaded', { source: 'validation' });
-          }
-          
-          // Step 3: Success response
-          try {
-            // Log success
-            console.log('File upload successful:', req.file.filename);
-            
-            return sendJsonResponse(200, true, 'File uploaded successfully', {
-              file: {
-                filename: req.file.filename,
-                path: `ranks/${req.file.filename}`,
-                size: req.file.size,
-                mimetype: req.file.mimetype
-              }
-            });
-          } catch (finalError) {
-            return sendJsonResponse(500, false, 'Error preparing success response', {
-              error: finalError instanceof Error ? finalError.message : 'Unknown error'
-            });
-          }
-        });
-      });
-    } catch (globalError) {
-      // Last resort error handler
-      return sendJsonResponse(500, false, 'Unhandled server error during upload', {
-        error: globalError instanceof Error ? globalError.message : 'Unknown error'
+    // Step 1: Check admin authorization directly
+    if (!req.headers.authorization) {
+      return sendJsonDirectly(401, {
+        success: false,
+        message: 'Unauthorized access'
       });
     }
+    
+    // Step 2: Custom file upload processing
+    const uploadSingle = upload.single('file');
+    
+    uploadSingle(req, res, (err) => {
+      // Handle upload errors
+      if (err) {
+        console.error('Upload error:', err.message);
+        return sendJsonDirectly(400, {
+          success: false,
+          message: err.message || 'Error uploading file'
+        });
+      }
+      
+      // Check if file was provided
+      if (!req.file) {
+        return sendJsonDirectly(400, {
+          success: false,
+          message: 'No file uploaded or invalid file type'
+        });
+      }
+      
+      try {
+        // Create safe filename
+        const fileBuffer = req.file.buffer;
+        const fileExt = path.extname(req.file.originalname).toLowerCase();
+        const hash = crypto.createHash('md5').update(fileBuffer).digest('hex');
+        const safeFilename = hash.substring(0, 10) + '-' + Date.now() + fileExt;
+        const filePath = path.join(uploadDir, safeFilename);
+        
+        // Write file to disk
+        fs.writeFileSync(filePath, fileBuffer);
+        
+        console.log('File upload successful:', safeFilename);
+        
+        // Return success response directly
+        return sendJsonDirectly(200, {
+          success: true,
+          message: 'File uploaded successfully',
+          file: {
+            filename: safeFilename,
+            path: `ranks/${safeFilename}`,
+            size: req.file.size,
+            mimetype: req.file.mimetype
+          }
+        });
+      } catch (e) {
+        console.error('File processing error:', e);
+        return sendJsonDirectly(500, {
+          success: false,
+          message: 'Error saving uploaded file',
+          error: e instanceof Error ? e.message : 'Unknown error'
+        });
+      }
+    });
   });
 
 
