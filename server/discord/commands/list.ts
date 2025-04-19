@@ -1,10 +1,16 @@
+
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
 } from "discord.js";
 import { QueueService } from "../../bot/services/queueService";
 import { MatchService } from "../../bot/services/matchService";
+import { PlayerService } from "../../bot/services/playerService";
 import { storage } from "../../storage";
 import { formatDuration } from "../../bot/utils/timeUtils";
 import { logger } from "../../bot/utils/logger";
@@ -19,6 +25,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   try {
     const queueService = new QueueService(storage);
     const matchService = new MatchService(storage);
+    const playerService = new PlayerService(storage);
 
     // Get queue and match data
     const queuePlayers = await queueService.getQueuePlayersWithInfo();
@@ -49,6 +56,21 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         activeMatches.length > 0
           ? `${activeMatches.length} active matches`
           : "No active matches",
+      );
+
+    // Create button row with Queue and Leave buttons
+    const row = new ActionRowBuilder<ButtonBuilder>()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('join_queue')
+          .setLabel('Join Queue')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('✅'),
+        new ButtonBuilder()
+          .setCustomId('leave_queue')
+          .setLabel('Leave Queue')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('❌')
       );
 
     // If there are active matches, fetch detailed information for each
@@ -106,13 +128,254 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         }),
       );
 
-      // Send queue embed first, then all match embeds
-      await interaction.editReply({
+      // Send queue embed first, then all match embeds with buttons
+      const reply = await interaction.editReply({
         embeds: [queueEmbed, ...matchEmbeds],
+        components: [row]
       });
+
+      // Set up collector to handle button interactions
+      const collector = reply.createMessageComponentCollector({ 
+        componentType: ComponentType.Button, 
+        time: 600000 // 10 minutes
+      });
+
+      collector.on('collect', async (i) => {
+        // Get or create player for the user who clicked the button
+        const player = await playerService.getOrCreatePlayer({
+          id: i.user.id,
+          username: i.user.tag,
+          discriminator: '',
+          avatar: null
+        });
+
+        if (i.customId === 'join_queue') {
+          // Check if player is already in queue
+          const existingQueueEntry = await queueService.getPlayerQueueEntry(player.id);
+          
+          if (existingQueueEntry) {
+            await i.reply({ 
+              content: "You are already in the matchmaking queue.",
+              ephemeral: true 
+            });
+            return;
+          }
+          
+          // Add player to queue
+          const queueResult = await queueService.addPlayerToQueue(player.id);
+          
+          if (!queueResult.success) {
+            await i.reply({
+              content: `Failed to join queue: ${queueResult.message}`,
+              ephemeral: true
+            });
+            return;
+          }
+          
+          // Get updated queue count
+          const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
+          
+          await i.reply({
+            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`,
+            ephemeral: true
+          });
+          
+          // Check if we can create a match
+          if (i.guild) {
+            await queueService.checkAndCreateMatch(i.guild);
+          }
+        } 
+        else if (i.customId === 'leave_queue') {
+          // Check if player is in queue
+          const queueEntry = await queueService.getPlayerQueueEntry(player.id);
+          
+          if (!queueEntry) {
+            // Check if player is in an active match
+            const isInMatch = await queueService.isPlayerInActiveMatch(player.id);
+            
+            if (isInMatch) {
+              // Find the match the player is in
+              const activeMatches = await matchService.getActiveMatches();
+              let playerMatch = null;
+              
+              // Find which match the player is in
+              for (const match of activeMatches) {
+                for (const team of match.teams) {
+                  const isInTeam = team.players.some(p => p.id === player.id);
+                  if (isInTeam) {
+                    playerMatch = match;
+                    break;
+                  }
+                }
+                if (playerMatch) break;
+              }
+              
+              if (playerMatch) {
+                // Handle match cancellation with exclusion
+                const result = await matchService.handleMatchCancellationWithExclusion(
+                  playerMatch.id, 
+                  player.id
+                );
+                
+                if (result.success) {
+                  await i.reply({
+                    content: `You have left match #${playerMatch.id}. The match has been cancelled and other players returned to queue.`,
+                    ephemeral: true
+                  });
+                } else {
+                  await i.reply({
+                    content: `Failed to leave match: ${result.message}`,
+                    ephemeral: true
+                  });
+                }
+                return;
+              }
+            }
+            
+            await i.reply({
+              content: "You are not currently in the matchmaking queue or an active match.",
+              ephemeral: true
+            });
+            return;
+          }
+          
+          // Remove player from queue
+          await queueService.removePlayerFromQueue(player.id);
+          
+          // Get updated queue count
+          const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
+          
+          await i.reply({
+            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`,
+            ephemeral: true
+          });
+        }
+      });
+
     } else {
-      // If no matches, just send the queue embed and empty matches embed
-      await interaction.editReply({ embeds: [queueEmbed, matchesEmbed] });
+      // If no matches, just send the queue embed and empty matches embed with buttons
+      const reply = await interaction.editReply({ 
+        embeds: [queueEmbed, matchesEmbed],
+        components: [row] 
+      });
+
+      // Set up collector to handle button interactions
+      const collector = reply.createMessageComponentCollector({ 
+        componentType: ComponentType.Button, 
+        time: 600000 // 10 minutes
+      });
+
+      collector.on('collect', async (i) => {
+        // Get or create player for the user who clicked the button
+        const player = await playerService.getOrCreatePlayer({
+          id: i.user.id,
+          username: i.user.tag,
+          discriminator: '',
+          avatar: null
+        });
+
+        if (i.customId === 'join_queue') {
+          // Check if player is already in queue
+          const existingQueueEntry = await queueService.getPlayerQueueEntry(player.id);
+          
+          if (existingQueueEntry) {
+            await i.reply({ 
+              content: "You are already in the matchmaking queue.",
+              ephemeral: true 
+            });
+            return;
+          }
+          
+          // Add player to queue
+          const queueResult = await queueService.addPlayerToQueue(player.id);
+          
+          if (!queueResult.success) {
+            await i.reply({
+              content: `Failed to join queue: ${queueResult.message}`,
+              ephemeral: true
+            });
+            return;
+          }
+          
+          // Get updated queue count
+          const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
+          
+          await i.reply({
+            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`,
+            ephemeral: true
+          });
+          
+          // Check if we can create a match
+          if (i.guild) {
+            await queueService.checkAndCreateMatch(i.guild);
+          }
+        } 
+        else if (i.customId === 'leave_queue') {
+          // Check if player is in queue
+          const queueEntry = await queueService.getPlayerQueueEntry(player.id);
+          
+          if (!queueEntry) {
+            // Check if player is in an active match
+            const isInMatch = await queueService.isPlayerInActiveMatch(player.id);
+            
+            if (isInMatch) {
+              // Find the match the player is in
+              const activeMatches = await matchService.getActiveMatches();
+              let playerMatch = null;
+              
+              // Find which match the player is in
+              for (const match of activeMatches) {
+                for (const team of match.teams) {
+                  const isInTeam = team.players.some(p => p.id === player.id);
+                  if (isInTeam) {
+                    playerMatch = match;
+                    break;
+                  }
+                }
+                if (playerMatch) break;
+              }
+              
+              if (playerMatch) {
+                // Handle match cancellation with exclusion
+                const result = await matchService.handleMatchCancellationWithExclusion(
+                  playerMatch.id, 
+                  player.id
+                );
+                
+                if (result.success) {
+                  await i.reply({
+                    content: `You have left match #${playerMatch.id}. The match has been cancelled and other players returned to queue.`,
+                    ephemeral: true
+                  });
+                } else {
+                  await i.reply({
+                    content: `Failed to leave match: ${result.message}`,
+                    ephemeral: true
+                  });
+                }
+                return;
+              }
+            }
+            
+            await i.reply({
+              content: "You are not currently in the matchmaking queue or an active match.",
+              ephemeral: true
+            });
+            return;
+          }
+          
+          // Remove player from queue
+          await queueService.removePlayerFromQueue(player.id);
+          
+          // Get updated queue count
+          const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
+          
+          await i.reply({
+            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`,
+            ephemeral: true
+          });
+        }
+      });
     }
   } catch (error) {
     logger.error(`Error in list command:`, error);
