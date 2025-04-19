@@ -2,9 +2,13 @@ import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from "discord.js";
 import { QueueService } from "../../bot/services/queueService";
 import { MatchService } from "../../bot/services/matchService";
+import { PlayerService } from "../../bot/services/playerService";
 import { storage } from "../../storage";
 import { formatDuration } from "../../bot/utils/timeUtils";
 import { logger } from "../../bot/utils/logger";
@@ -19,6 +23,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   try {
     const queueService = new QueueService(storage);
     const matchService = new MatchService(storage);
+    const playerService = new PlayerService(storage);
 
     // Get queue and match data
     const queuePlayers = await queueService.getQueuePlayersWithInfo();
@@ -40,6 +45,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       queueEmbed.addFields({ name: "Players", value: queueList });
     }
+    
+    // Check if the user who ran the command is already in queue
+    const player = await playerService.getPlayerByDiscordId(interaction.user.id);
+    const isInQueue = player ? await queueService.getPlayerQueueEntry(player.id) : null;
 
     // Create matches embed
     const matchesEmbed = new EmbedBuilder()
@@ -106,13 +115,45 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         }),
       );
 
-      // Send queue embed first, then all match embeds
+      // Create queue action buttons
+      const queueActionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('queue_join')
+          .setLabel('Join Queue')
+          .setStyle(ButtonStyle.Success)
+          .setDisabled(!!isInQueue),
+        new ButtonBuilder()
+          .setCustomId('queue_leave')
+          .setLabel('Leave Queue')
+          .setStyle(ButtonStyle.Danger)
+          .setDisabled(!isInQueue)
+      );
+
+      // Send queue embed with buttons first, then all match embeds
       await interaction.editReply({
         embeds: [queueEmbed, ...matchEmbeds],
+        components: [queueActionRow],
       });
     } else {
-      // If no matches, just send the queue embed and empty matches embed
-      await interaction.editReply({ embeds: [queueEmbed, matchesEmbed] });
+      // Create queue action buttons
+      const queueActionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('queue_join')
+          .setLabel('Join Queue')
+          .setStyle(ButtonStyle.Success)
+          .setDisabled(!!isInQueue),
+        new ButtonBuilder()
+          .setCustomId('queue_leave')
+          .setLabel('Leave Queue')
+          .setStyle(ButtonStyle.Danger)
+          .setDisabled(!isInQueue)
+      );
+
+      // If no matches, just send the queue embed, empty matches embed, and buttons
+      await interaction.editReply({ 
+        embeds: [queueEmbed, matchesEmbed],
+        components: [queueActionRow],
+      });
     }
   } catch (error) {
     logger.error(`Error in list command:`, error);

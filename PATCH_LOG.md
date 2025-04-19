@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 
+- 2025-06-30: Added interactive buttons to join/leave queue directly from the list command response
 - 2025-06-29: Fixed critical threshold interpretation to make thresholds upper bounds (not lower bounds)
 
 - 2025-06-29: Fixed rank icon resolution to prioritize exact tier matches instead of generic rank names
