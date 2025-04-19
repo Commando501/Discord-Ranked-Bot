@@ -239,24 +239,66 @@ export default function LeaderboardsPage() {
                                 alt={tier.name}
                                 className="h-8 w-8 object-contain"
                                 onError={(e) => {
-                                  // Try alternative casing if the first attempt fails
-                                  const originalSrc = (e.target as HTMLImageElement).src;
+                                  const img = e.target as HTMLImageElement;
+                                  const originalSrc = img.src;
                                   console.error("Failed to load image:", originalSrc);
 
-                                  // Try lowercase version of the file
-                                  if (originalSrc.includes('/ranks/')) {
-                                    const pathParts = originalSrc.split('/ranks/');
-                                    const filename = pathParts[1];
+                                  // Extract the path parts
+                                  const urlObj = new URL(originalSrc);
+                                  const path = urlObj.pathname;
+
+                                  // Try multiple approaches to fix the path
+                                  const attempts = [];
+
+                                  // 1. Try lowercase filename
+                                  if (path.includes('/ranks/')) {
+                                    const basePath = path.substring(0, path.lastIndexOf('/') + 1);
+                                    const filename = path.substring(path.lastIndexOf('/') + 1);
                                     const lowercaseFilename = filename.toLowerCase();
+
                                     if (filename !== lowercaseFilename) {
-                                      console.log("Trying lowercase version:", lowercaseFilename);
-                                      (e.target as HTMLImageElement).src = `${pathParts[0]}/ranks/${lowercaseFilename}`;
-                                      return;
+                                      attempts.push(`${urlObj.origin}${basePath}${lowercaseFilename}`);
+                                    }
+
+                                    // 2. Try alternative extensions
+                                    if (filename.endsWith('.png')) {
+                                      // Try PNG extension (uppercase)
+                                      const altExtension = filename.replace(/\.png$/i, '.PNG');
+                                      attempts.push(`${urlObj.origin}${basePath}${altExtension}`);
+
+                                      // Try without extension
+                                      const noExtension = filename.replace(/\.png$/i, '');
+                                      attempts.push(`${urlObj.origin}${basePath}${noExtension}`);
+                                    } else if (!filename.includes('.')) {
+                                      // No extension in original, try adding one
+                                      attempts.push(`${urlObj.origin}${basePath}${filename}.png`);
+                                      attempts.push(`${urlObj.origin}${basePath}${filename}.PNG`);
+                                    }
+
+                                    // 3. Try direct path to public folder (no /client/public)
+                                    if (path.includes('/client/public/')) {
+                                      const fixedPath = path.replace('/client/public/', '/');
+                                      attempts.push(`${urlObj.origin}${fixedPath}`);
                                     }
                                   }
 
-                                  // Hide the image if all attempts fail
-                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  // Try each alternative path
+                                  let attemptIndex = 0;
+                                  const tryNextPath = () => {
+                                    if (attemptIndex < attempts.length) {
+                                      console.log(`Trying alternative path (${attemptIndex + 1}/${attempts.length}):`, attempts[attemptIndex]);
+                                      img.src = attempts[attemptIndex];
+                                      attemptIndex++;
+                                    } else {
+                                      // If all attempts failed, show a placeholder or hide
+                                      console.error("All image loading attempts failed for", tier.name);
+                                      img.style.display = 'none';
+                                    }
+                                  };
+
+                                  // Start trying alternative paths
+                                  img.onerror = tryNextPath;
+                                  tryNextPath();
                                 }}
                               />
                             ) : (
