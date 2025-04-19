@@ -44,39 +44,42 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       const queueListPromises = queuePlayers.map(async (entry, index) => {
         const waitTime = formatDuration(entry.joinedAt);
         // Get player rank
-        const playerRank = await storage.getPlayerRank(entry.player.mmr, rankTiers);
+        const playerRank = await storage.getPlayerRank(
+          entry.player.mmr,
+          rankTiers,
+        );
 
         // Create emoji reference
-        let rankEmoji = '';
+        let rankEmoji = "";
 
         // Map rank names to emoji IDs
         const rankEmojiMap: Record<string, string> = {
-          'Iron 1': '<:Iron1:emoji_id_here>',
-          'Iron 2': '<:Iron2:emoji_id_here>',
-          'Bronze 3': '<:Bronze3:emoji_id_here>',
-          'Bronze 2': '<:Bronze2:emoji_id_here>',
-          'Bronze 1': '<:Bronze1:emoji_id_here>',
-          'Silver 3': '<:Silver3:emoji_id_here>',
-          'Silver 2': '<:Silver2:emoji_id_here>',
-          'Silver 1': '<:Silver1:emoji_id_here>',
-          'Gold 3': '<:Gold3:emoji_id_here>',
-          'Gold 2': '<:Gold2:emoji_id_here>',
-          'Gold 1': '<:Gold1:emoji_id_here>',
-          'Platinum 3': '<:Platinum3:emoji_id_here>',
-          'Platinum 2': '<:Platinum2:emoji_id_here>',
-          'Platinum 1': '<:Platinum1:emoji_id_here>',
-          'Diamond 3': '<:Diamond3:emoji_id_here>',
-          'Diamond 2': '<:Diamond2:emoji_id_here>',
-          'Diamond 1': '<:Diamond1:emoji_id_here>',
-          'Masters 3': '<:Masters3:emoji_id_here>',
-          'Masters 2': '<:Masters2:emoji_id_here>',
-          'Masters 1': '<:Masters1:emoji_id_here>',
-          'Challenger': '<:Challenger:emoji_id_here>'
+          "Iron 1": "<:Iron1:1363039589538861057>",
+          "Iron 2": "<:Iron2:1363039575013851156>",
+          "Bronze 3": "<:Bronze3:1363039607536615454>",
+          "Bronze 2": "<:Bronze2:1363039615044288522>",
+          "Bronze 1": "<:Bronze1:1363039622195839107>",
+          "Silver 3": "<:Silver3:1363039663228719124>",
+          "Silver 2": "<:Silver2:1363039669922824344>",
+          "Silver 1": "<:Silver1:1363039677724233849>",
+          "Gold 3": "<:Gold3:1363042192196632666>",
+          "Gold 2": "<:Gold2:1363042203340902530>",
+          "Gold 1": "<:Gold1:1363042214715986041>",
+          "Platinum 3": "<:Platinum3:1363039687358287872>",
+          "Platinum 2": "<:Platinum2:1363039694878806186>",
+          "Platinum 1": "<:Platinum1:1363039703909138502>",
+          "Diamond 3": "<:Diamond3:1363039725136379955>",
+          "Diamond 2": "<:Diamond2:1363039734028435618>",
+          "Diamond 1": "<:Diamond1:1363039742249402428>",
+          "Masters 3": "<:Masters3:1363039762142986350>",
+          "Masters 2": "<:Masters2:1363039770342723604>",
+          "Masters 1": "<:Masters1:1363039778580205619>",
+          Challenger: "<:Challenger:1363039996868558879>",
         };
 
         // Get the emoji for this rank if it exists
         if (rankEmojiMap[playerRank.name]) {
-          rankEmoji = rankEmojiMap[playerRank.name] + ' ';
+          rankEmoji = rankEmojiMap[playerRank.name] + " ";
         }
 
         return `${index + 1}. ${rankEmoji}${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
@@ -97,19 +100,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       );
 
     // Create button row with Queue and Leave buttons
-    const row = new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('join_queue')
-          .setLabel('Join Queue')
-          .setStyle(ButtonStyle.Success)
-          .setEmoji('✅'),
-        new ButtonBuilder()
-          .setCustomId('leave_queue')
-          .setLabel('Leave Queue')
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('❌')
-      );
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("join_queue")
+        .setLabel("Join Queue")
+        .setStyle(ButtonStyle.Success)
+        .setEmoji("✅"),
+      new ButtonBuilder()
+        .setCustomId("leave_queue")
+        .setLabel("Leave Queue")
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji("❌"),
+    );
 
     // If there are active matches, fetch detailed information for each
     if (activeMatches.length > 0) {
@@ -169,16 +171,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       // Send queue embed first, then all match embeds with buttons
       const reply = await interaction.editReply({
         embeds: [queueEmbed, ...matchEmbeds],
-        components: [row]
+        components: [row],
       });
 
       // Set up collector to handle button interactions
-      const collector = reply.createMessageComponentCollector({ 
-        componentType: ComponentType.Button, 
-        time: 600000 // 10 minutes
+      const collector = reply.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 600000, // 10 minutes
       });
 
-      collector.on('collect', async (i) => {
+      collector.on("collect", async (i) => {
         // Defer the ephemeral reply to acknowledge the interaction
         await i.deferReply({ ephemeral: true });
 
@@ -186,17 +188,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const player = await playerService.getOrCreatePlayer({
           id: i.user.id,
           username: i.user.tag,
-          discriminator: '',
-          avatar: null
+          discriminator: "",
+          avatar: null,
         });
 
-        if (i.customId === 'join_queue') {
+        if (i.customId === "join_queue") {
           // Check if player is already in queue
-          const existingQueueEntry = await queueService.getPlayerQueueEntry(player.id);
+          const existingQueueEntry = await queueService.getPlayerQueueEntry(
+            player.id,
+          );
 
           if (existingQueueEntry) {
-            await i.editReply({ 
-              content: "You are already in the matchmaking queue."
+            await i.editReply({
+              content: "You are already in the matchmaking queue.",
             });
             return;
           }
@@ -206,30 +210,32 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
           if (!queueResult.success) {
             await i.editReply({
-              content: `Failed to join queue: ${queueResult.message}`
+              content: `Failed to join queue: ${queueResult.message}`,
             });
             return;
           }
 
           // Get updated queue size
-          const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
+          const updatedQueueCount = (await queueService.getAllQueueEntries())
+            .length;
 
           await i.editReply({
-            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`
+            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`,
           });
 
           // Check if we can create a match
           if (i.guild) {
             await queueService.checkAndCreateMatch(i.guild);
           }
-        } 
-        else if (i.customId === 'leave_queue') {
+        } else if (i.customId === "leave_queue") {
           // Check if player is in queue
           const queueEntry = await queueService.getPlayerQueueEntry(player.id);
 
           if (!queueEntry) {
             // Check if player is in an active match
-            const isInMatch = await queueService.isPlayerInActiveMatch(player.id);
+            const isInMatch = await queueService.isPlayerInActiveMatch(
+              player.id,
+            );
 
             if (isInMatch) {
               // Find the match the player is in
@@ -239,7 +245,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               // Find which match the player is in
               for (const match of activeMatches) {
                 for (const team of match.teams) {
-                  const isInTeam = team.players.some(p => p.id === player.id);
+                  const isInTeam = team.players.some((p) => p.id === player.id);
                   if (isInTeam) {
                     playerMatch = match;
                     break;
@@ -250,18 +256,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
               if (playerMatch) {
                 // Handle match cancellation with exclusion
-                const result = await matchService.handleMatchCancellationWithExclusion(
-                  playerMatch.id, 
-                  player.id
-                );
+                const result =
+                  await matchService.handleMatchCancellationWithExclusion(
+                    playerMatch.id,
+                    player.id,
+                  );
 
                 if (result.success) {
                   await i.editReply({
-                    content: `You have left match #${playerMatch.id}. The match has been cancelled and other players returned to queue.`
+                    content: `You have left match #${playerMatch.id}. The match has been cancelled and other players returned to queue.`,
                   });
                 } else {
                   await i.editReply({
-                    content: `Failed to leave match: ${result.message}`
+                    content: `Failed to leave match: ${result.message}`,
                   });
                 }
                 return;
@@ -269,7 +276,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             }
 
             await i.editReply({
-              content: "You are not currently in the matchmaking queue or an active match."
+              content:
+                "You are not currently in the matchmaking queue or an active match.",
             });
             return;
           }
@@ -278,10 +286,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           await queueService.removePlayerFromQueue(player.id);
 
           // Get updated queue size
-          const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
+          const updatedQueueCount = (await queueService.getAllQueueEntries())
+            .length;
 
           await i.editReply({
-            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`
+            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`,
           });
         }
 
@@ -305,39 +314,42 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             const queueListPromises = queuePlayers.map(async (entry, index) => {
               const waitTime = formatDuration(entry.joinedAt);
               // Get player rank
-              const playerRank = await storage.getPlayerRank(entry.player.mmr, rankTiers);
+              const playerRank = await storage.getPlayerRank(
+                entry.player.mmr,
+                rankTiers,
+              );
 
               // Create emoji reference
-              let rankEmoji = '';
+              let rankEmoji = "";
 
               // Map rank names to emoji IDs
               const rankEmojiMap: Record<string, string> = {
-                'Iron 1': '<:Iron1:emoji_id_here>',
-                'Iron 2': '<:Iron2:emoji_id_here>',
-                'Bronze 3': '<:Bronze3:emoji_id_here>',
-                'Bronze 2': '<:Bronze2:emoji_id_here>',
-                'Bronze 1': '<:Bronze1:emoji_id_here>',
-                'Silver 3': '<:Silver3:emoji_id_here>',
-                'Silver 2': '<:Silver2:emoji_id_here>',
-                'Silver 1': '<:Silver1:emoji_id_here>',
-                'Gold 3': '<:Gold3:emoji_id_here>',
-                'Gold 2': '<:Gold2:emoji_id_here>',
-                'Gold 1': '<:Gold1:emoji_id_here>',
-                'Platinum 3': '<:Platinum3:emoji_id_here>',
-                'Platinum 2': '<:Platinum2:emoji_id_here>',
-                'Platinum 1': '<:Platinum1:emoji_id_here>',
-                'Diamond 3': '<:Diamond3:emoji_id_here>',
-                'Diamond 2': '<:Diamond2:emoji_id_here>',
-                'Diamond 1': '<:Diamond1:emoji_id_here>',
-                'Masters 3': '<:Masters3:emoji_id_here>',
-                'Masters 2': '<:Masters2:emoji_id_here>',
-                'Masters 1': '<:Masters1:emoji_id_here>',
-                'Challenger': '<:Challenger:emoji_id_here>'
+                "Iron 1": "<:Iron1:1363039589538861057>",
+                "Iron 2": "<:Iron2:1363039575013851156>",
+                "Bronze 3": "<:Bronze3:1363039607536615454>",
+                "Bronze 2": "<:Bronze2:1363039615044288522>",
+                "Bronze 1": "<:Bronze1:1363039622195839107>",
+                "Silver 3": "<:Silver3:1363039663228719124>",
+                "Silver 2": "<:Silver2:1363039669922824344>",
+                "Silver 1": "<:Silver1:1363039677724233849>",
+                "Gold 3": "<:Gold3:1363042192196632666>",
+                "Gold 2": "<:Gold2:1363042203340902530>",
+                "Gold 1": "<:Gold1:1363042214715986041>",
+                "Platinum 3": "<:Platinum3:1363039687358287872>",
+                "Platinum 2": "<:Platinum2:1363039694878806186>",
+                "Platinum 1": "<:Platinum1:1363039703909138502>",
+                "Diamond 3": "<:Diamond3:1363039725136379955>",
+                "Diamond 2": "<:Diamond2:1363039734028435618>",
+                "Diamond 1": "<:Diamond1:1363039742249402428>",
+                "Masters 3": "<:Masters3:1363039762142986350>",
+                "Masters 2": "<:Masters2:1363039770342723604>",
+                "Masters 1": "<:Masters1:1363039778580205619>",
+                Challenger: "<:Challenger:1363039996868558879>",
               };
 
               // Get the emoji for this rank if it exists
               if (rankEmojiMap[playerRank.name]) {
-                rankEmoji = rankEmojiMap[playerRank.name] + ' ';
+                rankEmoji = rankEmojiMap[playerRank.name] + " ";
               }
 
               return `${index + 1}. ${rankEmoji}${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
@@ -354,7 +366,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               activeMatches.map(async (match) => {
                 try {
                   // Get detailed match information including teams
-                  const matchDetails = await matchService.getMatchDetails(match.id);
+                  const matchDetails = await matchService.getMatchDetails(
+                    match.id,
+                  );
 
                   // Calculate match duration
                   const matchDuration = formatDuration(match.createdAt);
@@ -374,7 +388,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                   if (matchDetails?.teams && matchDetails.teams.length > 0) {
                     matchDetails.teams.forEach((team) => {
                       const teamPlayers = team.players
-                        .map((player) => `${player.username} (MMR: ${player.mmr})`)
+                        .map(
+                          (player) => `${player.username} (MMR: ${player.mmr})`,
+                        )
                         .join("\n");
 
                       matchEmbed.addFields({
@@ -405,7 +421,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             // Update the original message with fresh embeds
             await interaction.editReply({
               embeds: [updatedQueueEmbed, ...updatedMatchEmbeds],
-              components: [row]
+              components: [row],
             });
           } else {
             // If no matches, just create empty match embed
@@ -415,31 +431,32 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               .setDescription("No active matches");
 
             // Update the original message with the refreshed embeds
-            await interaction.editReply({ 
+            await interaction.editReply({
               embeds: [updatedQueueEmbed, updatedMatchesEmbed],
-              components: [row] 
+              components: [row],
             });
           }
         } catch (updateError) {
-          logger.error(`Error updating embed after button click: ${updateError}`);
+          logger.error(
+            `Error updating embed after button click: ${updateError}`,
+          );
           // Don't need to notify the user since they got a direct ephemeral response
         }
       });
-
     } else {
       // If no matches, just send the queue embed and empty matches embed with buttons
-      const reply = await interaction.editReply({ 
+      const reply = await interaction.editReply({
         embeds: [queueEmbed, matchesEmbed],
-        components: [row] 
+        components: [row],
       });
 
       // Set up collector to handle button interactions
-      const collector = reply.createMessageComponentCollector({ 
-        componentType: ComponentType.Button, 
-        time: 600000 // 10 minutes
+      const collector = reply.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 600000, // 10 minutes
       });
 
-      collector.on('collect', async (i) => {
+      collector.on("collect", async (i) => {
         // Defer the ephemeral reply to acknowledge the interaction
         await i.deferReply({ ephemeral: true });
 
@@ -447,17 +464,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const player = await playerService.getOrCreatePlayer({
           id: i.user.id,
           username: i.user.tag,
-          discriminator: '',
-          avatar: null
+          discriminator: "",
+          avatar: null,
         });
 
-        if (i.customId === 'join_queue') {
+        if (i.customId === "join_queue") {
           // Check if player is already in queue
-          const existingQueueEntry = await queueService.getPlayerQueueEntry(player.id);
+          const existingQueueEntry = await queueService.getPlayerQueueEntry(
+            player.id,
+          );
 
           if (existingQueueEntry) {
-            await i.editReply({ 
-              content: "You are already in the matchmaking queue."
+            await i.editReply({
+              content: "You are already in the matchmaking queue.",
             });
             return;
           }
@@ -467,30 +486,32 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
           if (!queueResult.success) {
             await i.editReply({
-              content: `Failed to join queue: ${queueResult.message}`
+              content: `Failed to join queue: ${queueResult.message}`,
             });
             return;
           }
 
           // Get updated queue size
-          const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
+          const updatedQueueCount = (await queueService.getAllQueueEntries())
+            .length;
 
           await i.editReply({
-            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`
+            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`,
           });
 
           // Check if we can create a match
           if (i.guild) {
             await queueService.checkAndCreateMatch(i.guild);
           }
-        } 
-        else if (i.customId === 'leave_queue') {
+        } else if (i.customId === "leave_queue") {
           // Check if player is in queue
           const queueEntry = await queueService.getPlayerQueueEntry(player.id);
 
           if (!queueEntry) {
             // Check if player is in an active match
-            const isInMatch = await queueService.isPlayerInActiveMatch(player.id);
+            const isInMatch = await queueService.isPlayerInActiveMatch(
+              player.id,
+            );
 
             if (isInMatch) {
               // Find the match the player is in
@@ -500,7 +521,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               // Find which match the player is in
               for (const match of activeMatches) {
                 for (const team of match.teams) {
-                  const isInTeam = team.players.some(p => p.id === player.id);
+                  const isInTeam = team.players.some((p) => p.id === player.id);
                   if (isInTeam) {
                     playerMatch = match;
                     break;
@@ -511,18 +532,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
               if (playerMatch) {
                 // Handle match cancellation with exclusion
-                const result = await matchService.handleMatchCancellationWithExclusion(
-                  playerMatch.id, 
-                  player.id
-                );
+                const result =
+                  await matchService.handleMatchCancellationWithExclusion(
+                    playerMatch.id,
+                    player.id,
+                  );
 
                 if (result.success) {
                   await i.editReply({
-                    content: `You have left match #${playerMatch.id}. The match has been cancelled and other players returned to queue.`
+                    content: `You have left match #${playerMatch.id}. The match has been cancelled and other players returned to queue.`,
                   });
                 } else {
                   await i.editReply({
-                    content: `Failed to leave match: ${result.message}`
+                    content: `Failed to leave match: ${result.message}`,
                   });
                 }
                 return;
@@ -530,7 +552,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             }
 
             await i.editReply({
-              content: "You are not currently in the matchmaking queue or an active match."
+              content:
+                "You are not currently in the matchmaking queue or an active match.",
             });
             return;
           }
@@ -539,10 +562,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           await queueService.removePlayerFromQueue(player.id);
 
           // Get updated queue size
-          const updatedQueueCount = (await queueService.getAllQueueEntries()).length;
+          const updatedQueueCount = (await queueService.getAllQueueEntries())
+            .length;
 
           await i.editReply({
-            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`
+            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`,
           });
         }
 
@@ -566,39 +590,42 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             const queueListPromises = queuePlayers.map(async (entry, index) => {
               const waitTime = formatDuration(entry.joinedAt);
               // Get player rank
-              const playerRank = await storage.getPlayerRank(entry.player.mmr, rankTiers);
+              const playerRank = await storage.getPlayerRank(
+                entry.player.mmr,
+                rankTiers,
+              );
 
               // Create emoji reference
-              let rankEmoji = '';
+              let rankEmoji = "";
 
               // Map rank names to emoji IDs
               const rankEmojiMap: Record<string, string> = {
-                'Iron 1': '<:Iron1:emoji_id_here>',
-                'Iron 2': '<:Iron2:emoji_id_here>',
-                'Bronze 3': '<:Bronze3:emoji_id_here>',
-                'Bronze 2': '<:Bronze2:emoji_id_here>',
-                'Bronze 1': '<:Bronze1:emoji_id_here>',
-                'Silver 3': '<:Silver3:emoji_id_here>',
-                'Silver 2': '<:Silver2:emoji_id_here>',
-                'Silver 1': '<:Silver1:emoji_id_here>',
-                'Gold 3': '<:Gold3:emoji_id_here>',
-                'Gold 2': '<:Gold2:emoji_id_here>',
-                'Gold 1': '<:Gold1:emoji_id_here>',
-                'Platinum 3': '<:Platinum3:emoji_id_here>',
-                'Platinum 2': '<:Platinum2:emoji_id_here>',
-                'Platinum 1': '<:Platinum1:emoji_id_here>',
-                'Diamond 3': '<:Diamond3:emoji_id_here>',
-                'Diamond 2': '<:Diamond2:emoji_id_here>',
-                'Diamond 1': '<:Diamond1:emoji_id_here>',
-                'Masters 3': '<:Masters3:emoji_id_here>',
-                'Masters 2': '<:Masters2:emoji_id_here>',
-                'Masters 1': '<:Masters1:emoji_id_here>',
-                'Challenger': '<:Challenger:emoji_id_here>'
+                'Iron 1': '<:Iron1:1363039589538861057>',
+                'Iron 2': '<:Iron2:1363039575013851156>',
+                'Bronze 3': '<:Bronze3:1363039607536615454>',
+                'Bronze 2': '<:Bronze2:1363039615044288522>',
+                'Bronze 1': '<:Bronze1:1363039622195839107>',
+                'Silver 3': '<:Silver3:1363039663228719124>',
+                'Silver 2': '<:Silver2:1363039669922824344>',
+                'Silver 1': '<:Silver1:1363039677724233849>',
+                'Gold 3': '<:Gold3:1363042192196632666>',
+                'Gold 2': '<:Gold2:1363042203340902530>',
+                'Gold 1': '<:Gold1:1363042214715986041>',
+                'Platinum 3': '<:Platinum3:1363039687358287872>',
+                'Platinum 2': '<:Platinum2:1363039694878806186>',
+                'Platinum 1': '<:Platinum1:1363039703909138502>',
+                'Diamond 3': '<:Diamond3:1363039725136379955>',
+                'Diamond 2': '<:Diamond2:1363039734028435618>',
+                'Diamond 1': '<:Diamond1:1363039742249402428>',
+                'Masters 3': '<:Masters3:1363039762142986350>',
+                'Masters 2': '<:Masters2:1363039770342723604>',
+                'Masters 1': '<:Masters1:1363039778580205619>',
+                'Challenger': '<:Challenger:1363039996868558879>'
               };
 
               // Get the emoji for this rank if it exists
               if (rankEmojiMap[playerRank.name]) {
-                rankEmoji = rankEmojiMap[playerRank.name] + ' ';
+                rankEmoji = rankEmojiMap[playerRank.name] + " ";
               }
 
               return `${index + 1}. ${rankEmoji}${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
@@ -615,7 +642,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               activeMatches.map(async (match) => {
                 try {
                   // Get detailed match information including teams
-                  const matchDetails = await matchService.getMatchDetails(match.id);
+                  const matchDetails = await matchService.getMatchDetails(
+                    match.id,
+                  );
 
                   // Calculate match duration
                   const matchDuration = formatDuration(match.createdAt);
@@ -635,7 +664,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                   if (matchDetails?.teams && matchDetails.teams.length > 0) {
                     matchDetails.teams.forEach((team) => {
                       const teamPlayers = team.players
-                        .map((player) => `${player.username} (MMR: ${player.mmr})`)
+                        .map(
+                          (player) => `${player.username} (MMR: ${player.mmr})`,
+                        )
                         .join("\n");
 
                       matchEmbed.addFields({
@@ -666,7 +697,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             // Update the original message with fresh embeds
             await interaction.editReply({
               embeds: [updatedQueueEmbed, ...updatedMatchEmbeds],
-              components: [row]
+              components: [row],
             });
           } else {
             // If no matches, just create empty match embed
@@ -676,13 +707,15 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               .setDescription("No active matches");
 
             // Update the original message with the refreshed embeds
-            await interaction.editReply({ 
+            await interaction.editReply({
               embeds: [updatedQueueEmbed, updatedMatchesEmbed],
-              components: [row] 
+              components: [row],
             });
           }
         } catch (updateError) {
-          logger.error(`Error updating embed after button click: ${updateError}`);
+          logger.error(
+            `Error updating embed after button click: ${updateError}`,
+          );
           // Don't need to notify the user since they got a direct ephemeral response
         }
       });
