@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 See [2025-Q2.md](./patch_logs/2025-Q2.md) for the most recent changes.
+- 2025-05-29: Fixed incorrect toast import in season-config.tsx
 - 2025-05-28: Fixed React hooks rules violation in leaderboards.tsx
 - 2025-05-28: Fixed getRankTiers reference error in leaderboards.tsx
 - 2025-05-27: Added rank icon support and image upload functionality

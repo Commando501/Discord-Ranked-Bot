@@ -15,7 +15,7 @@ import { format } from "date-fns";
 import { Plus, Trash, Pencil, Save, X, Calendar as CalendarIcon, Upload, Image } from "lucide-react";
 import { z } from "zod";
 import { rankTierSchema } from "@shared/rankSystem";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface SeasonConfigPanelProps {
   config: SeasonConfig;
@@ -131,12 +131,14 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
         setNewRankTierIcon(`ranks/${file.name}`);
 
         // Show a success message
+        const { toast } = useToast();
         toast({
           title: "Icon uploaded successfully",
           description: `Icon saved as ranks/${file.name}`,
         });
       } catch (error) {
         console.error("Error uploading icon:", error);
+        const { toast } = useToast();
         toast({
           title: "Upload failed",
           description: "There was an error uploading the icon",
