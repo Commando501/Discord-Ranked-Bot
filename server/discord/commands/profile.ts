@@ -70,7 +70,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       // Continue without rank information
     }
     
-    // Find rank icon if available - with simplified approach
+    // Find rank icon if available - with enhanced approach
     let rankIconAttachment = null;
     if (playerRank && playerRank.name) {
       try {
@@ -81,43 +81,92 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         if (!fs.existsSync(basePath)) {
           logger.warn(`Rank icons directory does not exist: ${basePath}`);
         } else {
-          // Generate simpler filename variations
-          const rankName = playerRank.name.replace(/\s+/g, '');
-          const simpleVariations = [
-            rankName,                                               // as is
-            rankName.toLowerCase(),                                // lowercase
-            rankName.charAt(0).toUpperCase() + rankName.slice(1)   // Title case
+          // List files in the directory first
+          const files = fs.readdirSync(basePath);
+          
+          // Extract rank base and number if format is like "Silver 1"
+          let rankBase = playerRank.name;
+          let rankNumber = "";
+          
+          if (playerRank.name.includes(' ')) {
+            const parts = playerRank.name.split(' ');
+            if (parts.length === 2 && !isNaN(parseInt(parts[1]))) {
+              rankBase = parts[0];
+              rankNumber = parts[1];
+            }
+          }
+          
+          // Generate all possible filename variations
+          const variations = [
+            // Exact match
+            playerRank.name.replace(/\s+/g, ''),
+            playerRank.name.toLowerCase().replace(/\s+/g, ''),
+            
+            // Base name with number combinations
+            `${rankBase}${rankNumber}`,
+            `${rankBase.toLowerCase()}${rankNumber}`,
+            `${rankBase}${rankNumber}.png`,
+            `${rankBase.toLowerCase()}${rankNumber}.png`,
+            
+            // Just base name (for generic rank icons)
+            rankBase,
+            rankBase.toLowerCase(),
+            
+            // With file extensions
+            `${playerRank.name.replace(/\s+/g, '')}.png`,
+            `${playerRank.name.toLowerCase().replace(/\s+/g, '')}.png`,
+            
+            // Try other common formats
+            `${rankBase}`,
+            `${rankBase.toLowerCase()}`
           ];
+          
+          logger.info(`Trying to find icon for rank: ${playerRank.name}, generated variations: ${variations.join(', ')}`);
           
           // Try to find any matching file
           let iconFile = null;
           
-          // List files in the directory
-          try {
-            const files = fs.readdirSync(basePath);
+          // Loop through all files in the directory
+          for (const file of files) {
+            const fileBaseName = path.basename(file, path.extname(file)).toLowerCase();
             
-            // Try to find a matching file using case-insensitive comparison
-            for (const file of files) {
-              // Check if any variation matches the filename (ignoring extension)
-              const fileBaseName = path.basename(file, path.extname(file));
-              for (const variation of simpleVariations) {
-                if (fileBaseName.toLowerCase() === variation.toLowerCase()) {
-                  iconFile = file;
-                  break;
-                }
+            // Try all variations against this file
+            for (const variation of variations) {
+              const variationLower = variation.toLowerCase();
+              // Check if file contains this variation or variation contains file name
+              if (fileBaseName === variationLower || 
+                  fileBaseName.includes(variationLower) || 
+                  variationLower.includes(fileBaseName)) {
+                iconFile = file;
+                logger.info(`Found matching file ${file} for variation ${variation}`);
+                break;
               }
-              if (iconFile) break;
             }
             
-            if (iconFile) {
-              const iconPath = path.join(basePath, iconFile);
-              rankIconAttachment = { attachment: iconPath, name: 'rank.png' };
-              logger.info(`Found rank icon at: ${iconPath}`);
-            } else {
-              logger.warn(`Could not find rank icon for rank: ${playerRank.name} in directory listing`);
+            if (iconFile) break;
+          }
+          
+          // If still no match, try a more aggressive partial match
+          if (!iconFile) {
+            for (const file of files) {
+              const fileBaseName = path.basename(file, path.extname(file)).toLowerCase();
+              
+              // Try to match just the rank base name
+              if (fileBaseName.includes(rankBase.toLowerCase()) || 
+                  rankBase.toLowerCase().includes(fileBaseName)) {
+                iconFile = file;
+                logger.info(`Found partial match ${file} for rank base ${rankBase}`);
+                break;
+              }
             }
-          } catch (readDirError) {
-            logger.error(`Could not read rank icons directory: ${readDirError}`);
+          }
+          
+          if (iconFile) {
+            const iconPath = path.join(basePath, iconFile);
+            rankIconAttachment = { attachment: iconPath, name: 'rank.png' };
+            logger.info(`Using rank icon at: ${iconPath}`);
+          } else {
+            logger.warn(`Could not find any rank icon for rank: ${playerRank.name} in directory listing`);
           }
         }
       } catch (error) {
