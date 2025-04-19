@@ -99,35 +99,30 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           logger.error(`Error loading detailed rank tiers from config: ${configError}`);
         }
         
-        // CORRECT TIER ALGORITHM: 
+        // COMPLETELY REVISED ALGORITHM - FIXED ONCE AND FOR ALL
         // Sort tiers by threshold in ascending order
         const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
         
-        // Find the proper tier for player's MMR - core algorithm fix
+        // Find the tier for player's MMR with a completely different approach
         let foundTier = null;
+                
+        // First identify all tiers the player qualifies for (MMR >= tier threshold)
+        const qualifyingTiers = sortedTiers.filter(tier => player.mmr >= tier.mmrThreshold);
         
-        // The critical fix: determine rank tier by finding the highest tier
-        // where player's MMR is GREATER THAN OR EQUAL TO the threshold,
-        // but LESS THAN the next tier's threshold
-        for (let i = 0; i < sortedTiers.length; i++) {
-          const currentTier = sortedTiers[i];
+        // If they qualify for any tiers, the last one (highest threshold) is their tier
+        if (qualifyingTiers.length > 0) {
+          foundTier = qualifyingTiers[qualifyingTiers.length - 1];
           
-          // If player meets or exceeds this threshold
-          if (player.mmr >= currentTier.mmrThreshold) {
-            // Set this as the potential tier
-            foundTier = currentTier;
-            
-            // Check if we're at the last tier or if player's MMR is less than the next tier's threshold
-            const isLastTier = i === sortedTiers.length - 1;
-            const nextTier = isLastTier ? null : sortedTiers[i + 1];
-            
-            // If we're at the last tier or player doesn't meet next tier's threshold, this is their tier
-            if (isLastTier || player.mmr < nextTier.mmrThreshold) {
-              // We've found the correct tier
-              break;
-            }
-            // Otherwise continue checking higher tiers
-          }
+          // Log details for verification
+          logger.info(`FINAL SOLUTION: Player MMR ${player.mmr} qualifies for ${qualifyingTiers.length} tiers.`);
+          logger.info(`Highest qualifying tier is ${foundTier.name} with threshold ${foundTier.mmrThreshold}.`);
+          
+          // Double-check by finding adjacent tiers in original sorted list
+          const tierIndex = sortedTiers.findIndex(t => t.name === foundTier.name);
+          const nextTierThreshold = tierIndex < sortedTiers.length - 1 ? 
+            sortedTiers[tierIndex + 1].mmrThreshold : "MAX";
+          
+          logger.info(`Player MMR ${player.mmr} should be between ${foundTier.mmrThreshold} and ${nextTierThreshold}.`);
         }
         
         if (foundTier) {

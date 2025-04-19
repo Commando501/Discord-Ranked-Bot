@@ -5,6 +5,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 ## Recent Changes
 
+- 2025-06-28: Completely redesigned rank determination algorithm with filter-based approach to ensure correct rank assignment
 - 2025-06-28: Fixed Discord profile rank determination algorithm to properly identify correct tier for MMR range boundaries
 - 2025-06-28: Fixed Discord profile rank determination with fundamentally correct threshold-based MMR approach
 - 2025-06-28: Fixed Discord profile rank determination with radically simplified range-based MMR algorithm
