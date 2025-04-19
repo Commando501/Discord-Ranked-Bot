@@ -129,21 +129,21 @@
         "name": "Platinum 3",
         "mmrThreshold": 1649,
         "color": "#007f81",
-        "icon": "client/public/ranks/Platinum3.png",
+        "icon": "client/public/ranks/Plat3.png",
         "description": "platinum"
       },
       {
         "name": "Platinum 2",
         "mmrThreshold": 1849,
         "color": "#007f81",
-        "icon": "client/public/ranks/Platinum2.png",
+        "icon": "client/public/ranks/Plat2.png",
         "description": "platinum"
       },
       {
         "name": "Platinum 1",
         "mmrThreshold": 2049,
         "color": "#007f81",
-        "icon": "client/public/ranks/Platinum1.png",
+        "icon": "client/public/ranks/Plat1.png",
         "description": "platinum"
       },
       {
