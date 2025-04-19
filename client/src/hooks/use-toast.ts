@@ -177,10 +177,10 @@ function toast({ ...props }: Toast) {
     },
     update: (props: ToasterToast) => {
       try {
-        update(props);
+        return update(props);
       } catch (error) {
         console.error("Error in update function:", error);
-        return null;
+        return { id, dismiss: () => {}, update: () => {} };
       }
     }
   };
