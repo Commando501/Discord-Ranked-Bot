@@ -124,27 +124,34 @@ export default function SeasonConfigPanel({ config, onChange }: SeasonConfigPane
           body: formData,
         });
 
+        // Check content type first before attempting to parse
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error("Server returned non-JSON content type:", contentType);
+          throw new Error(`Server error: Received ${contentType || 'unknown'} instead of JSON response`);
+        }
+
         // Clone the response before reading it
         const responseClone = response.clone();
 
         if (!response.ok) {
-          const responseText = await response.text();
-          throw new Error(`Failed to upload icon: ${responseText.substring(0, 100)}`);
+          // Try to get JSON error message first
+          try {
+            const errorData = await responseClone.json();
+            throw new Error(`Upload failed: ${errorData.message || 'Unknown server error'}`);
+          } catch (jsonError) {
+            // Fall back to text if JSON parsing fails
+            const responseText = await response.text();
+            throw new Error(`Failed to upload icon: ${responseText.substring(0, 100)}`);
+          }
         }
 
         let data;
         try {
           data = await responseClone.json();
         } catch (parseError) {
-          // Check if the response is HTML (likely an error page)
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('text/html')) {
-            console.error("Server returned HTML instead of JSON");
-            throw new Error('Server error: Received HTML instead of JSON response');
-          } else {
-            console.error("Error parsing response");
-            throw new Error('Server response is not valid JSON');
-          }
+          console.error("Error parsing JSON response:", parseError);
+          throw new Error('Server response is not valid JSON');
         }
 
         // Set the file path from the server response using the path returned from the server
