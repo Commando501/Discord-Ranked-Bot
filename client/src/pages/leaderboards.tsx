@@ -405,12 +405,13 @@ export default function LeaderboardsPage() {
               {isLoadingAllPlayers ? (
                 <p>Loading rank distribution data...</p>
               ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Rank distribution bar chart */}
-                    <div className="h-60 relative">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Enhanced rank distribution bar chart */}
+                    <div className="h-72 relative bg-black/5 dark:bg-white/5 rounded-lg p-4 backdrop-blur-sm">
+                      <h3 className="text-sm font-medium mb-3 text-muted-foreground">Player Distribution</h3>
                       {rankDistribution.length > 0 ? (
-                        <div className="flex items-end h-full">
+                        <div className="flex items-end h-[calc(100%-30px)] gap-1">
                           {rankDistribution
                             .sort((a, b) => {
                               // Find tiers by name
@@ -421,22 +422,52 @@ export default function LeaderboardsPage() {
                             })
                             .map((item, index) => {
                               const tier = rankTiers.find(t => t.name === item.rank);
+                              const color = tier?.color || '#6f7280';
+                              // Calculate a lighter version of the color for gradient
+                              const lighterColor = color.replace(
+                                /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i, 
+                                (_, r, g, b) => {
+                                  // Convert hex to rgb, lighten, and back to hex
+                                  const lightenHex = (hex: string) => {
+                                    const num = parseInt(hex, 16);
+                                    const lightened = Math.min(255, Math.round(num * 1.4)).toString(16).padStart(2, '0');
+                                    return lightened;
+                                  };
+                                  return `#${lightenHex(r)}${lightenHex(g)}${lightenHex(b)}`;
+                                }
+                              );
+                              
                               return (
                                 <div 
                                   key={item.rank} 
-                                  className="flex-1 mx-1 flex flex-col items-center justify-end group"
+                                  className="flex-1 mx-0.5 flex flex-col items-center justify-end group"
                                 >
-                                  <div className="text-xs mb-1 opacity-0 group-hover:opacity-100 transition-opacity text-center">
-                                    {item.count} players<br/>({item.percentage}%)
+                                  <div className="absolute top-12 text-xs px-3 py-2 pointer-events-none bg-background/95 border shadow-md opacity-0 group-hover:opacity-100 transition-all rounded-md z-10 text-center transform -translate-y-2 group-hover:translate-y-0 duration-200">
+                                    <div className="font-bold" style={{ color }}>{item.rank}</div>
+                                    <div className="font-mono">{item.count} players</div>
+                                    <div className="text-muted-foreground">{item.percentage}% of playerbase</div>
                                   </div>
                                   <div 
-                                    className="w-full rounded-t transition-all hover:opacity-90"
+                                    className="w-full rounded-md transition-all duration-300 ease-in-out group-hover:transform group-hover:scale-105 shadow-sm"
                                     style={{ 
                                       height: `${Math.max(5, (item.percentage || 1) * 2)}%`, 
-                                      backgroundColor: tier?.color || '#6f7280',
+                                      background: `linear-gradient(to top, ${color}, ${lighterColor})`,
                                     }}
                                   ></div>
-                                  <div className="text-xs mt-1 truncate w-full text-center">{item.rank}</div>
+                                  <div className="flex items-center justify-center mt-2 h-6">
+                                    {tier?.icon && (
+                                      <img 
+                                        src={getRankIconUrl(tier.icon)} 
+                                        alt={tier.name}
+                                        className="h-5 w-5 object-contain mr-1"
+                                        onError={(e) => {
+                                          const img = e.target as HTMLImageElement;
+                                          img.style.display = 'none';
+                                        }}
+                                      />
+                                    )}
+                                    <div className="text-xs font-medium truncate w-full text-center">{item.rank}</div>
+                                  </div>
                                 </div>
                               );
                             })}
@@ -448,8 +479,9 @@ export default function LeaderboardsPage() {
                       )}
                     </div>
 
-                    {/* Rank distribution table */}
-                    <div>
+                    {/* Enhanced rank distribution table */}
+                    <div className="bg-black/5 dark:bg-white/5 rounded-lg p-4 backdrop-blur-sm">
+                      <h3 className="text-sm font-medium mb-3 text-muted-foreground">Detailed Breakdown</h3>
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -470,19 +502,98 @@ export default function LeaderboardsPage() {
                             .map((item) => {
                               const tier = rankTiers.find(t => t.name === item.rank);
                               return (
-                                <TableRow key={item.rank}>
+                                <TableRow key={item.rank} className="hover:bg-background/40 transition-colors">
                                   <TableCell>
-                                    <span style={{ color: tier?.color || 'inherit' }}>
-                                      {item.rank}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      {tier?.icon && (
+                                        <img 
+                                          src={getRankIconUrl(tier.icon)} 
+                                          alt={tier.name}
+                                          className="h-5 w-5 object-contain"
+                                          onError={(e) => {
+                                            const img = e.target as HTMLImageElement;
+                                            img.style.display = 'none';
+                                          }}
+                                        />
+                                      )}
+                                      <span className="font-medium" style={{ color: tier?.color || 'inherit' }}>
+                                        {item.rank}
+                                      </span>
+                                    </div>
                                   </TableCell>
-                                  <TableCell className="text-right">{item.count}</TableCell>
-                                  <TableCell className="text-right">{item.percentage}%</TableCell>
+                                  <TableCell className="text-right font-mono">{item.count}</TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <div 
+                                        className="h-2 rounded-full opacity-75"
+                                        style={{ 
+                                          width: `${Math.max(5, item.percentage)}%`, 
+                                          backgroundColor: tier?.color || '#6f7280',
+                                        }}
+                                      ></div>
+                                      <span className="font-mono">{item.percentage}%</span>
+                                    </div>
+                                  </TableCell>
                                 </TableRow>
                               );
                             })}
                         </TableBody>
                       </Table>
+                    </div>
+                  </div>
+                  
+                  {/* Pyramid visualization of rank distribution */}
+                  <div className="bg-black/5 dark:bg-white/5 rounded-lg p-4 backdrop-blur-sm mt-6">
+                    <h3 className="text-sm font-medium mb-3 text-muted-foreground">Rank Pyramid</h3>
+                    <div className="flex justify-center">
+                      <div className="w-full max-w-md">
+                        {rankDistribution
+                          .sort((a, b) => {
+                            // Find tiers by name
+                            const tierA = rankTiers.find(t => t.name === a.rank);
+                            const tierB = rankTiers.find(t => t.name === b.rank);
+                            // Sort by MMR threshold descending (highest rank first)
+                            return (tierB?.mmrThreshold || 0) - (tierA?.mmrThreshold || 0);
+                          })
+                          .map((item, index, array) => {
+                            const tier = rankTiers.find(t => t.name === item.rank);
+                            // Calculate width percentage based on position in the pyramid
+                            const widthPercentage = 40 + ((index / (array.length - 1)) * 60);
+                            
+                            return (
+                              <div 
+                                key={item.rank} 
+                                className="flex items-center justify-center mb-1 mx-auto transition-all duration-200 hover:transform hover:scale-[1.02] rounded-sm overflow-hidden"
+                                style={{ width: `${widthPercentage}%` }}
+                              >
+                                <div 
+                                  className="w-full py-1.5 px-3 flex items-center justify-between"
+                                  style={{ 
+                                    backgroundColor: tier?.color || '#6f7280',
+                                    color: '#ffffff',
+                                    textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+                                  }}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    {tier?.icon && (
+                                      <img 
+                                        src={getRankIconUrl(tier.icon)} 
+                                        alt={tier.name}
+                                        className="h-5 w-5 object-contain"
+                                        onError={(e) => {
+                                          const img = e.target as HTMLImageElement;
+                                          img.style.display = 'none';
+                                        }}
+                                      />
+                                    )}
+                                    <span className="text-xs font-bold">{item.rank}</span>
+                                  </div>
+                                  <span className="text-xs font-mono">{item.percentage}%</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
                     </div>
                   </div>
                 </div>
