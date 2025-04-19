@@ -75,7 +75,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           "Masters 3": "<:Masters3:1363039762142986350>",
           "Masters 2": "<:Masters2:1363039770342723604>",
           "Masters 1": "<:Masters1:1363039778580205619>",
-          Challenger: "<:Challenger:1363039996868558879>",
+          "Challenger": "<:Challenger:1363039996868558879>",
         };
 
         // Get the emoji for this rank if it exists
