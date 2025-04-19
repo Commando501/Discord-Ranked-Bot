@@ -43,12 +43,37 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       // Build queue list with rank info
       const queueListPromises = queuePlayers.map(async (entry, index) => {
         const waitTime = formatDuration(entry.joinedAt);
-        // Get player rank
-        const { getPlayerRank } = await import('@shared/rankSystem');
-        const playerRank = await getPlayerRank(
-          entry.player.mmr,
-          rankTiers,
-        );
+        // Get player rank using the same method as the profile command
+        let playerRank = null;
+
+        // Sort tiers by threshold in ascending order
+        const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+
+        // Find the appropriate tier by checking MMR ranges explicitly
+        for (let i = 0; i < sortedTiers.length; i++) {
+          const currentTier = sortedTiers[i];
+          const prevTier = i > 0 ? sortedTiers[i - 1] : null;
+
+          // Upper bound is inclusive (<=), lower bound is previous tier's threshold + 1 or 0
+          const upperBound = currentTier.mmrThreshold;
+          const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
+
+          if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
+            playerRank = currentTier;
+            break;
+          }
+        }
+
+        // If no tier found, use the lowest one
+        if (!playerRank && sortedTiers.length > 0) {
+          playerRank = sortedTiers[0];
+        }
+
+        // Fallback to getPlayerRank if needed
+        if (!playerRank) {
+          const { getPlayerRank } = await import('@shared/rankSystem');
+          playerRank = await getPlayerRank(entry.player.mmr, rankTiers);
+        }
 
         // Create emoji reference
         let rankEmoji = "";
@@ -314,12 +339,37 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             // Build queue list with rank info
             const queueListPromises = queuePlayers.map(async (entry, index) => {
               const waitTime = formatDuration(entry.joinedAt);
-              // Import directly from rankSystem instead of trying to use require
-              const { getPlayerRank } = await import('@shared/rankSystem');
-              const playerRank = await getPlayerRank(
-                entry.player.mmr,
-                rankTiers,
-              );
+              // Get player rank using the same method as the profile command
+              let playerRank = null;
+
+              // Sort tiers by threshold in ascending order
+              const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+
+              // Find the appropriate tier by checking MMR ranges explicitly
+              for (let i = 0; i < sortedTiers.length; i++) {
+                const currentTier = sortedTiers[i];
+                const prevTier = i > 0 ? sortedTiers[i - 1] : null;
+
+                // Upper bound is inclusive (<=), lower bound is previous tier's threshold + 1 or 0
+                const upperBound = currentTier.mmrThreshold;
+                const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
+
+                if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
+                  playerRank = currentTier;
+                  break;
+                }
+              }
+
+              // If no tier found, use the lowest one
+              if (!playerRank && sortedTiers.length > 0) {
+                playerRank = sortedTiers[0];
+              }
+
+              // Fallback to getPlayerRank if needed
+              if (!playerRank) {
+                const { getPlayerRank } = await import('@shared/rankSystem');
+                playerRank = await getPlayerRank(entry.player.mmr, rankTiers);
+              }
 
               // Create emoji reference
               let rankEmoji = "";
@@ -591,12 +641,37 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             // Build queue list with rank info
             const queueListPromises = queuePlayers.map(async (entry, index) => {
               const waitTime = formatDuration(entry.joinedAt);
-              // Import directly from rankSystem instead of trying to use require
-              const { getPlayerRank } = await import('@shared/rankSystem');
-              const playerRank = await getPlayerRank(
-                entry.player.mmr,
-                rankTiers,
-              );
+              // Get player rank using the same method as the profile command
+              let playerRank = null;
+
+              // Sort tiers by threshold in ascending order
+              const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+
+              // Find the appropriate tier by checking MMR ranges explicitly
+              for (let i = 0; i < sortedTiers.length; i++) {
+                const currentTier = sortedTiers[i];
+                const prevTier = i > 0 ? sortedTiers[i - 1] : null;
+
+                // Upper bound is inclusive (<=), lower bound is previous tier's threshold + 1 or 0
+                const upperBound = currentTier.mmrThreshold;
+                const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
+
+                if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
+                  playerRank = currentTier;
+                  break;
+                }
+              }
+
+              // If no tier found, use the lowest one
+              if (!playerRank && sortedTiers.length > 0) {
+                playerRank = sortedTiers[0];
+              }
+
+              // Fallback to getPlayerRank if needed
+              if (!playerRank) {
+                const { getPlayerRank } = await import('@shared/rankSystem');
+                playerRank = await getPlayerRank(entry.player.mmr, rankTiers);
+              }
 
               // Create emoji reference
               let rankEmoji = "";
