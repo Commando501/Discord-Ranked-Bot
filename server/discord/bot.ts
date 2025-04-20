@@ -156,11 +156,6 @@ async function attemptReconnect() {
   }, RECONNECT_INTERVAL);
 }
 
-import { EmojiHelper } from './helpers/emojiHelper';
-
-// Global variable for emoji helper
-let emojiHelper: EmojiHelper | null = null;
-
 // Initialize the Discord bot
 export async function initializeBot() {
   if (!process.env.DISCORD_TOKEN) {
@@ -184,13 +179,6 @@ export async function initializeBot() {
     await registerCommands();
     logger.info('Slash commands registered');
 
-    // Initialize emoji helper and load emojis
-    emojiHelper = new EmojiHelper(client);
-    if (botConfig.general.guildId) {
-      await emojiHelper.loadEmojisFromGuild(botConfig.general.guildId);
-      logger.info('Emojis loaded from guild');
-    }
-
     // Start a periodic connection check
     startConnectionHealthCheck();
   } catch (error) {
@@ -199,11 +187,6 @@ export async function initializeBot() {
   }
 
   return client;
-}
-
-// Get the emoji helper
-export function getEmojiHelper() {
-  return emojiHelper;
 }
 
 // Periodic connection health check
