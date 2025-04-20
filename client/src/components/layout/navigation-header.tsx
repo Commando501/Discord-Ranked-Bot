@@ -1,22 +1,53 @@
 import { Link } from "react-router-dom";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, LogOut, Sun, Moon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import ThemeToggle from "@/components/theme-toggle";
-import { useSidebar } from "@/hooks/use-sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/auth-context";
+import { useTheme } from "@/hooks/use-theme";
 
 export default function NavigationHeader() {
-  const { toggleSidebar } = useSidebar();
   const isMobile = useIsMobile();
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
+
+  // Create a simple theme toggle component
+  const ThemeToggle = () => {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      >
+        {theme === "dark" ? (
+          <Sun className="h-4 w-4" />
+        ) : (
+          <Moon className="h-4 w-4" />
+        )}
+        <span className="sr-only">Toggle theme</span>
+      </Button>
+    );
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 max-w-screen-2xl items-center">
         <div className="mr-4 flex">
-          <Button variant="ghost" onClick={toggleSidebar} className="mr-2 px-2 text-base">
+          <Button 
+            variant="ghost" 
+            className="mr-2 px-2 text-base"
+            onClick={() => {
+              // Handle sidebar toggle if available
+              try {
+                const sidebarToggle = document.querySelector('[data-sidebar-toggle]');
+                if (sidebarToggle) {
+                  (sidebarToggle as HTMLButtonElement).click();
+                }
+              } catch (error) {
+                console.log('Sidebar toggle not available');
+              }
+            }}
+          >
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle Menu</span>
           </Button>
