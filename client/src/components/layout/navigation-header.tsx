@@ -1,15 +1,15 @@
 import { Link } from "react-router-dom";
-import { Menu, LogOut } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/theme-toggle";
 import { useSidebar } from "@/hooks/use-sidebar";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function NavigationHeader() {
   const { toggleSidebar } = useSidebar();
-  const isMobile = useIsMobile();
+  const isMobile = useMobile();
   const { user, logout } = useAuth();
 
   return (
