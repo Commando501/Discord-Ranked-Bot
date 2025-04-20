@@ -49,8 +49,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
         // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions (Gold 1, Gold 2, Gold 3)
         try {
-          const fs = require("fs");
-          const path = require("path");
+          // Use dynamic imports for fs and path
+          const fs = await import('fs');
+          const path = await import('path');
           const configPath = path.join(process.cwd(), "discordbot-config.json");
 
           if (fs.existsSync(configPath)) {
@@ -411,8 +412,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
             // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions
             try {
-              const fs = require("fs");
-              const path = require("path");
+              // Use dynamic imports for fs and path
+              const fs = await import('fs');
+              const path = await import('path');
               const configPath = path.join(
                 process.cwd(),
                 "discordbot-config.json",
@@ -786,8 +788,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
             // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions
             try {
-              const fs = require("fs");
-              const path = require("path");
+              // Use dynamic imports for fs and path
+              const fs = await import('fs');
+              const path = await import('path');
               const configPath = path.join(
                 process.cwd(),
                 "discordbot-config.json",
@@ -836,11 +839,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
               // Print all thresholds for debugging
               const thresholds = sortedTiers
-                .map((tier) => `${tier.name}: ${tier.mmrThreshold}`)
-                .join(", ");
-              logger.info(
-                `All tier thresholds for update in ascending order: ${thresholds}`,
-              );
+                .map((tier`All tier thresholds for update in ascending order: ${thresholds}`);
 
               // Find the appropriate tier by checking MMR ranges explicitly
               let foundTier = null;
