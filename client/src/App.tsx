@@ -1,3 +1,37 @@
+// use-sidebar.ts
+import React, { createContext, useContext, useState } from 'react';
+
+interface SidebarContext {
+  isOpen: boolean;
+  toggleSidebar: () => void;
+}
+
+const SidebarContext = createContext<SidebarContext | null>(null);
+
+export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggleSidebar = () => {
+    setIsOpen(!isOpen);
+  };
+
+  return (
+    <SidebarContext.Provider value={{ isOpen, toggleSidebar }}>
+      {children}
+    </SidebarContext.Provider>
+  );
+};
+
+export const useSidebar = () => {
+  const context = useContext(SidebarContext);
+  if (!context) {
+    throw new Error('useSidebar must be used within a SidebarProvider');
+  }
+  return context;
+};
+
+
+// App.tsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/dashboard";
 import Login from "./pages/login";
