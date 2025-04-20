@@ -4,7 +4,7 @@ This file serves as an index to all patch logs, organized by time period.
 
 
 ## Patch Log Archives
-- [2025 Q2 (Apr-Jun)](./patch_logs/2025-Q2.md)
+- [2025 Q2 (Apr-Jun)](./patch_logs/2025-Q2.md) - Most recent updates
 - [2025 Q1 (Jan-Mar)](./patch_logs/2025-Q1.md)
 - [2024 Q4 (Oct-Dec)](./patch_logs/2024-Q4.md)
 - [2024 Q3 (Jul-Sep)](./patch_logs/2024-Q3.md)
@@ -15,3 +15,6 @@ This file serves as an index to all patch logs, organized by time period.
 - Each quarterly file contains detailed patch notes for that time period
 - Most recent changes appear at the top of each file
 - For specific changes, use the search functionality within the appropriate quarterly file
+
+## Latest Update
+The most recent update fixed an issue with the Discord /list command where rank tiers couldn't be loaded from the configuration file due to a `require is not defined` error. The fix involves using ES module imports instead of CommonJS require statements.

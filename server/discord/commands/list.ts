@@ -49,12 +49,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
         // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions (Gold 1, Gold 2, Gold 3)
         try {
-          const fs = require("fs");
-          const path = require("path");
-          const configPath = path.join(process.cwd(), "discordbot-config.json");
+          import * as fs from 'fs/promises';
+          import * as path from 'path';
+          const configPath = path.join(process.cwd(), 'discordbot-config.json');
 
-          if (fs.existsSync(configPath)) {
-            const configData = JSON.parse(fs.readFileSync(configPath, "utf8"));
+          try {
+            const fileContent = await fs.readFile(configPath, 'utf8');
+            const configData = JSON.parse(fileContent);
+
             if (
               configData.seasonManagement &&
               configData.seasonManagement.rankTiers &&
@@ -70,6 +72,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 `Available tiers: ${rankTiers.map((t) => t.name).join(", ")}`,
               );
             }
+          } catch (fileError) {
+            logger.error(`File error: ${fileError}`);
           }
         } catch (configError) {
           logger.error(
@@ -411,17 +415,17 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
             // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions
             try {
-              const fs = require("fs");
-              const path = require("path");
+              import * as fs from 'fs/promises';
+              import * as path from 'path';
               const configPath = path.join(
                 process.cwd(),
                 "discordbot-config.json",
               );
 
-              if (fs.existsSync(configPath)) {
-                const configData = JSON.parse(
-                  fs.readFileSync(configPath, "utf8"),
-                );
+              try {
+                const fileContent = await fs.readFile(configPath, "utf8");
+                const configData = JSON.parse(fileContent);
+
                 if (
                   configData.seasonManagement &&
                   configData.seasonManagement.rankTiers &&
@@ -437,6 +441,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                     `Available tiers for update: ${rankTiers.map((t) => t.name).join(", ")}`,
                   );
                 }
+              } catch (fileError) {
+                logger.error(`File error: ${fileError}`);
               }
             } catch (configError) {
               logger.error(
@@ -786,17 +792,17 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
             // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions
             try {
-              const fs = require("fs");
-              const path = require("path");
+              import * as fs from 'fs/promises';
+              import * as path from 'path';
               const configPath = path.join(
                 process.cwd(),
                 "discordbot-config.json",
               );
 
-              if (fs.existsSync(configPath)) {
-                const configData = JSON.parse(
-                  fs.readFileSync(configPath, "utf8"),
-                );
+              try {
+                const fileContent = await fs.readFile(configPath, "utf8");
+                const configData = JSON.parse(fileContent);
+
                 if (
                   configData.seasonManagement &&
                   configData.seasonManagement.rankTiers &&
@@ -812,6 +818,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                     `Available tiers for update: ${rankTiers.map((t) => t.name).join(", ")}`,
                   );
                 }
+              } catch (fileError) {
+                logger.error(`File error: ${fileError}`);
               }
             } catch (configError) {
               logger.error(
@@ -827,7 +835,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
               // COMPLETE ALGORITHM REWRITE for tier determination:
               // Each tier's threshold is the UPPER bound of its range
-              // The lower bound is the previous tier's threshold + 1 or 0 for the lowest tier
+              // The lower bound is the previous tiers threshold + 1 or 0 for the lowest tier
 
               // Sort tiers by threshold in ascending order
               const sortedTiers = [...rankTiers].sort(
