@@ -46,22 +46,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         // Get player rank using the same method as the profile command
         let playerRank = null;
 
-        // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions (Gold 1, Gold 2, Gold 3)
+        // First, try to load directly from the bot config to ensure we get the full set of tiers with subdivisions
         try {
-          const fs = require('fs');
-          const path = require('path');
-          const configPath = path.join(process.cwd(), 'discordbot-config.json');
-
-          if (fs.existsSync(configPath)) {
-            const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-            if (configData.seasonManagement && configData.seasonManagement.rankTiers && 
-                configData.seasonManagement.rankTiers.length > 0) {
-              // Replace with config ranks if they exist - this ensures we use the complete set with subdivisions
-              rankTiers = configData.seasonManagement.rankTiers;
-              logger.info(`Using ${rankTiers.length} detailed rank tiers from config file for list command`);
-              // Log all tier names for debugging
-              logger.info(`Available tiers: ${rankTiers.map(t => t.name).join(', ')}`);
-            }
+          // Use the storage's getRankTiers method which should load the complete set of tiers
+          const detailedRankTiers = await storage.getRankTiers();
+          if (detailedRankTiers && detailedRankTiers.length > 0) {
+            // Replace with config ranks if they exist - this ensures we use the complete set with subdivisions
+            rankTiers = detailedRankTiers;
+            logger.info(`Using ${rankTiers.length} detailed rank tiers from config file for list command`);
+            // Log all tier names for debugging
+            logger.info(`Available tiers: ${rankTiers.map(t => t.name).join(', ')}`);
           }
         } catch (configError) {
           logger.error(`Error loading detailed rank tiers from config: ${configError}`);
@@ -122,11 +116,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         let rankEmoji = "";
 
         // Import the emoji helper and rank emoji map for fallback
-        const { getEmojiHelper, rankEmojiMap } = require('../helpers/emojiHelper');
-        
+        const { getEmojiHelper, rankEmojiMap } = await import('../helpers/emojiHelper');
+
         // Get emoji helper instance
         const emojiHelper = getEmojiHelper();
-        
+
         // Get the emoji for this rank if it exists
         if (playerRank) {
           // Try to get from dynamic emoji helper first
@@ -374,22 +368,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             // Get rank tiers
             let rankTiers = await storage.getRankTiers();
 
-            // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions
+            // First, try to load directly from the bot config to ensure we get the full set of tiers with subdivisions
             try {
-              const fs = require('fs');
-              const path = require('path');
-              const configPath = path.join(process.cwd(), 'discordbot-config.json');
-
-              if (fs.existsSync(configPath)) {
-                const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-                if (configData.seasonManagement && configData.seasonManagement.rankTiers && 
-                    configData.seasonManagement.rankTiers.length > 0) {
-                  // Replace with config ranks if they exist - this ensures we use the complete set with subdivisions
-                  rankTiers = configData.seasonManagement.rankTiers;
-                  logger.info(`Using ${rankTiers.length} detailed rank tiers from config file for list update`);
-                  // Log all tier names for debugging
-                  logger.info(`Available tiers for update: ${rankTiers.map(t => t.name).join(', ')}`);
-                }
+              // Use the storage's getRankTiers method which should load the complete set of tiers
+              const detailedRankTiers = await storage.getRankTiers();
+              if (detailedRankTiers && detailedRankTiers.length > 0) {
+                // Replace with config ranks if they exist - this ensures we use the complete set with subdivisions
+                rankTiers = detailedRankTiers;
+                logger.info(`Using ${rankTiers.length} detailed rank tiers from config file for list update`);
+                // Log all tier names for debugging
+                logger.info(`Available tiers for update: ${rankTiers.map(t => t.name).join(', ')}`);
               }
             } catch (configError) {
               logger.error(`Error loading detailed rank tiers from config: ${configError}`);
@@ -718,22 +706,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             // Get rank tiers
             let rankTiers = await storage.getRankTiers();
 
-            // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions
+            // First, try to load directly from the bot config to ensure we get the full set of tiers with subdivisions
             try {
-              const fs = require('fs');
-              const path = require('path');
-              const configPath = path.join(process.cwd(), 'discordbot-config.json');
-
-              if (fs.existsSync(configPath)) {
-                const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-                if (configData.seasonManagement && configData.seasonManagement.rankTiers && 
-                    configData.seasonManagement.rankTiers.length > 0) {
-                  // Replace with config ranks if they exist - this ensures we use the complete set with subdivisions
-                  rankTiers = configData.seasonManagement.rankTiers;
-                  logger.info(`Using ${rankTiers.length} detailed rank tiers from config file for list update`);
-                  // Log all tier names for debugging
-                  logger.info(`Available tiers for update: ${rankTiers.map(t => t.name).join(', ')}`);
-                }
+              // Use the storage's getRankTiers method which should load the complete set of tiers
+              const detailedRankTiers = await storage.getRankTiers();
+              if (detailedRankTiers && detailedRankTiers.length > 0) {
+                // Replace with config ranks if they exist - this ensures we use the complete set with subdivisions
+                rankTiers = detailedRankTiers;
+                logger.info(`Using ${rankTiers.length} detailed rank tiers from config file for list update`);
+                // Log all tier names for debugging
+                logger.info(`Available tiers for update: ${rankTiers.map(t => t.name).join(', ')}`);
               }
             } catch (configError) {
               logger.error(`Error loading detailed rank tiers from config: ${configError}`);
@@ -813,7 +795,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 'Gold 1': '<:Gold1:1363042214715986041>',
                 'Platinum 3': '<:Platinum3:1363039687358287872>',
                 'Platinum 2': '<:Platinum2:1363039694878806186>',
-                'Platinum 1': '<:Platinum1:1363039703909138502>',
+                'Platinum 1': '<:Platinum1:136303909138502>',
                 'Diamond 3': '<:Diamond3:1363039725136379955>',
                 'Diamond 2': '<:Diamond2:1363039734028435618>',
                 'Diamond 1': '<:Diamond1:1363039742249402428>',
