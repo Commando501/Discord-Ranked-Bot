@@ -1,7 +1,8 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
+import { requireAdmin, exchangeCode, getUserInfo } from "./auth";
 import {
   botConfigSchema,
   generalConfigSchema,
@@ -45,12 +46,86 @@ class MatchService {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Admin middleware for protecting admin routes
-  const adminMiddleware = (req: any, res: any, next: any) => {
-    // In a production app, we would check for admin authentication here
-    // For now, we'll allow all requests in this example
-    next();
-  };
+  // Auth routes
+  app.get('/api/auth/login', (req: Request, res: Response) => {
+    const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+    const redirectUri = encodeURIComponent(process.env.REDIRECT_URI || 'http://localhost:5000/api/auth/callback');
+    
+    if (!DISCORD_CLIENT_ID) {
+      return res.status(500).json({ message: 'Discord client ID not configured' });
+    }
+    
+    const scope = 'identify';
+    const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
+    
+    res.redirect(authUrl);
+  });
+
+  app.get('/api/auth/callback', async (req: Request, res: Response) => {
+    const { code } = req.query;
+    
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ message: 'Invalid authorization code' });
+    }
+    
+    try {
+      // Exchange code for token
+      const tokenResponse = await exchangeCode(code);
+      
+      if (tokenResponse.error) {
+        console.error('Error exchanging code for token:', tokenResponse);
+        return res.status(401).json({ message: 'Authentication failed' });
+      }
+      
+      // Get user info
+      const userInfo = await getUserInfo(tokenResponse.access_token);
+      
+      if (!userInfo || !userInfo.id) {
+        return res.status(401).json({ message: 'Failed to get user info' });
+      }
+      
+      // Store token and user info in session
+      req.session.token = tokenResponse;
+      req.session.user = {
+        id: userInfo.id,
+        username: userInfo.username,
+        avatar: userInfo.avatar,
+        discriminator: userInfo.discriminator
+      };
+      
+      // Redirect to frontend with success
+      res.redirect('/admin');
+    } catch (error) {
+      console.error('Error in OAuth callback:', error);
+      res.status(500).json({ message: 'Authentication error' });
+    }
+  });
+
+  app.get('/api/auth/status', (req: Request, res: Response) => {
+    if (!req.session.user) {
+      return res.json({
+        authenticated: false
+      });
+    }
+    
+    res.json({
+      authenticated: true,
+      user: req.session.user
+    });
+  });
+
+  app.post('/api/auth/logout', (req: Request, res: Response) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Error destroying session:', err);
+        return res.status(500).json({ message: 'Logout failed' });
+      }
+      
+      res.json({ success: true, message: 'Logged out successfully' });
+    });
+  });
+  
+  // Use the real admin middleware from auth.ts
 
   // API Routes for the frontend dashboard
   app.get("/api/stats", async (req, res) => {
@@ -251,7 +326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bot Configuration Routes
 
   // Get bot configuration
-  app.get("/api/config", adminMiddleware, async (req, res) => {
+  app.get("/api/config", requireAdmin, async (req, res) => {
     try {
       const config = await storage.getBotConfig();
       res.json(config);
@@ -262,7 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update bot configuration
-  app.put("/api/config", adminMiddleware, async (req, res) => {
+  app.put("/api/config", requireAdmin, async (req, res) => {
     try {
       const configData = req.body;
 
@@ -287,7 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update specific configuration section
-  app.patch("/api/config/:section", adminMiddleware, async (req, res) => {
+  app.patch("/api/config/:section", requireAdmin, async (req, res) => {
     try {
       const { section } = req.params;
       const sectionData = req.body;
@@ -375,7 +450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin API routes
   // Get all players for admin
-  app.get("/api/admin/players", adminMiddleware, async (req, res) => {
+  app.get("/api/admin/players", requireAdmin, async (req, res) => {
     try {
       // In a real app, we would have a method to get all players
       // For this example, we'll use the top players method with a high limit
@@ -388,7 +463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create sample players (for development/testing only)
-  app.post("/api/dev/sample-data", adminMiddleware, async (req, res) => {
+  app.post("/api/dev/sample-data", requireAdmin, async (req, res) => {
     try {
       // Create sample players
       const samplePlayers = [
@@ -470,7 +545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a player
-  app.patch("/api/admin/players/:id", adminMiddleware, async (req, res) => {
+  app.patch("/api/admin/players/:id", requireAdmin, async (req, res) => {
     try {
       const playerId = parseInt(req.params.id);
 
@@ -511,7 +586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all matches for admin
-  app.get("/api/admin/matches", adminMiddleware, async (req, res) => {
+  app.get("/api/admin/matches", requireAdmin, async (req, res) => {
     try {
       // Get both active and completed matches with a high limit
       const activeMatches = await storage.getActiveMatches();
@@ -532,7 +607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a match
-  app.patch("/api/admin/matches/:id", adminMiddleware, async (req, res) => {
+  app.patch("/api/admin/matches/:id", requireAdmin, async (req, res) => {
     try {
       const matchId = parseInt(req.params.id);
 
@@ -557,7 +632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all teams for admin
-  app.get("/api/admin/teams", adminMiddleware, async (req, res) => {
+  app.get("/api/admin/teams", requireAdmin, async (req, res) => {
     try {
       // In a real app, we would have a method to get all teams
       // For this demo, we'll get teams from active matches
@@ -576,7 +651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all queue entries for admin
-  app.get("/api/admin/queue", adminMiddleware, async (req, res) => {
+  app.get("/api/admin/queue", requireAdmin, async (req, res) => {
     try {
       const queuePlayers = await storage.getQueuePlayers();
       res.json(queuePlayers);
@@ -589,7 +664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Remove player from queue
   app.delete(
     "/api/admin/queue/:playerId",
-    adminMiddleware,
+    requireAdmin,
     async (req, res) => {
       try {
         const playerId = parseInt(req.params.playerId);
@@ -613,7 +688,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Clear queue
-  app.post("/api/admin/queue/clear", adminMiddleware, async (req, res) => {
+  app.post("/api/admin/queue/clear", requireAdmin, async (req, res) => {
     try {
       await storage.clearQueue();
       res.json({ success: true, message: "Queue cleared successfully" });
@@ -624,7 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Start a new season
-  app.post("/api/admin/seasons/new", adminMiddleware, async (req, res) => {
+  app.post("/api/admin/seasons/new", requireAdmin, async (req, res) => {
     try {
       // Get current config
       const currentConfig = await storage.getBotConfig();
@@ -788,7 +863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Distribute season rewards
   app.post(
     "/api/admin/seasons/distribute-rewards",
-    adminMiddleware,
+    requireAdmin,
     async (req, res) => {
       try {
         // Get current config
@@ -830,7 +905,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Reset all season data
   app.post(
     "/api/admin/seasons/reset-data",
-    adminMiddleware,
+    requireAdmin,
     async (req, res) => {
       try {
         // Use transaction to ensure data consistency
@@ -932,7 +1007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  app.post("/api/matches/:id/cancel", adminMiddleware, async (req, res) => {
+  app.post("/api/matches/:id/cancel", requireAdmin, async (req, res) => {
     try {
       const matchId = parseInt(req.params.id);
       if (isNaN(matchId)) {
@@ -971,7 +1046,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cancel match without returning players to queue
   app.post(
     "/api/matches/:id/cancel-reset",
-    adminMiddleware,
+    requireAdmin,
     async (req, res) => {
       try {
         const matchId = parseInt(req.params.id);
