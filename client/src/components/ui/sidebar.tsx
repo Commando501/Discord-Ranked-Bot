@@ -32,14 +32,14 @@ type SidebarContextType = {
   setSidebarOpen: (open: boolean) => void;
 };
 
-export const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
+const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 interface SidebarProviderProps {
   children: React.ReactNode;
   defaultOpen?: boolean;
 }
 
-export function SidebarProvider({
+function SidebarProvider({
   children,
   defaultOpen = false,
 }: SidebarProviderProps) {
