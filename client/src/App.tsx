@@ -5,8 +5,6 @@ import { queryClient } from './lib/queryClient';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
 import ProtectedRoute from '@/components/protected-route';
-import { ThemeProvider } from '@/contexts/theme-context'; // Added ThemeProvider import
-import { SidebarProvider } from '@/components/ui/sidebar'; // Added SidebarProvider import
 
 // Import pages
 import Dashboard from './pages/dashboard';
@@ -24,40 +22,37 @@ import LoginPage from './pages/login';
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="system" storageKey="late-league-theme"> {/* Added ThemeProvider */}
-        <AuthProvider>
-          <SidebarProvider defaultOpen={false}> {/* Added SidebarProvider */}
-            <Router>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/login" element={<LoginPage />} />
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/login" element={<LoginPage />} />
 
-                {/* Protected Routes */}
-                <Route path="/admin" element={
-                  <ProtectedRoute>
-                    <AdminPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/config" element={
-                  <ProtectedRoute>
-                    <ConfigPage />
-                  </ProtectedRoute>
-                } />
+            {/* Protected Routes */}
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/config" element={
+              <ProtectedRoute>
+                <ConfigPage />
+              </ProtectedRoute>
+            } />
 
-                {/* Public Routes */}
-                <Route path="/matches" element={<MatchesPage />} />
-                <Route path="/queue" element={<QueuePage />} />
-                <Route path="/leaderboards" element={<LeaderboardsPage />} />
-                <Route path="/players" element={<PlayersPage />} />
-                <Route path="/seasons" element={<SeasonsPage />} />
-                <Route path="/history" element={<HistoryPage />} />
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
-            </Router>
-          </SidebarProvider> {/* Closed SidebarProvider */}
-        </AuthProvider>
-      </ThemeProvider> {/* Closed ThemeProvider */}
+            {/* Public Routes */}
+            <Route path="/matches" element={<MatchesPage />} />
+            <Route path="/queue" element={<QueuePage />} />
+            <Route path="/leaderboards" element={<LeaderboardsPage />} />
+            <Route path="/players" element={<PlayersPage />} />
+            <Route path="/seasons" element={<SeasonsPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Router>
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
