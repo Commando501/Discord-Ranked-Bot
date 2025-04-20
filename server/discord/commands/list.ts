@@ -8,6 +8,7 @@ import {
   ComponentType,
   Client,
 } from "discord.js";
+import fetch from "node-fetch";
 import { QueueService } from "../../bot/services/queueService";
 import { MatchService } from "../../bot/services/matchService";
 import { PlayerService } from "../../bot/services/playerService";
@@ -18,6 +19,35 @@ import { logger } from "../../bot/utils/logger";
 export const data = new SlashCommandBuilder()
   .setName("list")
   .setDescription("List players in the queue and active matches");
+
+async function fetchApplicationEmoji(
+  applicationId: string,
+  emojiId: string,
+  botToken: string,
+) {
+  try {
+    const response = await fetch(
+      `https://discord.com/api/v10/applications/<span class="math-inline">\{applicationId\}/emojis/</span>{emojiId}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bot ${botToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    logger.error(`Error fetching application emoji ${emojiId}:`, error);
+    return null;
+  }
+}
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
@@ -172,13 +202,25 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         // Get the emoji for this rank if it exists
         if (playerRank && rankEmojiMap[playerRank.name]) {
           const emojiId = rankEmojiMap[playerRank.name];
-          const emoji = interaction.client.emojis.cache.get(emojiId); // Fetch emoji from client
+          let emoji: any = null;
+
+          // Try fetching from cache first (discord.js)
+          emoji = interaction.client.emojis.cache.get(emojiId);
+
+          if (!emoji) {
+            // If not in cache, fetch from Discord API
+            emoji = await fetchApplicationEmoji(
+              interaction.client.applicationId!, // application ID
+              emojiId,
+              interaction.client.token!, // bot token
+            );
+          }
 
           if (emoji) {
-            rankEmoji = ` ${emoji}`; // Use the emoji object
+            rankEmoji = ` <:<span class="math-inline">\{emoji\.name\}\:</span>{emoji.id}>`; // Format for display
           } else {
             logger.warn(`Emoji with ID ${emojiId} not found.`);
-            rankEmoji = ``; // Or a default text representation
+            rankedEmoji = "";
           }
         }
 
@@ -550,13 +592,25 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               // Get the emoji for this rank if it exists
               if (playerRank && rankEmojiMap[playerRank.name]) {
                 const emojiId = rankEmojiMap[playerRank.name];
-                const emoji = interaction.client.emojis.cache.get(emojiId); // Fetch emoji from client
+                let emoji: any = null;
+
+                // Try fetching from cache first (discord.js)
+                emoji = interaction.client.emojis.cache.get(emojiId);
+
+                if (!emoji) {
+                  // If not in cache, fetch from Discord API
+                  emoji = await fetchApplicationEmoji(
+                    interaction.client.applicationId!, // application ID
+                    emojiId,
+                    interaction.client.token!, // bot token
+                  );
+                }
 
                 if (emoji) {
-                  rankEmoji = ` ${emoji}`; // Use the emoji object
+                  rankEmoji = ` <:<span class="math-inline">\{emoji\.name\}\:</span>{emoji.id}>`; // Format for display
                 } else {
                   logger.warn(`Emoji with ID ${emojiId} not found.`);
-                  rankEmoji = ``; // Or a default text representation
+                  rankedEmoji = "";
                 }
               }
 
@@ -934,13 +988,25 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               // Get the emoji for this rank if it exists
               if (playerRank && rankEmojiMap[playerRank.name]) {
                 const emojiId = rankEmojiMap[playerRank.name];
-                const emoji = interaction.client.emojis.cache.get(emojiId); // Fetch emoji from client
+                let emoji: any = null;
+
+                // Try fetching from cache first (discord.js)
+                emoji = interaction.client.emojis.cache.get(emojiId);
+
+                if (!emoji) {
+                  // If not in cache, fetch from Discord API
+                  emoji = await fetchApplicationEmoji(
+                    interaction.client.applicationId!, // application ID
+                    emojiId,
+                    interaction.client.token!, // bot token
+                  );
+                }
 
                 if (emoji) {
-                  rankEmoji = ` ${emoji}`; // Use the emoji object
+                  rankEmoji = ` <:<span class="math-inline">\{emoji\.name\}\:</span>{emoji.id}>`; // Format for display
                 } else {
                   logger.warn(`Emoji with ID ${emojiId} not found.`);
-                  rankEmoji = ``; // Or a default text representation
+                  rankedEmoji = "";
                 }
               }
 
