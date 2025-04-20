@@ -7,12 +7,12 @@ interface SidebarContextType {
   openSidebar: () => void;
   closeSidebar: () => void;
   isMobile: boolean;
-  state: string;
+  state: "open" | "closed";
   openMobile: boolean;
   setOpenMobile: (open: boolean) => void;
 }
 
-const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
+const SidebarContext = createContext<SidebarContextType | null>(null);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(true);
@@ -22,14 +22,17 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) {
+        setOpenMobile(false);
+      }
     };
-    
+
     handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const toggleSidebar = () => setIsOpen(!isOpen);
+  const toggleSidebar = () => setIsOpen((prev) => !prev);
   const openSidebar = () => setIsOpen(true);
   const closeSidebar = () => setIsOpen(false);
 
