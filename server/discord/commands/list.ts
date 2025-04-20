@@ -549,7 +549,15 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
               // Get the emoji for this rank if it exists
               if (playerRank && rankEmojiMap[playerRank.name]) {
-                rankEmoji = " " + rankEmojiMap[playerRank.name];
+                const emojiId = rankEmojiMap[playerRank.name];
+                const emoji = interaction.client.emojis.cache.get(emojiId); // Fetch emoji from client
+
+                if (emoji) {
+                  rankEmoji = ` ${emoji}`; // Use the emoji object
+                } else {
+                  logger.warn(`Emoji with ID ${emojiId} not found.`);
+                  rankEmoji = ``; // Or a default text representation
+                }
               }
 
               return `${index + 1}. ${entry.player.username} [${playerRank.name}${rankEmoji}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
@@ -925,7 +933,15 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
               // Get the emoji for this rank if it exists
               if (playerRank && rankEmojiMap[playerRank.name]) {
-                rankEmoji = " " + rankEmojiMap[playerRank.name];
+                const emojiId = rankEmojiMap[playerRank.name];
+                const emoji = interaction.client.emojis.cache.get(emojiId); // Fetch emoji from client
+
+                if (emoji) {
+                  rankEmoji = ` ${emoji}`; // Use the emoji object
+                } else {
+                  logger.warn(`Emoji with ID ${emojiId} not found.`);
+                  rankEmoji = ``; // Or a default text representation
+                }
               }
 
               return `${index + 1}. ${entry.player.username} [${playerRank.name}${rankEmoji}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
