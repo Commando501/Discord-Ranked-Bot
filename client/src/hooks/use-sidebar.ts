@@ -2,7 +2,7 @@
 import { useContext } from 'react';
 import { SidebarContext } from '@/components/ui/sidebar';
 
-export const useSidebar = () => {
+export function useSidebar() {
   const context = useContext(SidebarContext);
   
   if (!context) {
@@ -10,4 +10,4 @@ export const useSidebar = () => {
   }
   
   return context;
-};
+}
