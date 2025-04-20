@@ -1,4 +1,21 @@
 
+### 2025-07-01 12:30:00 UTC
+**Type**: Bug Fix
+**Files Modified**: 
+- `client/src/hooks/use-mobile.tsx`
+
+**Changes**:
+- Added `useMobile` export as an alias to the existing `useIsMobile` function
+- Fixed import error in layout components using this hook
+- Resolved "No matching export in 'client/src/hooks/use-mobile.tsx' for import 'useMobile'" error
+
+**Purpose**: Fix module import error that was preventing the application from starting
+
+**Testing**: Verified that the application starts correctly after adding the missing export
+
+**Dependencies Affected**: None
+
+
 ### 2025-07-01 00:00:00 UTC
 **Type**: Bug Fix
 **Files Modified**: 
