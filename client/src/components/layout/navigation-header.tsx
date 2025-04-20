@@ -1,44 +1,23 @@
-import { Link } from "react-router-dom";
-import { Menu, X, LogOut } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
-import ThemeToggle from "@/components/theme-toggle";
-import { useSidebar } from "@/hooks/use-sidebar";
-import { useMobile } from "@/hooks/use-mobile";
-import { useAuth } from "@/contexts/auth-context";
+import { GamepadIcon, Settings, HelpCircle } from "lucide-react";
 
 export default function NavigationHeader() {
-  const { toggleSidebar } = useSidebar();
-  const isMobile = useMobile();
-  const { user, logout } = useAuth();
-
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 max-w-screen-2xl items-center">
-        <div className="mr-4 flex">
-          <Button variant="ghost" onClick={toggleSidebar} className="mr-2 px-2 text-base">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle Menu</span>
-          </Button>
-          <Link to="/" className="flex items-center space-x-2">
-            <span className="font-bold">Late League Bot</span>
-          </Link>
+    <header className="bg-[#2F3136] px-4 py-3 border-b border-black/20 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="text-[#5865F2] text-2xl">
+            <GamepadIcon />
+          </div>
+          <h1 className="text-white font-bold text-xl">MatchMaker Bot</h1>
         </div>
-        <div className="flex flex-1 items-center justify-end space-x-2">
-          <nav className="flex items-center">
-            <div className="flex items-center gap-2">
-              {user && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm hidden md:inline-block">Logged in as {user.username}</span>
-                  <Button variant="ghost" size="sm" onClick={logout}>
-                    <LogOut className="h-4 w-4 mr-1" />
-                    <span className="hidden md:inline-block">Logout</span>
-                  </Button>
-                </div>
-              )}
-              <ThemeToggle />
-            </div>
-          </nav>
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" size="icon" className="text-[#B9BBBE] hover:text-white">
+            <Settings className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="text-[#B9BBBE] hover:text-white">
+            <HelpCircle className="h-5 w-5" />
+          </Button>
         </div>
       </div>
     </header>
