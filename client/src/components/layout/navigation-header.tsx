@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/auth-context";
 import { useTheme } from "@/hooks/use-theme";
+import { useSidebar } from "@/contexts/sidebar-context";
 
 export default function NavigationHeader() {
   const isMobile = useIsMobile();
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { toggleSidebar } = useSidebar();
 
   // Create a simple theme toggle component
   const ThemeToggle = () => {
@@ -36,17 +38,7 @@ export default function NavigationHeader() {
           <Button 
             variant="ghost" 
             className="mr-2 px-2 text-base"
-            onClick={() => {
-              // Handle sidebar toggle if available
-              try {
-                const sidebarToggle = document.querySelector('[data-sidebar-toggle]');
-                if (sidebarToggle) {
-                  (sidebarToggle as HTMLButtonElement).click();
-                }
-              } catch (error) {
-                console.log('Sidebar toggle not available');
-              }
-            }}
+            onClick={toggleSidebar}
           >
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle Menu</span>
