@@ -838,8 +838,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               );
 
               // Print all thresholds for debugging
-              const thresholds = sortedTiers.map(
-                tier`All tier thresholds for update in ascending order: ${thresholds}`,
+              const thresholds = sortedTiers
+                .map((tier) => `${tier.name}: ${tier.mmrThreshold}`)
+                .join(", ");
+              logger.info(
+                `All tier thresholds for update in ascending order: ${thresholds}`,
               );
 
               // Find the appropriate tier by checking MMR ranges explicitly
