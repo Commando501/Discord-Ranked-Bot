@@ -16,8 +16,8 @@ export async function execute(interaction: any) {
   await interaction.deferReply();
   
   try {
-    // Get all players from storage
-    const allPlayers = await storage.listAllPlayers();
+    // Get all active players from storage (using available method)
+    const allPlayers = await storage.listTopPlayers(1000); // Get up to 1000 players to ensure we have all
     
     // Get bot config to access rank tiers
     const botConfig = await storage.getBotConfig();
