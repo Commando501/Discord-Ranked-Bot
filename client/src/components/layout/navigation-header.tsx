@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/theme-toggle";
@@ -42,24 +42,5 @@ export default function NavigationHeader() {
         </div>
       </div>
     </header>
-  );
-}
-import React from "react";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { useSidebar } from "@/hooks/use-sidebar";
-
-export default function NavigationHeader() {
-  return (
-    <SidebarProvider>
-      <header className="flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-[60px] lg:px-6">
-        <SidebarTrigger />
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold">Late League Dashboard</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          {/* Other navigation items like profile, notifications, etc. */}
-        </div>
-      </header>
-    </SidebarProvider>
   );
 }
