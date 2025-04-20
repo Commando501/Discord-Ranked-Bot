@@ -6,6 +6,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  Client,
 } from "discord.js";
 import { QueueService } from "../../bot/services/queueService";
 import { MatchService } from "../../bot/services/matchService";
@@ -48,23 +49,32 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
         // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions (Gold 1, Gold 2, Gold 3)
         try {
-          const fs = require('fs');
-          const path = require('path');
-          const configPath = path.join(process.cwd(), 'discordbot-config.json');
+          const fs = require("fs");
+          const path = require("path");
+          const configPath = path.join(process.cwd(), "discordbot-config.json");
 
           if (fs.existsSync(configPath)) {
-            const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-            if (configData.seasonManagement && configData.seasonManagement.rankTiers && 
-                configData.seasonManagement.rankTiers.length > 0) {
+            const configData = JSON.parse(fs.readFileSync(configPath, "utf8"));
+            if (
+              configData.seasonManagement &&
+              configData.seasonManagement.rankTiers &&
+              configData.seasonManagement.rankTiers.length > 0
+            ) {
               // Replace with config ranks if they exist - this ensures we use the complete set with subdivisions
               rankTiers = configData.seasonManagement.rankTiers;
-              logger.info(`Using ${rankTiers.length} detailed rank tiers from config file for list command`);
+              logger.info(
+                `Using ${rankTiers.length} detailed rank tiers from config file for list command`,
+              );
               // Log all tier names for debugging
-              logger.info(`Available tiers: ${rankTiers.map(t => t.name).join(', ')}`);
+              logger.info(
+                `Available tiers: ${rankTiers.map((t) => t.name).join(", ")}`,
+              );
             }
           }
         } catch (configError) {
-          logger.error(`Error loading detailed rank tiers from config: ${configError}`);
+          logger.error(
+            `Error loading detailed rank tiers from config: ${configError}`,
+          );
         }
 
         // COMPLETE ALGORITHM REWRITE for tier determination:
@@ -72,10 +82,14 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         // The lower bound is the previous tier's threshold + 1 or 0 for the lowest tier
 
         // Sort tiers by threshold in ascending order
-        const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+        const sortedTiers = [...rankTiers].sort(
+          (a, b) => a.mmrThreshold - b.mmrThreshold,
+        );
 
         // Print all thresholds for debugging
-        const thresholds = sortedTiers.map(tier => `${tier.name}: ${tier.mmrThreshold}`).join(', ');
+        const thresholds = sortedTiers
+          .map((tier) => `${tier.name}: ${tier.mmrThreshold}`)
+          .join(", ");
         logger.info(`All tier thresholds in ascending order: ${thresholds}`);
 
         // Find the appropriate tier by checking MMR ranges explicitly
@@ -90,11 +104,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           const upperBound = currentTier.mmrThreshold;
           const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
 
-          logger.info(`Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound} against MMR ${entry.player.mmr}`);
+          logger.info(
+            `Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound} against MMR ${entry.player.mmr}`,
+          );
 
-          if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
+          if (
+            entry.player.mmr >= lowerBound &&
+            entry.player.mmr <= upperBound
+          ) {
             foundTier = currentTier;
-            logger.info(`MATCH FOUND: Player MMR ${entry.player.mmr} belongs to ${foundTier.name}`);
+            logger.info(
+              `MATCH FOUND: Player MMR ${entry.player.mmr} belongs to ${foundTier.name}`,
+            );
             logger.info(`This tier's range is ${lowerBound} to ${upperBound}`);
             break;
           }
@@ -103,9 +124,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         // If tier found, use it
         if (foundTier) {
           playerRank = foundTier;
-          logger.info(`FINAL: Selected rank "${playerRank.name}" for player with MMR ${entry.player.mmr}.`);
+          logger.info(
+            `FINAL: Selected rank "${playerRank.name}" for player with MMR ${entry.player.mmr}.`,
+          );
         }
-
 
         // If no tier found, use the lowest one
         if (!playerRank && sortedTiers.length > 0) {
@@ -114,7 +136,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
         // Fallback to getPlayerRank if needed
         if (!playerRank) {
-          const { getPlayerRank } = await import('@shared/rankSystem');
+          const { getPlayerRank } = await import("@shared/rankSystem");
           playerRank = await getPlayerRank(entry.player.mmr, rankTiers);
         }
 
@@ -123,32 +145,40 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
         // Map rank names to emoji IDs
         const rankEmojiMap: Record<string, string> = {
-          "Iron 1": "<:Iron1:1363039589538861057>",
-          "Iron 2": "<:Iron2:1363039575013851156>",
-          "Bronze 3": "<:Bronze3:1363039607536615454>",
-          "Bronze 2": "<:Bronze2:1363039615044288522>",
-          "Bronze 1": "<:Bronze1:1363039622195839107>",
-          "Silver 3": "<:Silver3:1363039663228719124>",
-          "Silver 2": "<:Silver2:1363039669922824344>",
-          "Silver 1": "<:Silver1:1363039677724233849>",
-          "Gold 3": "<:Gold3:1363042192196632666>",
-          "Gold 2": "<:Gold2:1363042203340902530>",
-          "Gold 1": "<:Gold1:1363042214715986041>",
-          "Platinum 3": "<:Platinum3:1363039687358287872>",
-          "Platinum 2": "<:Platinum2:1363039694878806186>",
-          "Platinum 1": "<:Platinum1:1363039703909138502>",
-          "Diamond 3": "<:Diamond3:1363039725136379955>",
-          "Diamond 2": "<:Diamond2:1363039734028435618>",
-          "Diamond 1": "<:Diamond1:1363039742249402428>",
-          "Masters 3": "<:Masters3:1363039762142986350>",
-          "Masters 2": "<:Masters2:1363039770342723604>",
-          "Masters 1": "<:Masters1:1363039778580205619>",
-          "Challenger": "<:Challenger:1363039996868558879>",
+          "Iron 1": "1363039589538861057",
+          "Iron 2": "1363039575013851156",
+          "Bronze 3": "1363039607536615454",
+          "Bronze 2": "1363039615044288522",
+          "Bronze 1": "1363039622195839107",
+          "Silver 3": "1363039663228719124",
+          "Silver 2": "1363039669922824344",
+          "Silver 1": "1363039677724233849",
+          "Gold 3": "1363042192196632666",
+          "Gold 2": "1363042203340902530",
+          "Gold 1": "1363042214715986041",
+          "Platinum 3": "1363039687358287872",
+          "Platinum 2": "1363039694878806186",
+          "Platinum 1": "1363039703909138502",
+          "Diamond 3": "1363039725136379955",
+          "Diamond 2": "1363039734028435618",
+          "Diamond 1": "1363039742249402428",
+          "Masters 3": "1363039762142986350",
+          "Masters 2": "1363039770342723604",
+          "Masters 1": "1363039778580205619",
+          Challenger: "1363039996868558879",
         };
 
         // Get the emoji for this rank if it exists
         if (playerRank && rankEmojiMap[playerRank.name]) {
-          rankEmoji = " " + rankEmojiMap[playerRank.name];
+          const emojiId = rankEmojiMap[playerRank.name];
+          const emoji = interaction.client.emojis.cache.get(emojiId); // Fetch emoji from client
+
+          if (emoji) {
+            rankEmoji = ` ${emoji}`; // Use the emoji object
+          } else {
+            logger.warn(`Emoji with ID ${emojiId} not found.`);
+            rankEmoji = ``; // Or a default text representation
+          }
         }
 
         return `${index + 1}. ${entry.player.username} [${playerRank.name}${rankEmoji}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
@@ -381,23 +411,37 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
             // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions
             try {
-              const fs = require('fs');
-              const path = require('path');
-              const configPath = path.join(process.cwd(), 'discordbot-config.json');
+              const fs = require("fs");
+              const path = require("path");
+              const configPath = path.join(
+                process.cwd(),
+                "discordbot-config.json",
+              );
 
               if (fs.existsSync(configPath)) {
-                const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-                if (configData.seasonManagement && configData.seasonManagement.rankTiers && 
-                    configData.seasonManagement.rankTiers.length > 0) {
+                const configData = JSON.parse(
+                  fs.readFileSync(configPath, "utf8"),
+                );
+                if (
+                  configData.seasonManagement &&
+                  configData.seasonManagement.rankTiers &&
+                  configData.seasonManagement.rankTiers.length > 0
+                ) {
                   // Replace with config ranks if they exist - this ensures we use the complete set with subdivisions
                   rankTiers = configData.seasonManagement.rankTiers;
-                  logger.info(`Using ${rankTiers.length} detailed rank tiers from config file for list update`);
+                  logger.info(
+                    `Using ${rankTiers.length} detailed rank tiers from config file for list update`,
+                  );
                   // Log all tier names for debugging
-                  logger.info(`Available tiers for update: ${rankTiers.map(t => t.name).join(', ')}`);
+                  logger.info(
+                    `Available tiers for update: ${rankTiers.map((t) => t.name).join(", ")}`,
+                  );
                 }
               }
             } catch (configError) {
-              logger.error(`Error loading detailed rank tiers from config: ${configError}`);
+              logger.error(
+                `Error loading detailed rank tiers from config: ${configError}`,
+              );
             }
 
             // Build queue list with rank info
@@ -411,11 +455,17 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               // The lower bound is the previous tier's threshold + 1 or 0 for the lowest tier
 
               // Sort tiers by threshold in ascending order
-              const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+              const sortedTiers = [...rankTiers].sort(
+                (a, b) => a.mmrThreshold - b.mmrThreshold,
+              );
 
               // Print all thresholds for debugging
-              const thresholds = sortedTiers.map(tier => `${tier.name}: ${tier.mmrThreshold}`).join(', ');
-              logger.info(`All tier thresholds for update in ascending order: ${thresholds}`);
+              const thresholds = sortedTiers
+                .map((tier) => `${tier.name}: ${tier.mmrThreshold}`)
+                .join(", ");
+              logger.info(
+                `All tier thresholds for update in ascending order: ${thresholds}`,
+              );
 
               // Find the appropriate tier by checking MMR ranges explicitly
               let foundTier = null;
@@ -429,12 +479,21 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 const upperBound = currentTier.mmrThreshold;
                 const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
 
-                logger.info(`Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound} against MMR ${entry.player.mmr}`);
+                logger.info(
+                  `Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound} against MMR ${entry.player.mmr}`,
+                );
 
-                if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
+                if (
+                  entry.player.mmr >= lowerBound &&
+                  entry.player.mmr <= upperBound
+                ) {
                   foundTier = currentTier;
-                  logger.info(`MATCH FOUND: Player MMR ${entry.player.mmr} belongs to ${foundTier.name}`);
-                  logger.info(`This tier's range is ${lowerBound} to ${upperBound}`);
+                  logger.info(
+                    `MATCH FOUND: Player MMR ${entry.player.mmr} belongs to ${foundTier.name}`,
+                  );
+                  logger.info(
+                    `This tier's range is ${lowerBound} to ${upperBound}`,
+                  );
                   break;
                 }
               }
@@ -442,7 +501,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               // If tier found, use it
               if (foundTier) {
                 playerRank = foundTier;
-                logger.info(`FINAL UPDATE: Selected rank "${playerRank.name}" for player with MMR ${entry.player.mmr}.`);
+                logger.info(
+                  `FINAL UPDATE: Selected rank "${playerRank.name}" for player with MMR ${entry.player.mmr}.`,
+                );
               }
 
               // If no tier found, use the lowest one
@@ -452,7 +513,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
               // Fallback to getPlayerRank if needed
               if (!playerRank) {
-                const { getPlayerRank } = await import('@shared/rankSystem');
+                const { getPlayerRank } = await import("@shared/rankSystem");
                 playerRank = await getPlayerRank(entry.player.mmr, rankTiers);
               }
 
@@ -461,27 +522,27 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
               // Map rank names to emoji IDs
               const rankEmojiMap: Record<string, string> = {
-                'Iron 1': '<:Iron1:1363039589538861057>',
-                'Iron 2': '<:Iron2:1363039575013851156>',
-                'Bronze 3': '<:Bronze3:1363039607536615454>',
-                'Bronze 2': '<:Bronze2:1363039615044288522>',
-                'Bronze 1': '<:Bronze1:1363039622195839107>',
-                'Silver 3': '<:Silver3:1363039663228719124>',
-                'Silver 2': '<:Silver2:1363039669922824344>',
-                'Silver 1': '<:Silver1:1363039677724233849>',
-                'Gold 3': '<:Gold3:1363042192196632666>',
-                'Gold 2': '<:Gold2:1363042203340902530>',
-                'Gold 1': '<:Gold1:1363042214715986041>',
-                'Platinum 3': '<:Platinum3:1363039687358287872>',
-                'Platinum 2': '<:Platinum2:1363039694878806186>',
-                'Platinum 1': '<:Platinum1:1363039703909138502>',
-                'Diamond 3': '<:Diamond3:1363039725136379955>',
-                'Diamond 2': '<:Diamond2:1363039734028435618>',
-                'Diamond 1': '<:Diamond1:1363039742249402428>',
-                'Masters 3': '<:Masters3:1363039762142986350>',
-                'Masters 2': '<:Masters2:1363039770342723604>',
-                'Masters 1': '<:Masters1:1363039778580205619>',
-                'Challenger': '<:Challenger:1363039996868558879>'
+                "Iron 1": "<:Iron1:1363039589538861057>",
+                "Iron 2": "<:Iron2:1363039575013851156>",
+                "Bronze 3": "<:Bronze3:1363039607536615454>",
+                "Bronze 2": "<:Bronze2:1363039615044288522>",
+                "Bronze 1": "<:Bronze1:1363039622195839107>",
+                "Silver 3": "<:Silver3:1363039663228719124>",
+                "Silver 2": "<:Silver2:1363039669922824344>",
+                "Silver 1": "<:Silver1:1363039677724233849>",
+                "Gold 3": "<:Gold3:1363042192196632666>",
+                "Gold 2": "<:Gold2:1363042203340902530>",
+                "Gold 1": "<:Gold1:1363042214715986041>",
+                "Platinum 3": "<:Platinum3:1363039687358287872>",
+                "Platinum 2": "<:Platinum2:1363039694878806186>",
+                "Platinum 1": "<:Platinum1:1363039703909138502>",
+                "Diamond 3": "<:Diamond3:1363039725136379955>",
+                "Diamond 2": "<:Diamond2:1363039734028435618>",
+                "Diamond 1": "<:Diamond1:1363039742249402428>",
+                "Masters 3": "<:Masters3:1363039762142986350>",
+                "Masters 2": "<:Masters2:1363039770342723604>",
+                "Masters 1": "<:Masters1:1363039778580205619>",
+                Challenger: "<:Challenger:1363039996868558879>",
               };
 
               // Get the emoji for this rank if it exists
@@ -725,23 +786,37 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
             // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions
             try {
-              const fs = require('fs');
-              const path = require('path');
-              const configPath = path.join(process.cwd(), 'discordbot-config.json');
+              const fs = require("fs");
+              const path = require("path");
+              const configPath = path.join(
+                process.cwd(),
+                "discordbot-config.json",
+              );
 
               if (fs.existsSync(configPath)) {
-                const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-                if (configData.seasonManagement && configData.seasonManagement.rankTiers && 
-                    configData.seasonManagement.rankTiers.length > 0) {
+                const configData = JSON.parse(
+                  fs.readFileSync(configPath, "utf8"),
+                );
+                if (
+                  configData.seasonManagement &&
+                  configData.seasonManagement.rankTiers &&
+                  configData.seasonManagement.rankTiers.length > 0
+                ) {
                   // Replace with config ranks if they exist - this ensures we use the complete set with subdivisions
                   rankTiers = configData.seasonManagement.rankTiers;
-                  logger.info(`Using ${rankTiers.length} detailed rank tiers from config file for list update`);
+                  logger.info(
+                    `Using ${rankTiers.length} detailed rank tiers from config file for list update`,
+                  );
                   // Log all tier names for debugging
-                  logger.info(`Available tiers for update: ${rankTiers.map(t => t.name).join(', ')}`);
+                  logger.info(
+                    `Available tiers for update: ${rankTiers.map((t) => t.name).join(", ")}`,
+                  );
                 }
               }
             } catch (configError) {
-              logger.error(`Error loading detailed rank tiers from config: ${configError}`);
+              logger.error(
+                `Error loading detailed rank tiers from config: ${configError}`,
+              );
             }
 
             // Build queue list with rank info
@@ -755,11 +830,17 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               // The lower bound is the previous tier's threshold + 1 or 0 for the lowest tier
 
               // Sort tiers by threshold in ascending order
-              const sortedTiers = [...rankTiers].sort((a, b) => a.mmrThreshold - b.mmrThreshold);
+              const sortedTiers = [...rankTiers].sort(
+                (a, b) => a.mmrThreshold - b.mmrThreshold,
+              );
 
               // Print all thresholds for debugging
-              const thresholds = sortedTiers.map(tier => `${tier.name}: ${tier.mmrThreshold}`).join(', ');
-              logger.info(`All tier thresholds for update in ascending order: ${thresholds}`);
+              const thresholds = sortedTiers
+                .map((tier) => `${tier.name}: ${tier.mmrThreshold}`)
+                .join(", ");
+              logger.info(
+                `All tier thresholds for update in ascending order: ${thresholds}`,
+              );
 
               // Find the appropriate tier by checking MMR ranges explicitly
               let foundTier = null;
@@ -773,12 +854,21 @@ export async function execute(interaction: ChatInputCommandInteraction) {
                 const upperBound = currentTier.mmrThreshold;
                 const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
 
-                logger.info(`Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound} against MMR ${entry.player.mmr}`);
+                logger.info(
+                  `Checking tier ${currentTier.name}: Range ${lowerBound} to ${upperBound} against MMR ${entry.player.mmr}`,
+                );
 
-                if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
+                if (
+                  entry.player.mmr >= lowerBound &&
+                  entry.player.mmr <= upperBound
+                ) {
                   foundTier = currentTier;
-                  logger.info(`MATCH FOUND: Player MMR ${entry.player.mmr} belongs to ${foundTier.name}`);
-                  logger.info(`This tier's range is ${lowerBound} to ${upperBound}`);
+                  logger.info(
+                    `MATCH FOUND: Player MMR ${entry.player.mmr} belongs to ${foundTier.name}`,
+                  );
+                  logger.info(
+                    `This tier's range is ${lowerBound} to ${upperBound}`,
+                  );
                   break;
                 }
               }
@@ -786,7 +876,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               // If tier found, use it
               if (foundTier) {
                 playerRank = foundTier;
-                logger.info(`FINAL UPDATE: Selected rank "${playerRank.name}" for player with MMR ${entry.player.mmr}.`);
+                logger.info(
+                  `FINAL UPDATE: Selected rank "${playerRank.name}" for player with MMR ${entry.player.mmr}.`,
+                );
               }
 
               // If no tier found, use the lowest one
@@ -796,7 +888,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
               // Fallback to getPlayerRank if needed
               if (!playerRank) {
-                const { getPlayerRank } = await import('@shared/rankSystem');
+                const { getPlayerRank } = await import("@shared/rankSystem");
                 playerRank = await getPlayerRank(entry.player.mmr, rankTiers);
               }
 
@@ -805,27 +897,27 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
               // Map rank names to emoji IDs
               const rankEmojiMap: Record<string, string> = {
-                'Iron 1': '<:Iron1:1363039589538861057>',
-                'Iron 2': '<:Iron2:1363039575013851156>',
-                'Bronze 3': '<:Bronze3:1363039607536615454>',
-                'Bronze 2': '<:Bronze2:1363039615044288522>',
-                'Bronze 1': '<:Bronze1:1363039622195839107>',
-                'Silver 3': '<:Silver3:1363039663228719124>',
-                'Silver 2': '<:Silver2:1363039669922824344>',
-                'Silver 1': '<:Silver1:1363039677724233849>',
-                'Gold 3': '<:Gold3:1363042192196632666>',
-                'Gold 2': '<:Gold2:1363042203340902530>',
-                'Gold 1': '<:Gold1:1363042214715986041>',
-                'Platinum 3': '<:Platinum3:1363039687358287872>',
-                'Platinum 2': '<:Platinum2:1363039694878806186>',
-                'Platinum 1': '<:Platinum1:1363039703909138502>',
-                'Diamond 3': '<:Diamond3:1363039725136379955>',
-                'Diamond 2': '<:Diamond2:1363039734028435618>',
-                'Diamond 1': '<:Diamond1:1363039742249402428>',
-                'Masters 3': '<:Masters3:1363039762142986350>',
-                'Masters 2': '<:Masters2:1363039770342723604>',
-                'Masters 1': '<:Masters1:1363039778580205619>',
-                'Challenger': '<:Challenger:1363039996868558879>'
+                "Iron 1": "<:Iron1:1363039589538861057>",
+                "Iron 2": "<:Iron2:1363039575013851156>",
+                "Bronze 3": "<:Bronze3:1363039607536615454>",
+                "Bronze 2": "<:Bronze2:1363039615044288522>",
+                "Bronze 1": "<:Bronze1:1363039622195839107>",
+                "Silver 3": "<:Silver3:1363039663228719124>",
+                "Silver 2": "<:Silver2:1363039669922824344>",
+                "Silver 1": "<:Silver1:1363039677724233849>",
+                "Gold 3": "<:Gold3:1363042192196632666>",
+                "Gold 2": "<:Gold2:1363042203340902530>",
+                "Gold 1": "<:Gold1:1363042214715986041>",
+                "Platinum 3": "<:Platinum3:1363039687358287872>",
+                "Platinum 2": "<:Platinum2:1363039694878806186>",
+                "Platinum 1": "<:Platinum1:1363039703909138502>",
+                "Diamond 3": "<:Diamond3:1363039725136379955>",
+                "Diamond 2": "<:Diamond2:1363039734028435618>",
+                "Diamond 1": "<:Diamond1:1363039742249402428>",
+                "Masters 3": "<:Masters3:1363039762142986350>",
+                "Masters 2": "<:Masters2:1363039770342723604>",
+                "Masters 1": "<:Masters1:1363039778580205619>",
+                Challenger: "<:Challenger:1363039996868558879>",
               };
 
               // Get the emoji for this rank if it exists
