@@ -1,4 +1,5 @@
 import * as React from "react"
+import { createContext, useState, useCallback, useMemo } from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
@@ -73,7 +74,7 @@ interface SidebarProps {
   children: React.ReactNode;
 }
 
-export function Sidebar({ className, children }: SidebarProps) {
+function SidebarComponent({ className, children }: SidebarProps) {
   const { isOpen } = useMemo(() => {
     try {
       // Use a safe way to access context in case component is used outside provider
@@ -593,7 +594,7 @@ const SidebarMenuSubButton = React.forwardRef<
 SidebarMenuSubButton.displayName = "SidebarMenuSubButton"
 
 export {
-  Sidebar,
+  SidebarComponent as Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
@@ -612,9 +613,9 @@ export {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarProvider,
   SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
-  //useSidebar,
+  SidebarContext,
+  SidebarProvider
 }
