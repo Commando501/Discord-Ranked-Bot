@@ -1,5 +1,22 @@
 # PATCH LOG
 
+## 2024-06-13 00:15 UTC
+### Files Modified:
+- server/discord/commands/index.ts
+- server/discord/commands/leaderboard.ts (new)
+
+### Changes:
+- Added new `/leaderboard` command to display players ranked by MMR
+- Implemented pagination system with interactive buttons to navigate through player list
+- Added player rank, MMR, and win/loss statistics to the leaderboard display
+- Integrated rank emojis from the guild's emoji collection if available
+- Limited display to 10 players per page for optimal readability
+
+### Testing:
+- Verified pagination controls work correctly for navigating between pages
+- Confirmed ranks display correctly with proper sorting by MMR
+- Tested with various page sizes to ensure proper display of player information
+
 ## 2024-06-12 16:05 UTC
 ### Files Modified:
 - server/discord/commands/list.ts
