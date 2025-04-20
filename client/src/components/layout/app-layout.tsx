@@ -1,26 +1,26 @@
-import { ReactNode } from "react";
+
+import React from "react";
+import { Outlet } from "react-router-dom";
+import { SidebarProvider, Sidebar, SidebarContent, SidebarInset } from "@/components/ui/sidebar";
 import NavigationHeader from "./navigation-header";
-import Sidebar from "./sidebar";
-import StatusBar from "./status-bar";
+import Sidebar2 from "./sidebar";
 
-interface AppLayoutProps {
-  children: ReactNode;
-}
-
-export default function AppLayout({ children }: AppLayoutProps) {
+export default function AppLayout() {
   return (
-    <div className="flex flex-col h-screen bg-[#36393F] text-[#DCDDDE]">
-      <NavigationHeader />
-      
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
+    <SidebarProvider>
+      <div className="flex min-h-screen">
+        <Sidebar>
+          <SidebarContent>
+            <Sidebar2 />
+          </SidebarContent>
+        </Sidebar>
+        <SidebarInset className="flex flex-col">
+          <NavigationHeader />
+          <div className="flex-1 overflow-auto p-4 md:p-6">
+            <Outlet />
+          </div>
+        </SidebarInset>
       </div>
-      
-      <StatusBar />
-    </div>
+    </SidebarProvider>
   );
 }
