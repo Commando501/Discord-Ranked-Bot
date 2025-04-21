@@ -218,6 +218,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         usage: "/votekick @user",
       },
       {
+        name: "/help",
+        description: "Shows all available bot commands and their usage",
+        usage: "/help",
+      },
+      {
+        name: "/leaderboard",
+        description: "View the ranked leaderboard of players",
+        usage: "/leaderboard [page]",
+      },
+      {
+        name: "/config",
+        description: "Shows the current bot configuration",
+        usage: "/config [matchmaking|mmr|rules]",
+      },
+      {
         name: "/forcematch",
         description: "Admin: Force create a match",
         usage: "/forcematch @user1 @user2...",
@@ -231,6 +246,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: "/resetqueue",
         description: "Admin: Reset the queue",
         usage: "/resetqueue",
+      },
+      {
+        name: "/adminqueue",
+        description: "Admin queue management commands",
+        usage: "/adminqueue",
       },
     ];
 
