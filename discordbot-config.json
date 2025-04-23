@@ -37,7 +37,10 @@
     "streakSettings": {
       "threshold": 3,
       "bonusPerWin": 10,
-      "maxBonus": 20
+      "maxBonus": 20,
+      "lossThreshold": 3,
+      "penaltyPerLoss": 10,
+      "maxLossPenalty": 20
     }
   },
   "seasonManagement": {
