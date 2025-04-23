@@ -1946,6 +1946,7 @@ import { withTransaction } from '../../db';
 export async function createMatchWithPlayersTransaction(
   playerIds: number[],
   guild: Guild,
+  storage: IStorage,
   tx?: any
 ): Promise<{ success: boolean; message: string; matchId?: number }> {
   try {
@@ -1957,13 +1958,13 @@ export async function createMatchWithPlayersTransaction(
     }
 
     // Create match record within the transaction if provided
-    const match = await this.storage.createMatch({
+    const match = await storage.createMatch({
       status: "WAITING",
     }, tx);
 
     // Divide players into balanced teams
     const players = await Promise.all(
-      playerIds.map((id) => this.storage.getPlayer(id)),
+      playerIds.map((id) => storage.getPlayer(id)),
     );
     const validPlayers = players.filter(Boolean) as any[];
 
@@ -1979,7 +1980,7 @@ export async function createMatchWithPlayersTransaction(
       const avgMMR =
         teamIndex === 0 ? teamsData.team1MMR : teamsData.team2MMR;
 
-      const team = await this.storage.createTeam({
+      const team = await storage.createTeam({
         matchId: match.id,
         name: teamName,
         avgMMR,
@@ -1987,7 +1988,7 @@ export async function createMatchWithPlayersTransaction(
 
       // Add players to team within the transaction
       for (const player of teamPlayers) {
-        await this.storage.addPlayerToTeam({
+        await storage.addPlayerToTeam({
           teamId: team.id,
           playerId: player.id,
         }, tx);
@@ -1995,7 +1996,7 @@ export async function createMatchWithPlayersTransaction(
     }
 
     // Update match status within the transaction
-    await this.storage.updateMatch(match.id, { status: "ACTIVE" }, tx);
+    await storage.updateMatch(match.id, { status: "ACTIVE" }, tx);
 
     // Try to create a match channel if possible
     // Note: Discord channel creation happens outside the DB transaction
@@ -2054,7 +2055,7 @@ export async function createMatchWithPlayersTransaction(
 
         // Store channel and category IDs in the match record
         // Use the transaction if provided
-        await this.storage.updateMatch(match.id, {
+        await storage.updateMatch(match.id, {
           channelId: matchChannel.id,
           categoryId: matchCategory.id,
         }, tx);
@@ -2088,7 +2089,7 @@ export async function createMatchWithPlayersTransaction(
       }
 
       // Get the team names from our created teams - use the transaction if provided
-      const matchTeams = await this.storage.getMatchTeams(match.id, tx);
+      const matchTeams = await storage.getMatchTeams(match.id, tx);
       const team1Name = matchTeams[0]?.name || "Eagle";
       const team2Name = matchTeams[1]?.name || "Cobra";
 
@@ -2147,8 +2148,11 @@ export async function createMatchWithPlayersTransaction(
       // Continue without channel creation if it fails
     }
 
+    // Create a matchService instance for logging
+    const matchService = new MatchService(storage);
+    
     // Log the match creation event
-    await this.logEvent(
+    await matchService.logEvent(
       "Match Created",
       `Match #${match.id} has been created successfully.`,
       [

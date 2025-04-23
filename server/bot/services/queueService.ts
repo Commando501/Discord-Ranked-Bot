@@ -549,6 +549,7 @@ export class QueueService {
                     const matchResult = await createMatchWithPlayersTransaction(
                         matchPlayers,
                         guild,
+                        this.storage,
                         tx
                     );
                     
