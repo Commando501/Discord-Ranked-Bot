@@ -424,112 +424,95 @@ export class QueueService {
             // Set the lock
             this.matchCreationInProgress = true;
             
-            // Get a fresh list of queued players
-            const queuedPlayers = await this.storage.getQueuePlayers();
-            const botConfig = await this.storage.getBotConfig();
-            const minPlayersRequired =
-                botConfig.matchmaking.queueSizeLimits.min;
-
-            if (queuedPlayers.length < minPlayersRequired && !force) {
-                logger.info(
-                    `Not enough players in queue to create a match: ${queuedPlayers.length}/${minPlayersRequired}`,
-                );
-                return false;
-            }
-
-            // Filter out players that are already being processed in another concurrent match creation
-            const availablePlayers = queuedPlayers.filter(player => !this.playersBeingProcessed.has(player.playerId));
-            
-            if (availablePlayers.length < minPlayersRequired && !force) {
-                logger.info(
-                    `Not enough available players in queue (some are already being processed): ${availablePlayers.length}/${minPlayersRequired}`,
-                );
-                return false;
-            }
-            
-            let matchPlayers: number[] = [];
-            
-            // Check if we have an active group with all members in the queue
-            if (this.currentActiveGroup) {
-                const groupPlayers = Array.from(this.playerGroups.get(this.currentActiveGroup)!.keys());
-                
-                // Check if all group players are in the queue
-                const groupPlayersInQueue = groupPlayers.filter(
-                    playerId => availablePlayers.some(qp => qp.playerId === playerId)
-                );
-                
-                if (groupPlayersInQueue.length === minPlayersRequired && this.isGroupActive(this.currentActiveGroup)) {
-                    logger.info(`Found active group ${this.currentActiveGroup} with all ${minPlayersRequired} players in queue`);
-                    
-                    // Use the entire group for the match
-                    matchPlayers = groupPlayersInQueue;
-                    
-                    // Log player details
-                    const playerDetails = await Promise.all(
-                        matchPlayers.map(async id => {
-                            const player = await this.storage.getPlayer(id);
-                            const losses = this.getPlayerLosses(id, this.currentActiveGroup!);
-                            return `${player?.username || "Unknown"} (ID: ${id}, Losses: ${losses})`;
-                        })
-                    );
-                    logger.info(`Using group players for match: ${playerDetails.join(", ")}`);
-                }
-            }
-            
-            // If we don't have a full group, select players normally
-            if (matchPlayers.length < minPlayersRequired) {
-                // Sort by priority and join time
-                const sortedPlayers = availablePlayers.sort((a, b) => {
-                    if (a.priority !== b.priority) {
-                        return b.priority - a.priority; // Higher priority first
-                    }
-                    return a.joinedAt.getTime() - b.joinedAt.getTime(); // Earlier join time first
-                });
-                
-                // Take the required number of players
-                const matchPlayerEntries = sortedPlayers.slice(0, minPlayersRequired);
-                matchPlayers = matchPlayerEntries.map(entry => entry.playerId);
-                
-                // Create a new player group for these players
-                const groupId = this.createPlayerGroup(matchPlayers);
-                logger.info(`Created new player group ${groupId} for match`);
-            }
-            
-            // Mark these players as being processed
-            for (const playerId of matchPlayers) {
-                this.markPlayerAsProcessing(playerId);
-            }
-            
-            logger.info(`Selected ${matchPlayers.length} players for match creation: ${matchPlayers.join(', ')}`);
-
             // Import the transaction utility from the db module
             const { withTransaction } = await import('../../db');
             
-            // Perform the entire match creation within a transaction
+            // Perform the entire match creation process within a transaction
             return await withTransaction(async (tx) => {
                 try {
-                    // Double-check that all players are still in queue WITHIN the transaction
-                    for (const playerId of matchPlayers) {
-                        const stillInQueue = await this.storage.isPlayerInQueue(playerId, tx);
-                        if (!stillInQueue) {
-                            logger.warn(`Player ${playerId} was in queue when checked but is no longer present. Aborting match creation.`);
-                            // Transaction will be rolled back, no need to clean up manually
-                            throw new Error(`Player ${playerId} is no longer in queue`);
+                    // Get a fresh list of queued players - using transaction to ensure consistency
+                    const queuedPlayers = await this.storage.getQueuePlayers(tx);
+                    const botConfig = await this.storage.getBotConfig();
+                    const minPlayersRequired =
+                        botConfig.matchmaking.queueSizeLimits.min;
+
+                    if (queuedPlayers.length < minPlayersRequired && !force) {
+                        logger.info(
+                            `Not enough players in queue to create a match: ${queuedPlayers.length}/${minPlayersRequired}`,
+                        );
+                        return false;
+                    }
+
+                    // Filter out players that are already being processed in another concurrent match creation
+                    const availablePlayers = queuedPlayers.filter(player => !this.playersBeingProcessed.has(player.playerId));
+                    
+                    if (availablePlayers.length < minPlayersRequired && !force) {
+                        logger.info(
+                            `Not enough available players in queue (some are already being processed): ${availablePlayers.length}/${minPlayersRequired}`,
+                        );
+                        return false;
+                    }
+                    
+                    let matchPlayers: number[] = [];
+                    
+                    // Check if we have an active group with all members in the queue
+                    if (this.currentActiveGroup) {
+                        const groupPlayers = Array.from(this.playerGroups.get(this.currentActiveGroup)!.keys());
+                        
+                        // Check if all group players are in the queue
+                        const groupPlayersInQueue = groupPlayers.filter(
+                            playerId => availablePlayers.some(qp => qp.playerId === playerId)
+                        );
+                        
+                        if (groupPlayersInQueue.length === minPlayersRequired && this.isGroupActive(this.currentActiveGroup)) {
+                            logger.info(`Found active group ${this.currentActiveGroup} with all ${minPlayersRequired} players in queue`);
+                            
+                            // Use the entire group for the match
+                            matchPlayers = groupPlayersInQueue;
+                            
+                            // Log player details
+                            const playerDetails = await Promise.all(
+                                matchPlayers.map(async id => {
+                                    const player = await this.storage.getPlayer(id, tx);
+                                    const losses = this.getPlayerLosses(id, this.currentActiveGroup!);
+                                    return `${player?.username || "Unknown"} (ID: ${id}, Losses: ${losses})`;
+                                })
+                            );
+                            logger.info(`Using group players for match: ${playerDetails.join(", ")}`);
                         }
                     }
                     
-                    logger.info(`All ${matchPlayers.length} players confirmed to be in queue within transaction`);
-
-                    // Log the selected players with their details for debugging
-                    const playerDetails = await Promise.all(
-                        matchPlayers.map(async id => {
-                            const player = await this.storage.getPlayer(id);
-                            return `${player?.username || "Unknown"} (ID: ${id})`;
-                        })
-                    );
-                    logger.info(`Creating match with players: ${playerDetails.join(", ")}`);
-
-                    // Batch remove players from queue WITHIN the transaction - this ensures atomicity
+                    // If we don't have a full group, select players normally
+                    if (matchPlayers.length < minPlayersRequired) {
+                        // Sort by priority and join time
+                        const sortedPlayers = availablePlayers.sort((a, b) => {
+                            if (a.priority !== b.priority) {
+                                return b.priority - a.priority; // Higher priority first
+                            }
+                            return a.joinedAt.getTime() - b.joinedAt.getTime(); // Earlier join time first
+                        });
+                        
+                        // Take the required number of players
+                        const matchPlayerEntries = sortedPlayers.slice(0, minPlayersRequired);
+                        matchPlayers = matchPlayerEntries.map(entry => entry.playerId);
+                        
+                        // Create a new player group for these players
+                        const groupId = this.createPlayerGroup(matchPlayers);
+                        logger.info(`Created new player group ${groupId} for match`);
+                    }
+                    
+                    // *** CRITICAL CHANGE: Mark players as being processed AND remove them from the queue
+                    // before any other process can select them 
+                    
+                    // First mark these players as being processed in memory
+                    for (const playerId of matchPlayers) {
+                        this.markPlayerAsProcessing(playerId);
+                    }
+                    
+                    logger.info(`Selected ${matchPlayers.length} players for match creation: ${matchPlayers.join(', ')}`);
+                    
+                    // Immediately remove players from queue WITHIN the transaction - this ensures atomicity
+                    // and prevents other concurrent queue checks from selecting the same players
                     logger.info(`Batch removing ${matchPlayers.length} players from queue within transaction`);
                     try {
                         const batchRemoveResult = await batchRemovePlayersFromQueue(matchPlayers, tx);
@@ -541,6 +524,15 @@ export class QueueService {
                         logger.error(`Error in batch player removal: ${error}`);
                         throw error;
                     }
+
+                    // Log the selected players with their details for debugging
+                    const playerDetails = await Promise.all(
+                        matchPlayers.map(async id => {
+                            const player = await this.storage.getPlayer(id, tx);
+                            return `${player?.username || "Unknown"} (ID: ${id})`;
+                        })
+                    );
+                    logger.info(`Creating match with players: ${playerDetails.join(", ")}`);
 
                     // Import the transaction function from matchService
                     const { createMatchWithPlayersTransaction } = await import('./matchService');
@@ -567,8 +559,8 @@ export class QueueService {
                     logger.error(`Transaction failed during match creation: ${error}`);
                     throw error; // Re-throw to roll back the transaction
                 } finally {
-                    // Even with a transaction, we need to release the player processing markers
-                    for (const playerId of matchPlayers) {
+                    // In case of error, ensure we unmark all players we tried to process
+                    for (const playerId of matchPlayers || []) {
                         this.unmarkPlayerAsProcessing(playerId);
                     }
                 }
