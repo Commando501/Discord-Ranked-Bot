@@ -176,14 +176,94 @@ export class QueueDisplayService {
     });
 
     collector.on('collect', async (interaction) => {
-      // Handle using the same code as in the list command
-      // This will be handled by the discord button collector setup
-      // We don't need to handle it here since it will emit queue:updated events
-      // which will trigger a refresh
+      if (!interaction.isButton()) return;
       
-      // Just acknowledge the interaction to avoid errors
-      if (!interaction.deferred && !interaction.replied) {
-        await interaction.deferUpdate();
+      // Defer the reply to acknowledge the interaction
+      await interaction.deferReply({ ephemeral: true });
+      
+      try {
+        // Import necessary services
+        const { PlayerService } = await import('./playerService');
+        const playerService = new PlayerService(this.storage);
+        
+        // Get or create player for the user who clicked the button
+        const player = await playerService.getOrCreatePlayer({
+          id: interaction.user.id,
+          username: interaction.user.tag,
+          discriminator: '',
+          avatar: null
+        });
+        
+        if (interaction.customId === "join_queue") {
+          // Check if player is already in queue
+          const existingQueueEntry = await this.queueService.getPlayerQueueEntry(player.id);
+          
+          if (existingQueueEntry) {
+            await interaction.editReply({
+              content: "You are already in the matchmaking queue."
+            });
+            return;
+          }
+          
+          // Add player to queue
+          const queueResult = await this.queueService.addPlayerToQueue(player.id);
+          
+          if (!queueResult.success) {
+            await interaction.editReply({
+              content: `Failed to join queue: ${queueResult.message}`
+            });
+            return;
+          }
+          
+          // Get updated queue size
+          const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
+          
+          await interaction.editReply({
+            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`
+          });
+          
+          // Check if we have enough players to create a match
+          if (interaction.guild) {
+            await this.queueService.checkAndCreateMatch(interaction.guild);
+          }
+          
+        } else if (interaction.customId === "leave_queue") {
+          // Check if player is in queue
+          const queueEntry = await this.queueService.getPlayerQueueEntry(player.id);
+          
+          if (!queueEntry) {
+            await interaction.editReply({
+              content: "You are not currently in the matchmaking queue."
+            });
+            return;
+          }
+          
+          // Remove player from queue
+          const leaveResult = await this.queueService.removePlayerFromQueue(player.id);
+          
+          if (!leaveResult.success) {
+            await interaction.editReply({
+              content: `Failed to leave queue: ${leaveResult.message}`
+            });
+            return;
+          }
+          
+          // Get updated queue size
+          const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
+          
+          await interaction.editReply({
+            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`
+          });
+        }
+        
+        // Note: We don't need to manually refresh the queue display here
+        // since the queue service emits events that will trigger a refresh
+        
+      } catch (error) {
+        logger.error(`Error processing button interaction: ${error}`);
+        await interaction.editReply({
+          content: "An error occurred while processing your request. Please try again later."
+        });
       }
     });
 
