@@ -386,10 +386,27 @@ export class MatchService {
         return { success: false, message: "Match does not have enough teams" };
       }
 
-      // Find the winning team by name (case-insensitive)
-      const winningTeam = matchTeams.find(
-        (team) => team.name.toLowerCase() === winningTeamName.toLowerCase(),
-      );
+      // Find the winning team by name (case-insensitive) or by ID if a number was provided
+      let winningTeam;
+      
+      if (typeof winningTeamName === 'string') {
+        // If input is a string, search by name (case-insensitive)
+        winningTeam = matchTeams.find(
+          (team) => team.name.toLowerCase() === winningTeamName.toLowerCase(),
+        );
+      } else if (typeof winningTeamName === 'number') {
+        // If input is a number, try to find team by ID
+        winningTeam = matchTeams.find(
+          (team) => team.id === winningTeamName,
+        );
+      } else {
+        // Handle unexpected input types
+        logger.error(`Invalid winning team identifier: ${JSON.stringify(winningTeamName)}`);
+        return { 
+          success: false, 
+          message: `Invalid team identifier. Please provide a valid team name or ID.` 
+        };
+      }
 
       if (!winningTeam) {
         const validTeams = matchTeams.map((team) => team.name).join(", ");
