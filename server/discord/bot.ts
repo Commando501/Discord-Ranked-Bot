@@ -46,11 +46,22 @@ function setupEventHandlers(discordClient: Client) {
         const { storage } = await import('../storage');
         const queueDisplayService = QueueDisplayService.getInstance(storage);
         
-        // Force an initial refresh of the queue display
+        // Force an initial refresh of the queue display with more reliable timing
         setTimeout(() => {
           queueDisplayService.refreshQueueDisplay()
             .then(() => logger.info("Initial queue display refreshed"))
             .catch(err => logger.error(`Error refreshing initial queue display: ${err}`));
+            
+          // Set up a periodic refresh as a fallback mechanism
+          setInterval(() => {
+            try {
+              queueDisplayService.refreshQueueDisplay()
+                .then(() => logger.debug("Periodic queue display refresh completed"))
+                .catch(err => logger.error(`Error in periodic queue display refresh: ${err}`));
+            } catch (refreshError) {
+              logger.error(`Error in queue display refresh interval: ${refreshError}`);
+            }
+          }, 60000); // Refresh every minute as a fallback
         }, 5000); // Wait 5 seconds to ensure bot is fully ready
         
         logger.info("Queue display service initialized");

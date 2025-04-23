@@ -84,16 +84,34 @@ export class QueueDisplayService {
   }
 
   private setupEventListeners(): void {
-    // Listen for queue updates
-    const { EventEmitter, QUEUE_EVENTS, MATCH_EVENTS } = require('../utils/eventEmitter');
-    const emitter = EventEmitter.getInstance();
-    
-    // Register for queue events
-    emitter.on(QUEUE_EVENTS.UPDATED, () => this.refreshQueueDisplay());
-    emitter.on(MATCH_EVENTS.CREATED, () => this.refreshQueueDisplay());
-    emitter.on(MATCH_EVENTS.ENDED, () => this.refreshQueueDisplay());
-    
-    logger.info("Queue display event listeners registered");
+    try {
+      // Listen for queue updates with proper ES module imports
+      import('../utils/eventEmitter').then(({ EventEmitter, QUEUE_EVENTS, MATCH_EVENTS }) => {
+        const emitter = EventEmitter.getInstance();
+        
+        // Register for queue events
+        emitter.on(QUEUE_EVENTS.UPDATED, () => {
+          logger.info("Queue updated event received, refreshing display");
+          this.refreshQueueDisplay();
+        });
+        
+        emitter.on(MATCH_EVENTS.CREATED, () => {
+          logger.info("Match created event received, refreshing display");
+          this.refreshQueueDisplay();
+        });
+        
+        emitter.on(MATCH_EVENTS.ENDED, () => {
+          logger.info("Match ended event received, refreshing display");
+          this.refreshQueueDisplay();
+        });
+        
+        logger.info("Queue display event listeners registered successfully");
+      }).catch(err => {
+        logger.error(`Error importing event emitter: ${err}`);
+      });
+    } catch (error) {
+      logger.error(`Error setting up event listeners: ${error}`);
+    }
   }
 
   public async refreshQueueDisplay(): Promise<void> {

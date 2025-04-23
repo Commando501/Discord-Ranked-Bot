@@ -19,13 +19,6 @@ class GlobalEventEmitter extends EventEmitter {
   }
 }
 
-// Export the singleton instance getter
-module.exports = {
-  EventEmitter: GlobalEventEmitter,
-  QUEUE_EVENTS,
-  MATCH_EVENTS
-};
-
 // Export standard events names to avoid typos
 export const QUEUE_EVENTS = {
   UPDATED: 'queue:updated',
@@ -38,3 +31,6 @@ export const MATCH_EVENTS = {
   UPDATED: 'match:updated',
   ENDED: 'match:ended'
 };
+
+// Export the singleton instance getter
+export { GlobalEventEmitter as EventEmitter };

@@ -216,13 +216,16 @@ export class QueueService {
                     this.startQueueCheck();
                 }
 
-                // Emit queue updated event
+                // Emit queue updated event using ES modules
                 try {
-                    const { QUEUE_EVENTS } = require('../utils/eventEmitter');
-                    const events = require('../utils/eventEmitter').EventEmitter.getInstance();
-                    events.emit(QUEUE_EVENTS.UPDATED);
-                    events.emit(QUEUE_EVENTS.PLAYER_JOINED, playerId);
-                    logger.info(`Emitted queue updated event for player ${playerId} joining`);
+                    import('../utils/eventEmitter').then(({ EventEmitter, QUEUE_EVENTS }) => {
+                        const events = EventEmitter.getInstance();
+                        events.emit(QUEUE_EVENTS.UPDATED);
+                        events.emit(QUEUE_EVENTS.PLAYER_JOINED, playerId);
+                        logger.info(`Emitted queue updated event for player ${playerId} joining`);
+                    }).catch(err => {
+                        logger.error(`Error importing event emitter: ${err}`);
+                    });
                 } catch (eventError) {
                     logger.error(`Error emitting queue event: ${eventError}`);
                 }
@@ -251,13 +254,16 @@ export class QueueService {
         const result = await this.storage.removePlayerFromQueue(playerId);
         
         if (result) {
-            // Emit queue updated event
+            // Emit queue updated event using ES modules
             try {
-                const { QUEUE_EVENTS } = require('../utils/eventEmitter');
-                const events = require('../utils/eventEmitter').EventEmitter.getInstance();
-                events.emit(QUEUE_EVENTS.UPDATED);
-                events.emit(QUEUE_EVENTS.PLAYER_LEFT, playerId);
-                logger.info(`Emitted queue updated event for player ${playerId} leaving`);
+                import('../utils/eventEmitter').then(({ EventEmitter, QUEUE_EVENTS }) => {
+                    const events = EventEmitter.getInstance();
+                    events.emit(QUEUE_EVENTS.UPDATED);
+                    events.emit(QUEUE_EVENTS.PLAYER_LEFT, playerId);
+                    logger.info(`Emitted queue updated event for player ${playerId} leaving`);
+                }).catch(err => {
+                    logger.error(`Error importing event emitter: ${err}`);
+                });
             } catch (eventError) {
                 logger.error(`Error emitting queue event: ${eventError}`);
             }
@@ -578,12 +584,15 @@ export class QueueService {
                     
                     logger.info(`Match created with ${matchPlayers.length} players (Match ID: ${matchResult.matchId})`);
                     
-                    // Emit match created event
+                    // Emit match created event using ES modules
                     try {
-                        const { MATCH_EVENTS } = require('../utils/eventEmitter');
-                        const events = require('../utils/eventEmitter').EventEmitter.getInstance();
-                        events.emit(MATCH_EVENTS.CREATED, matchResult.matchId);
-                        logger.info(`Emitted match created event for match ${matchResult.matchId}`);
+                        import('../utils/eventEmitter').then(({ EventEmitter, MATCH_EVENTS }) => {
+                            const events = EventEmitter.getInstance();
+                            events.emit(MATCH_EVENTS.CREATED, matchResult.matchId);
+                            logger.info(`Emitted match created event for match ${matchResult.matchId}`);
+                        }).catch(err => {
+                            logger.error(`Error importing event emitter: ${err}`);
+                        });
                     } catch (eventError) {
                         logger.error(`Error emitting match created event: ${eventError}`);
                     }
