@@ -41,6 +41,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
     
     // Add player to queue
+    // (this will emit the queue:updated event internally)
     const queueResult = await queueService.addPlayerToQueue(player.id);
     
     if (!queueResult.success) {

@@ -366,490 +366,76 @@ export class MatchService {
     winningTeamName: string,
   ): Promise<{ success: boolean; message: string }> {
     try {
+      // Get the match details
       const match = await this.storage.getMatch(matchId);
 
       if (!match) {
-        return { success: false, message: "Match not found" };
+        return { success: false, message: `Match #${matchId} not found` };
       }
 
       if (match.status !== "ACTIVE" && match.status !== "WAITING") {
         return {
           success: false,
-          message: `Match is already ${match.status.toLowerCase()}`,
+          message: `Match #${matchId} is not active`,
         };
       }
 
-      // Get all teams for this match
-      const matchTeams = await this.storage.getMatchTeams(matchId);
-
-      if (matchTeams.length < 2) {
-        return { success: false, message: "Match does not have enough teams" };
-      }
-
-      // Find the winning team by name (case-insensitive) or by ID if a number was provided
-      let winningTeam;
-      
-      if (typeof winningTeamName === 'string') {
-        // If input is a string, search by name (case-insensitive)
-        winningTeam = matchTeams.find(
-          (team) => team.name.toLowerCase() === winningTeamName.toLowerCase(),
-        );
-      } else if (typeof winningTeamName === 'number') {
-        // If input is a number, try to find team by ID
-        winningTeam = matchTeams.find(
-          (team) => team.id === winningTeamName,
-        );
-      } else {
-        // Handle unexpected input types
-        logger.error(`Invalid winning team identifier: ${JSON.stringify(winningTeamName)}`);
-        return { 
-          success: false, 
-          message: `Invalid team identifier. Please provide a valid team name or ID.` 
-        };
-      }
-
+      // Find the winning team
+      const winningTeam = match.teams.find(
+        (t) => t.name.toLowerCase() === winningTeamName.toLowerCase(),
+      );
       if (!winningTeam) {
-        const validTeams = matchTeams.map((team) => team.name).join(", ");
-        logger.info(
-          `Team "${winningTeamName}" not found in match ${matchId}. Valid teams are: ${validTeams}`,
-        );
         return {
           success: false,
-          message: `Team "${winningTeamName}" not found in this match. Valid teams are: ${validTeams}`,
+          message: `Team "${winningTeamName}" not found in match #${matchId}`,
         };
       }
 
-      const winningTeamId = winningTeam.id;
+      // Find the losing team
+      const losingTeam = match.teams.find(
+        (t) => t.name.toLowerCase() !== winningTeamName.toLowerCase(),
+      );
+      if (!losingTeam) {
+        return {
+          success: false,
+          message: `Could not determine losing team in match #${matchId}`,
+        };
+      }
 
       // Update match status
       await this.storage.updateMatch(matchId, {
         status: "COMPLETED",
+        winningTeamId: winningTeam.id,
         finishedAt: new Date(),
-        winningTeamId: winningTeamId,
       });
 
-      // Update player stats for each team
-      for (const team of matchTeams) {
-        const isWinningTeam = team.id === winningTeamId;
+      // Update player stats based on the outcome
+      await this.updatePlayerStats(winningTeam.players, losingTeam.players);
 
-        for (const player of team.players) {
-          // Get MMR settings from config
-          const botConfig = await this.storage.getBotConfig();
-          const mmrSettings = botConfig.mmrSystem;
-
-          // Use kFactor from config for win/loss calculation
-          // Calculate win/loss values based on kFactor from config
-          const kFactor = mmrSettings.kFactor;
-          const mmrGain = Math.round(kFactor * 0.75); // Simplified calculation
-          const mmrLoss = Math.round(kFactor * 0.625); // Simplified calculation
-
-          // Calculate MMR change - winners gain, losers lose
-          const mmrChange = isWinningTeam ? mmrGain : -mmrLoss;
-
-          // Update streaks
-          let winStreak = player.winStreak;
-          let lossStreak = player.lossStreak;
-
-          if (isWinningTeam) {
-            winStreak += 1;
-            lossStreak = 0;
-          } else {
-            lossStreak += 1;
-            winStreak = 0;
-          }
-
-          // Apply streak bonuses or penalties
-          let streakModifier = 0;
-          
-          // Win streak bonus logic
-          if (isWinningTeam && winStreak >= mmrSettings.streakSettings.threshold) {
-            streakModifier = Math.min(
-              mmrSettings.streakSettings.maxBonus,
-              Math.floor(
-                (winStreak - mmrSettings.streakSettings.threshold + 1) *
-                  mmrSettings.streakSettings.bonusPerWin,
-              ),
-            );
-          }
-          
-          // Loss streak penalty logic
-          if (!isWinningTeam && lossStreak >= mmrSettings.streakSettings.lossThreshold) {
-            // For losses, we use a negative modifier to increase the MMR loss
-            streakModifier = -Math.min(
-              mmrSettings.streakSettings.maxLossPenalty,
-              Math.floor(
-                (lossStreak - mmrSettings.streakSettings.lossThreshold + 1) *
-                  mmrSettings.streakSettings.penaltyPerLoss,
-              ),
-            );
-          }
-
-          // Update player stats
-          await this.storage.updatePlayer(player.id, {
-            mmr: Math.max(1, player.mmr + mmrChange + streakModifier),
-            wins: isWinningTeam ? player.wins + 1 : player.wins,
-            losses: isWinningTeam ? player.losses : player.losses + 1,
-            winStreak,
-            lossStreak,
-          });
-        }
-      }
-
-      // Log the match completion event
-      const winningPlayers =
-        matchTeams.find((team) => team.id === winningTeamId)?.players || [];
-      const losingPlayers =
-        matchTeams.find((team) => team.id !== winningTeamId)?.players || [];
-
-      await this.logEvent(
-        "Match Ended",
-        `Match #${matchId} has been completed. Team ${winningTeam.name} has won!`,
-        [
-          { name: "Match ID", value: matchId.toString(), inline: true },
-          { name: "Winning Team", value: winningTeam.name, inline: true },
-          {
-            name: "Duration",
-            value: match.createdAt
-              ? `${Math.round((Date.now() - new Date(match.createdAt).getTime()) / 60000)} minutes`
-              : "Unknown",
-            inline: true,
-          },
-          {
-            name: "Winners",
-            value: winningPlayers.map((p) => p.username).join(", ") || "None",
-            inline: false,
-          },
-          {
-            name: "Losers",
-            value: losingPlayers.map((p) => p.username).join(", ") || "None",
-            inline: false,
-          },
-        ],
+      logger.info(
+        `Match #${matchId} ended with team ${winningTeamName} as winner`,
       );
 
-      // Start channel deletion countdown
+      // Emit match ended event
       try {
-        const client = getDiscordClient();
-        if (!client) {
-          logger.error(
-            "Discord client not ready or authenticated for match cleanup",
-          );
-
-          // Even if cleanup fails, requeue players and mark match as ended
-          const queueService = new QueueService(this.storage);
-          logger.info(
-            `Adding ${winningPlayers.length + losingPlayers.length} players back to queue despite cleanup failure`,
-          );
-
-          for (const player of [...winningPlayers, ...losingPlayers]) {
-            try {
-              const queueResult = await queueService.addPlayerToQueue(
-                player.id,
-              );
-              if (queueResult.success) {
-                logger.info(
-                  `Added player ${player.username} back to queue despite cleanup failure`,
-                );
-              } else {
-                logger.warn(
-                  `Could not add player ${player.username} back to queue: ${queueResult.message}`,
-                );
-              }
-            } catch (queueError) {
-              logger.error(
-                `Failed to add player ${player.id} back to queue: ${queueError}`,
-              );
-            }
-          }
-
-          await this.logEvent(
-            "Match Ended Without Cleanup",
-            `Match #${matchId} completed, but channel cleanup failed. Team ${winningTeam.name} has won!`,
-            [
-              { name: "Match ID", value: matchId.toString(), inline: true },
-              { name: "Winning Team", value: winningTeam.name, inline: true },
-              {
-                name: "Issue",
-                value: "Discord client not ready",
-                inline: true,
-              },
-            ],
-          );
-
-          return {
-            success: true,
-            message: `Match #${matchId} completed. Team ${winningTeam.name} has won. Note: Channel cleanup failed, but players were returned to queue.`,
-          };
-        }
-
-        // Get config to find guild ID
-        const botConfig = await this.storage.getBotConfig();
-        const guildId = botConfig.general.guildId;
-
-        // First try to get the guild directly by ID from config
-        let guild = null;
-        if (guildId) {
-          guild = client.guilds.cache.get(guildId);
-          logger.info(
-            `Attempting to get guild using configured ID: ${guildId}`,
-          );
-        }
-
-        // If not found by ID or no ID configured, try first guild in cache
-        if (!guild) {
-          guild = client.guilds.cache.first();
-          logger.info(
-            `Attempting to get first guild in cache: ${guild?.id || "None found"}`,
-          );
-        }
-
-        // If still no guild, try to get guild based on match configuration
-        if (!guild) {
-          // Instead of attempting to fetch guilds, let's log all known guilds
-          logger.info(
-            "No guild found by ID, logging all available guilds in cache",
-          );
-          const guildCount = client.guilds.cache.size;
-
-          if (guildCount > 0) {
-            client.guilds.cache.forEach((g) => {
-              logger.info(`Available guild in cache: ${g.name} (${g.id})`);
-            });
-            // Try first guild again now that we've logged all guilds
-            guild = client.guilds.cache.first();
-          } else {
-            logger.warn(`No guilds available in cache (count: ${guildCount})`);
-            // Don't try to fetch - that requires authentication which might not be ready
-          }
-        }
-
-        if (!guild) {
-          logger.error(
-            "No guild available for match cleanup after multiple attempts",
-          );
-          throw new Error("No guild available");
-        }
-
-        // First try to get the channel by stored ID
-        let matchChannel = match.channelId
-          ? guild.channels.cache.get(match.channelId)
-          : null;
-
-        // If not found by ID, try by name as fallback
-        if (!matchChannel) {
-          logger.warn(
-            `Channel ID ${match.channelId} not found, attempting to find by name...`,
-          );
-          matchChannel = guild.channels.cache.find(
-            (channel) => channel.name === `match-${matchId}`,
-          );
-        }
-
-        if (!matchChannel) {
-          logger.error(`Match channel for match ${matchId} not found`);
-          throw new Error("Match channel not found");
-        }
-
-        if (!matchChannel.isTextBased()) {
-          logger.error(
-            `Match channel for match ${matchId} is not a text channel`,
-          );
-          throw new Error("Match channel is not a text channel");
-        }
-
-        logger.info(
-          `Found match channel ${matchChannel.name} (${matchChannel.id}) for cleanup`,
-        );
-
-        const countdownSeconds = 10;
-        let secondsLeft = countdownSeconds;
-
-        // Send countdown message with clear error handling
-        let countdownMessage;
-        try {
-          countdownMessage = await matchChannel.send(
-            `Match completed! Channel will be deleted in ${countdownSeconds} seconds...`,
-          );
-          logger.info(
-            `Sent countdown message ${countdownMessage.id} to channel ${matchChannel.id}`,
-          );
-        } catch (msgError) {
-          logger.error(`Failed to send countdown message: ${msgError}`);
-          throw new Error("Failed to send countdown message");
-        }
-
-        const interval = setInterval(async () => {
-          try {
-            secondsLeft--;
-            if (secondsLeft > 0) {
-              await countdownMessage.edit(
-                `Match completed! Channel will be deleted in ${secondsLeft} seconds...`,
-              );
-            } else {
-              clearInterval(interval);
-              logger.info(
-                `Countdown complete, processing match cleanup for match ${matchId}`,
-              );
-
-              // Add players back to queue using the singleton instance
-              const queueService = QueueService.getInstance(this.storage);
-              logger.info(
-                `Adding ${winningPlayers.length + losingPlayers.length} players back to queue`,
-              );
-              
-              // Get all player IDs from this match
-              const allPlayerIds = [...winningPlayers, ...losingPlayers].map(p => p.id);
-              
-              // Get or create group for these players
-              let groupId: string;
-              if (queueService.currentActiveGroup) {
-                // Check if all players from this match are in the current active group
-                const currentGroupPlayers = Array.from(queueService.playerGroups.get(queueService.currentActiveGroup)?.keys() || []);
-                const allPlayersInGroup = allPlayerIds.every(id => currentGroupPlayers.includes(id));
-                
-                if (allPlayersInGroup && allPlayerIds.length === currentGroupPlayers.length) {
-                  groupId = queueService.currentActiveGroup;
-                  logger.info(`Using existing player group ${groupId} for match ${matchId}`);
-                } else {
-                  groupId = queueService.createPlayerGroup(allPlayerIds);
-                  logger.info(`Created new player group ${groupId} for match ${matchId}`);
-                }
-              } else {
-                groupId = queueService.createPlayerGroup(allPlayerIds);
-                logger.info(`Created new player group ${groupId} for match ${matchId}`);
-              }
-              
-              // Record losses for losing players
-              for (const player of losingPlayers) {
-                const hitLossLimit = queueService.recordPlayerLoss(player.id, groupId);
-                if (hitLossLimit) {
-                  logger.info(`Player ${player.username} (ID: ${player.id}) has hit the loss limit in group ${groupId}`);
-                }
-              }
-
-              // First, prepare players with their priorities before batch processing
-              const playersToRequeue = [];
-              
-              // Mark all players as being processed at once
-              for (const player of [...winningPlayers, ...losingPlayers]) {
-                queueService.markPlayerAsProcessing(player.id);
-              }
-              
-              try {
-                // Calculate priorities for all players
-                for (const player of [...winningPlayers, ...losingPlayers]) {
-                  // Set priority based on win/loss status
-                  let priority = 0;
-                  const isWinner = winningPlayers.some(p => p.id === player.id);
-                  const losses = queueService.getPlayerLosses(player.id, groupId);
-                  
-                  if (isWinner) {
-                    priority = 100; // Highest priority for winners
-                  } else if (losses < 2) {
-                    priority = 50;  // Medium priority for players with 1 loss
-                  }
-                  
-                  playersToRequeue.push({
-                    player,
-                    priority,
-                    groupId
-                  });
-                }
-                
-                // Use a transaction for batch re-queuing
-                await withTransaction(async (tx) => {
-                  // Perform batch inserts grouped by priority level for efficiency
-                  const batchInserts = {};
-                  
-                  // Group players by priority
-                  for (const entry of playersToRequeue) {
-                    if (!batchInserts[entry.priority]) {
-                      batchInserts[entry.priority] = [];
-                    }
-                    batchInserts[entry.priority].push(entry.player.id);
-                  }
-                  
-                  // Insert each priority group in a single batch operation
-                  for (const [priority, playerIds] of Object.entries(batchInserts)) {
-                    try {
-                      logger.info(`Batch adding ${playerIds.length} players with priority ${priority}`);
-                      for (const playerId of playerIds) {
-                        await this.storage.addPlayerToQueue({
-                          playerId,
-                          priority: parseInt(priority),
-                        }, tx);
-                      }
-                    } catch (batchError) {
-                      logger.error(`Error in batch queue addition for priority ${priority}: ${batchError}`);
-                      throw batchError;
-                    }
-                  }
-                  
-                  logger.info(`Successfully batch re-queued ${playersToRequeue.length} players`);
-                  return true;
-                });
-                
-              } catch (queueError) {
-                logger.error(`Failed in batch player re-queuing: ${queueError}`);
-                // Continue with deletion even if re-queuing has errors
-              } finally {
-                // Unmark all players regardless of success
-                for (const entry of playersToRequeue) {
-                  queueService.unmarkPlayerAsProcessing(entry.player.id);
-                }
-              }
-
-              // Delete the channel
-              try {
-                logger.info(
-                  `Attempting to delete channel ${matchChannel.name} (${matchChannel.id})`,
-                );
-                await matchChannel.delete();
-                logger.info(
-                  `Successfully deleted channel for match ${matchId}`,
-                );
-              } catch (deleteError) {
-                logger.error(`Failed to delete channel: ${deleteError}`);
-                // Even if channel deletion fails, we've already re-queued players
-              }
-            }
-          } catch (intervalError) {
-            logger.error(`Error in countdown interval: ${intervalError}`);
-            clearInterval(interval);
-          }
-        }, 1000);
-      } catch (error) {
-        logger.error(`Error handling match channel cleanup: ${error}`);
-
-        // Even if there's an error with channel cleanup, make sure players get back into queue
-        try {
-          const queueService = QueueService.getInstance(this.storage);
-          for (const player of [...winningPlayers, ...losingPlayers]) {
-            const queueResult = await queueService.addPlayerToQueue(player.id);
-            if (queueResult.success) {
-              logger.info(
-                `Added player ${player.username} back to queue during error recovery`,
-              );
-            } else {
-              logger.warn(
-                `Could not add player ${player.username} back to queue during error recovery: ${queueResult.message}`,
-              );
-            }
-          }
-        } catch (recoveryError) {
-          logger.error(
-            `Failed in recovery attempt to add players back to queue: ${recoveryError}`,
-          );
-        }
+        const { MATCH_EVENTS } = require("../utils/eventEmitter");
+        const events = require("../utils/eventEmitter").EventEmitter.getInstance();
+        events.emit(MATCH_EVENTS.ENDED, matchId);
+        logger.info(`Emitted match ended event for match ${matchId}`);
+      } catch (eventError) {
+        logger.error(`Error emitting match ended event: ${eventError}`);
       }
 
       return {
         success: true,
-        message: `Match #${matchId} has been completed. Team ${winningTeam.name} has won!`,
+        message: `Match #${matchId} has been completed. Team ${winningTeamName} is the winner!`,
       };
     } catch (error) {
-      logger.error(`Error ending match: ${error}`);
-      return { success: false, message: "Failed to end match due to an error" };
+      logger.error(`Error ending match ${matchId}: ${error}`);
+      return {
+        success: false,
+        message: "An error occurred while ending the match",
+      };
     }
   }
 
@@ -1038,13 +624,7 @@ export class MatchService {
       };
     }
   }
-  
-  /**
-   * Handles a successful vote kick, removing the player from the match
-   * and performing necessary cleanup, similar to a player leaving
-   * @param voteKickId The ID of the successful vote kick
-   * @param guildId Optional guild ID for finding the Discord guild
-   */
+
   async handleSuccessfulVoteKick(
     voteKickId: number,
     guildId?: string,
@@ -1052,28 +632,28 @@ export class MatchService {
     try {
       // Get the vote kick details
       const voteKick = await this.storage.getVoteKick(voteKickId);
-      
+
       if (!voteKick) {
         return { success: false, message: "Vote kick not found" };
       }
-      
+
       if (voteKick.status !== "PENDING") {
         return { 
           success: false, 
           message: `Vote kick is already ${voteKick.status.toLowerCase()}` 
         };
       }
-      
+
       // Get player information
       const kickedPlayer = await this.storage.getPlayer(voteKick.targetPlayerId);
-      
+
       if (!kickedPlayer) {
         return { success: false, message: "Kicked player not found" };
       }
-      
+
       // Update vote kick status
       await this.storage.updateVoteKick(voteKickId, { status: "APPROVED" });
-      
+
       // Log the event
       await this.logEvent(
         "Player Kicked",
@@ -1084,14 +664,14 @@ export class MatchService {
           { name: "Vote Kick ID", value: voteKickId.toString(), inline: true },
         ]
       );
-      
+
       // Use the existing match cancellation flow to handle the kicked player properly
       // This will return other players to queue but not the kicked player
       const result = await this.handleMatchCancellationWithExclusion(
         voteKick.matchId,
         kickedPlayer.id
       );
-      
+
       if (!result.success) {
         logger.error(`Failed to handle match cancellation after vote kick: ${result.message}`);
         return {
@@ -1099,7 +679,7 @@ export class MatchService {
           message: `Player was kicked but there was an error cancelling the match: ${result.message}`
         };
       }
-      
+
       return {
         success: true,
         message: `${kickedPlayer.username} has been kicked from match #${voteKick.matchId}. Match cancelled and other players returned to queue.`
@@ -1343,7 +923,7 @@ export class MatchService {
           try {
             // Mark player as being processed before queueing to prevent race conditions
             queueService.markPlayerAsProcessing(player.id);
-            
+
             const queueResult = await queueService.addPlayerToQueue(player.id);
             if (queueResult.success) {
               logger.info(
@@ -1368,7 +948,7 @@ export class MatchService {
         logger.error(
           `Failed to process players for queue reentry: ${playersError}`,
         );
-        
+
         // If we had a catastrophic failure, try to clean up any players that might still be marked
         try {
           const queueService = QueueService.getInstance(this.storage);
@@ -1403,8 +983,7 @@ export class MatchService {
       return {
         success: false,
         message: "Failed to cancel match due to an error",
-      };
-    }
+      };    }
   }
 
   /**
@@ -1655,10 +1234,10 @@ export class MatchService {
       // Get match players before updating status
       const teams = await this.storage.getMatchTeams(matchId);
       const players = teams.flatMap((team) => team.players);
-      
+
       // Find the excluded player to include in logs
       const excludedPlayer = players.find(player => player.id === excludePlayerId);
-      
+
       // Update match status
       await this.storage.updateMatch(matchId, {
         status: "CANCELLED",
@@ -1678,7 +1257,7 @@ export class MatchService {
           for (const player of players) {
             // Skip the player who left
             if (player.id === excludePlayerId) continue;
-            
+
             try {
               const queueResult = await queueService.addPlayerToQueue(
                 player.id,
@@ -1876,15 +1455,15 @@ export class MatchService {
         for (const player of players) {
           // Skip the player who initiated the leave
           if (player.id === excludePlayerId) continue;
-          
+
           try {
             // Mark player as being processed BEFORE queue service processes them
             // This helps prevent the player from being selected for another match in a race condition
             queueService.markPlayerAsProcessing(player.id);
-            
+
             // Add to queue with proper error handling
             const queueResult = await queueService.addPlayerToQueue(player.id);
-            
+
             if (queueResult.success) {
               logger.info(
                 `Added player ${player.username} (ID: ${player.id}) back to queue after player left match`,
@@ -1908,7 +1487,7 @@ export class MatchService {
         logger.error(
           `Failed to process players for queue reentry after player left: ${playersError}`,
         );
-        
+
         // If we had a catastrophic failure, try to clean up any players that might still be marked as processing
         try {
           const queueService = QueueService.getInstance(this.storage);
@@ -1966,6 +1545,92 @@ export class MatchService {
       logger.error(`Failed to log event: ${error}`);
     }
   };
+
+  private async updatePlayerStats(
+    winningPlayers: any[],
+    losingPlayers: any[],
+  ) {
+    try {
+      // Get MMR settings from config
+      const botConfig = await this.storage.getBotConfig();
+      const mmrSettings = botConfig.mmrSystem;
+
+      // Use kFactor from config for win/loss calculation
+      // Calculate win/loss values based on kFactor from config
+      const kFactor = mmrSettings.kFactor;
+      const mmrGain = Math.round(kFactor * 0.75); // Simplified calculation
+      const mmrLoss = Math.round(kFactor * 0.625); // Simplified calculation
+
+      // Update winning players
+      for (const player of winningPlayers) {
+        // Update streaks
+        let winStreak = player.winStreak;
+        let lossStreak = player.lossStreak;
+
+        winStreak += 1;
+        lossStreak = 0;
+
+        // Apply streak bonuses or penalties
+        let streakModifier = 0;
+
+        // Win streak bonus logic
+        if (winStreak >= mmrSettings.streakSettings.threshold) {
+          streakModifier = Math.min(
+            mmrSettings.streakSettings.maxBonus,
+            Math.floor(
+              (winStreak - mmrSettings.streakSettings.threshold + 1) *
+                mmrSettings.streakSettings.bonusPerWin,
+            ),
+          );
+        }
+
+        // Update player stats
+        await this.storage.updatePlayer(player.id, {
+          mmr: Math.max(1, player.mmr + mmrGain + streakModifier),
+          wins: player.wins + 1,
+          losses: player.losses,
+          winStreak,
+          lossStreak,
+        });
+      }
+
+      // Update losing players
+      for (const player of losingPlayers) {
+        // Update streaks
+        let winStreak = player.winStreak;
+        let lossStreak = player.lossStreak;
+
+        lossStreak += 1;
+        winStreak = 0;
+
+        // Apply streak bonuses or penalties
+        let streakModifier = 0;
+
+        // Loss streak penalty logic
+        if (lossStreak >= mmrSettings.streakSettings.lossThreshold) {
+          // For losses, we use a negative modifier to increase the MMR loss
+          streakModifier = -Math.min(
+            mmrSettings.streakSettings.maxLossPenalty,
+            Math.floor(
+              (lossStreak - mmrSettings.streakSettings.lossThreshold + 1) *
+                mmrSettings.streakSettings.penaltyPerLoss,
+            ),
+          );
+        }
+
+        // Update player stats
+        await this.storage.updatePlayer(player.id, {
+          mmr: Math.max(1, player.mmr - mmrLoss + streakModifier),
+          wins: player.wins,
+          losses: player.losses + 1,
+          winStreak,
+          lossStreak,
+        });
+      }
+    } catch (error) {
+      logger.error(`Error updating player stats: ${error}`);
+    }
+  }
 }
 
 
@@ -2039,9 +1704,8 @@ export async function createMatchWithPlayersTransaction(
     // since it's a separate system
     let matchChannel: TextChannel | null = null;
     let channelCreationFailed = false;
-    
+
     try {
-      // [The channel creation code remains the same as in createMatchWithPlayers]
       // Find or create a category for matches
       let matchCategory = guild.channels.cache.find(
         (channel) =>
@@ -2186,7 +1850,7 @@ export async function createMatchWithPlayersTransaction(
 
     // Create a matchService instance for logging
     const matchService = new MatchService(storage);
-    
+
     // Log the match creation event
     await matchService.logEvent(
       "Match Created",

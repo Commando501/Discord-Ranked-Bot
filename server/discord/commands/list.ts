@@ -305,7 +305,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             return;
           }
 
-          // Add player to queue
+          // Add player to queue 
+          // (this will emit the queue:updated event internally)
           const queueResult = await queueService.addPlayerToQueue(player.id);
 
           if (!queueResult.success) {
@@ -383,6 +384,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           }
 
           // Remove player from queue
+          // (this will emit the queue:updated event internally)
           await queueService.removePlayerFromQueue(player.id);
 
           // Get updated queue size
@@ -689,7 +691,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
             return;
           }
 
-          // Add player to queue
+          // Add player to queue 
+          // (this will emit the queue:updated event internally)
           const queueResult = await queueService.addPlayerToQueue(player.id);
 
           if (!queueResult.success) {
@@ -767,6 +770,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           }
 
           // Remove player from queue
+          // (this will emit the queue:updated event internally)
           await queueService.removePlayerFromQueue(player.id);
 
           // Get updated queue size
@@ -841,7 +845,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
               // The lower bound is the previous tier's threshold + 1 or 0 for the lowest tier
 
               // Sort tiers by threshold in ascending order
-              const sortedTiers = [...rankTiers].sort(
+              const sortedTiers =[...rankTiers].sort(
                 (a, b) => a.mmrThreshold - b.mmrThreshold,
               );
 

@@ -95,6 +95,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
     
     // Remove player from queue
+    // (this will emit the queue:updated event internally)
     await queueService.removePlayerFromQueue(player.id);
     
     // Get updated queue count

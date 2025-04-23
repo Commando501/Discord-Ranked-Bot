@@ -34,12 +34,22 @@ function createClient() {
 
 // Setup event handlers for the client
 function setupEventHandlers(discordClient: Client) {
-  // Client ready event
-  discordClient.on(Events.ClientReady, (readyClient) => {
-    logger.info(`Discord bot logged in as ${readyClient.user.tag}`);
-    // Reset reconnect attempts when successfully connected
-    reconnectAttempts = 0;
-  });
+    // Client ready event
+    discordClient.on(Events.ClientReady, async (readyClient) => {
+      logger.info(`Discord bot logged in as ${readyClient.user.tag}`);
+      // Reset reconnect attempts when successfully connected
+      reconnectAttempts = 0;
+
+      // Initialize the QueueDisplayService
+      try {
+        const { QueueDisplayService } = await import('../bot/services/queueDisplayService');
+        const { storage } = await import('../storage');
+        QueueDisplayService.getInstance(storage);
+        logger.info("Queue display service initialized");
+      } catch (error) {
+        logger.error(`Error initializing queue display service: ${error}`);
+      }
+    });
 
   // Handle disconnections
   discordClient.on(Events.Invalidated, () => {
@@ -72,13 +82,13 @@ function setupEventHandlers(discordClient: Client) {
         logger.info(`Discord command "${interaction.commandName}" executed by ${interaction.user.tag}`);
         return;
       }
-      
+
       // If command not found in discord commands, check bot commands
       try {
         // Dynamic import to avoid circular dependencies
         const botCommands = await import('../bot/commands');
         const botCommand = botCommands.commands.find(cmd => cmd.data.name === interaction.commandName);
-        
+
         if (botCommand && typeof botCommand.execute === 'function') {
           await botCommand.execute(interaction);
           logger.info(`Bot command "${interaction.commandName}" executed by ${interaction.user.tag}`);
@@ -92,12 +102,12 @@ function setupEventHandlers(discordClient: Client) {
       logger.warn(`Command "${interaction.commandName}" not found in command collections`);
     } catch (error) {
       logger.error('Error executing command', { error, command: interaction.commandName });
-      
+
       const errorResponse = {
         content: 'There was an error while executing this command!',
         ephemeral: true
       };
-      
+
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp(errorResponse);
       } else {
@@ -143,13 +153,13 @@ async function attemptReconnect() {
       // Attempt to log in
       await client.login(process.env.DISCORD_TOKEN);
       logger.info('Discord bot reconnection successful');
-      
+
       // Re-register commands
       await registerCommands();
       logger.info('Slash commands re-registered after reconnection');
     } catch (error) {
       logger.error(`Discord bot reconnection failed: ${error}`);
-      
+
       // Schedule another attempt
       attemptReconnect();
     }
@@ -173,7 +183,7 @@ export async function initializeBot() {
   try {
     await client.login(process.env.DISCORD_TOKEN);
     logger.info('Discord bot login successful');
-    
+
     // Register slash commands when bot is ready
     const botConfig = await storage.getBotConfig();
     await registerCommands();
@@ -205,7 +215,7 @@ export function getDiscordClient() {
   if (client && client.isReady()) {
     return client;
   }
-  
+
   // If client isn't ready, log this and trigger reconnection
   logger.warn('Discord client is not ready or authenticated yet');
   attemptReconnect();
