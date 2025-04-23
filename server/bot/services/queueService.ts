@@ -502,8 +502,9 @@ export class QueueService {
             
             logger.info(`Selected ${matchPlayers.length} players for match creation: ${matchPlayers.join(', ')}`);
 
-            // Import the transaction utility
-            const { withTransaction } = require('../../db');
+            // Import the transaction utility from the db module
+            // Using import instead of require to fix the reference error
+            import { withTransaction } from '../../db';
             
             // Perform the entire match creation within a transaction
             return await withTransaction(async (tx) => {
@@ -532,7 +533,7 @@ export class QueueService {
                     // Batch remove players from queue WITHIN the transaction - this ensures atomicity
                     logger.info(`Batch removing ${matchPlayers.length} players from queue within transaction`);
                     try {
-                        const batchRemoveResult = await this.batchRemovePlayersFromQueue(matchPlayers, tx);
+                        const batchRemoveResult = await batchRemovePlayersFromQueue(matchPlayers, tx);
                         if (!batchRemoveResult.success) {
                             logger.warn(`Failed to batch remove players from queue: ${batchRemoveResult.message}`);
                             throw new Error(`Failed to batch remove players from queue: ${batchRemoveResult.message}`);
@@ -542,8 +543,11 @@ export class QueueService {
                         throw error;
                     }
 
+                    // Import the transaction function from matchService
+                    import { createMatchWithPlayersTransaction } from './matchService';
+                    
                     // Create the match - passing the transaction to ensure everything is in the same transaction
-                    const matchResult = await this.matchService.createMatchWithPlayersTransaction(
+                    const matchResult = await createMatchWithPlayersTransaction(
                         matchPlayers,
                         guild,
                         tx
@@ -587,6 +591,9 @@ export class QueueService {
 }
 
 // We now use getDiscordBot imported from '../../index.bot' instead of this placeholder
+
+// Import db directly at the module level to avoid require statement
+import { db } from '../../db';
 
 /**
  * Batch remove multiple players from the queue in a single operation

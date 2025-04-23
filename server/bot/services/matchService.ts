@@ -1933,6 +1933,9 @@ export class MatchService {
 }
 
 
+// Import required modules
+import { withTransaction } from '../../db';
+
 /**
  * Creates a match with players using a database transaction for atomicity
  * @param playerIds Array of player IDs to include in the match
@@ -1940,7 +1943,7 @@ export class MatchService {
  * @param tx Optional transaction object for database operations
  * @returns Result object with success status and match ID
  */
-async function createMatchWithPlayersTransaction(
+export async function createMatchWithPlayersTransaction(
   playerIds: number[],
   guild: Guild,
   tx?: any
