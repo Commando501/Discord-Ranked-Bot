@@ -233,14 +233,19 @@ export class MatchService {
           for (const player of validPlayers) {
             try {
               if (player.discordId) {
-                // Use a safer method - edit permissions even if user isn't cached
+                // Use snowflake ID as string but create a proper UserResolvable object
+                const userIdResolvable = player.discordId;
+                // Set permissions by ID instead of using the User object directly
                 await matchChannel.permissionOverwrites.create(
-                  player.discordId,
+                  userIdResolvable,
                   {
                     ViewChannel: true,
                     SendMessages: true,
                     ReadMessageHistory: true,
                   },
+                  {
+                    reason: `Adding match participant: ${player.username}`
+                  }
                 );
                 logger.info(
                   `Added permission for player ${player.username} (${player.discordId}) to match channel`,
