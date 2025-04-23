@@ -44,10 +44,19 @@ function setupEventHandlers(discordClient: Client) {
       try {
         const { QueueDisplayService } = await import('../bot/services/queueDisplayService');
         const { storage } = await import('../storage');
-        QueueDisplayService.getInstance(storage);
+        const queueDisplayService = QueueDisplayService.getInstance(storage);
+        
+        // Force an initial refresh of the queue display
+        setTimeout(() => {
+          queueDisplayService.refreshQueueDisplay()
+            .then(() => logger.info("Initial queue display refreshed"))
+            .catch(err => logger.error(`Error refreshing initial queue display: ${err}`));
+        }, 5000); // Wait 5 seconds to ensure bot is fully ready
+        
         logger.info("Queue display service initialized");
       } catch (error) {
-        logger.error(`Error initializing queue display service: ${error}`);
+        logger.error(`Error initializing queue display service: ${error}`, 
+          error instanceof Error ? error.stack : 'No stack trace');
       }
     });
 

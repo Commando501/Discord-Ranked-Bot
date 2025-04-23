@@ -21,7 +21,9 @@ class GlobalEventEmitter extends EventEmitter {
 
 // Export the singleton instance getter
 module.exports = {
-  EventEmitter: GlobalEventEmitter
+  EventEmitter: GlobalEventEmitter,
+  QUEUE_EVENTS,
+  MATCH_EVENTS
 };
 
 // Export standard events names to avoid typos

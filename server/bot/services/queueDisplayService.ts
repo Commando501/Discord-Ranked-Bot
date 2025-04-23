@@ -85,13 +85,13 @@ export class QueueDisplayService {
 
   private setupEventListeners(): void {
     // Listen for queue updates
-    const events = require('events');
-    const emitter = events.EventEmitter.getInstance();
+    const { EventEmitter, QUEUE_EVENTS, MATCH_EVENTS } = require('../utils/eventEmitter');
+    const emitter = EventEmitter.getInstance();
     
     // Register for queue events
-    emitter.on('queue:updated', () => this.refreshQueueDisplay());
-    emitter.on('match:created', () => this.refreshQueueDisplay());
-    emitter.on('match:ended', () => this.refreshQueueDisplay());
+    emitter.on(QUEUE_EVENTS.UPDATED, () => this.refreshQueueDisplay());
+    emitter.on(MATCH_EVENTS.CREATED, () => this.refreshQueueDisplay());
+    emitter.on(MATCH_EVENTS.ENDED, () => this.refreshQueueDisplay());
     
     logger.info("Queue display event listeners registered");
   }
