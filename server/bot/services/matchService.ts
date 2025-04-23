@@ -458,10 +458,12 @@ export class MatchService {
             winStreak = 0;
           }
 
-          // Apply streak bonuses if applicable (using config values)
-          let streakBonus = 0;
-          if (winStreak >= mmrSettings.streakSettings.threshold) {
-            streakBonus = Math.min(
+          // Apply streak bonuses or penalties
+          let streakModifier = 0;
+          
+          // Win streak bonus logic
+          if (isWinningTeam && winStreak >= mmrSettings.streakSettings.threshold) {
+            streakModifier = Math.min(
               mmrSettings.streakSettings.maxBonus,
               Math.floor(
                 (winStreak - mmrSettings.streakSettings.threshold + 1) *
@@ -469,10 +471,22 @@ export class MatchService {
               ),
             );
           }
+          
+          // Loss streak penalty logic
+          if (!isWinningTeam && lossStreak >= mmrSettings.streakSettings.lossThreshold) {
+            // For losses, we use a negative modifier to increase the MMR loss
+            streakModifier = -Math.min(
+              mmrSettings.streakSettings.maxLossPenalty,
+              Math.floor(
+                (lossStreak - mmrSettings.streakSettings.lossThreshold + 1) *
+                  mmrSettings.streakSettings.penaltyPerLoss,
+              ),
+            );
+          }
 
           // Update player stats
           await this.storage.updatePlayer(player.id, {
-            mmr: Math.max(1, player.mmr + mmrChange + streakBonus),
+            mmr: Math.max(1, player.mmr + mmrChange + streakModifier),
             wins: isWinningTeam ? player.wins + 1 : player.wins,
             losses: isWinningTeam ? player.losses : player.losses + 1,
             winStreak,

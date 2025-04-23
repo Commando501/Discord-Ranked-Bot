@@ -43,10 +43,16 @@ export const mmrConfigSchema = z.object({
     threshold: z.number().int().min(1).max(20).default(3),
     bonusPerWin: z.number().int().min(1).max(50).default(5),
     maxBonus: z.number().int().min(5).max(200).default(25),
+    lossThreshold: z.number().int().min(1).max(20).default(3),
+    penaltyPerLoss: z.number().int().min(1).max(50).default(10),
+    maxLossPenalty: z.number().int().min(5).max(200).default(20),
   }).default({
     threshold: 3,
     bonusPerWin: 5,
     maxBonus: 25,
+    lossThreshold: 3,
+    penaltyPerLoss: 10,
+    maxLossPenalty: 20,
   }),
 });
 
@@ -181,7 +187,10 @@ export const defaultBotConfig: BotConfig = {
     streakSettings: {
       threshold: 3,
       bonusPerWin: 5,
-      maxBonus: 25
+      maxBonus: 25,
+      lossThreshold: 3,
+      penaltyPerLoss: 10,
+      maxLossPenalty: 20,
     },
   },
   seasonManagement: {

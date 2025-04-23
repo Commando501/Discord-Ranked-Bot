@@ -43,7 +43,7 @@ export default function MmrConfigPanel({ config, onChange }: MmrConfigPanelProps
             {/* Basic MMR Settings */}
             <div className="space-y-4">
               <div className="text-lg font-medium">Basic MMR Settings</div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
@@ -67,7 +67,7 @@ export default function MmrConfigPanel({ config, onChange }: MmrConfigPanelProps
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="kFactor"
@@ -102,7 +102,7 @@ export default function MmrConfigPanel({ config, onChange }: MmrConfigPanelProps
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={form.control}
                 name="mmrCalculationMethod"
@@ -132,11 +132,11 @@ export default function MmrConfigPanel({ config, onChange }: MmrConfigPanelProps
                 )}
               />
             </div>
-            
+
             {/* Placement Matches */}
             <div className="space-y-4 pt-4">
               <div className="text-lg font-medium">Placement Matches</div>
-              
+
               <FormField
                 control={form.control}
                 name="placementMatches"
@@ -160,11 +160,11 @@ export default function MmrConfigPanel({ config, onChange }: MmrConfigPanelProps
                 )}
               />
             </div>
-            
+
             {/* Streak Settings */}
             <div className="space-y-4 pt-4">
               <div className="text-lg font-medium">Win Streak Bonuses</div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField
                   control={form.control}
@@ -188,7 +188,7 @@ export default function MmrConfigPanel({ config, onChange }: MmrConfigPanelProps
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="streakSettings.bonusPerWin"
@@ -211,7 +211,7 @@ export default function MmrConfigPanel({ config, onChange }: MmrConfigPanelProps
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="streakSettings.maxBonus"
@@ -222,7 +222,7 @@ export default function MmrConfigPanel({ config, onChange }: MmrConfigPanelProps
                         <Input 
                           type="number" 
                           min={5} 
-                          max={200} 
+                          max={200}
                           {...field} 
                           onChange={(e) => field.onChange(parseInt(e.target.value))}
                         />
@@ -235,12 +235,83 @@ export default function MmrConfigPanel({ config, onChange }: MmrConfigPanelProps
                   )}
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                <FormField
+                  control={form.control}
+                  name="streakSettings.lossThreshold"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Loss Streak Threshold</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min={1} 
+                          max={20} 
+                          {...field} 
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Losses needed to start penalty
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="streakSettings.penaltyPerLoss"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Penalty Per Loss</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min={1} 
+                          max={50} 
+                          {...field} 
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Extra MMR lost per streak loss
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="streakSettings.maxLossPenalty"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Maximum Loss Penalty</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min={5} 
+                          max={200}
+                          {...field} 
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Maximum streak loss penalty
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
-            
+
             {/* MMR Restrictions */}
             <div className="space-y-4 pt-4">
               <div className="text-lg font-medium">MMR Restrictions</div>
-              
+
               <FormField
                 control={form.control}
                 name="mmrRangeRestrictions"
@@ -261,7 +332,7 @@ export default function MmrConfigPanel({ config, onChange }: MmrConfigPanelProps
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="maxMmrDifference"
