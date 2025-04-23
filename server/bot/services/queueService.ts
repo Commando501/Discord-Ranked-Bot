@@ -503,8 +503,7 @@ export class QueueService {
             logger.info(`Selected ${matchPlayers.length} players for match creation: ${matchPlayers.join(', ')}`);
 
             // Import the transaction utility from the db module
-            // Using import instead of require to fix the reference error
-            import { withTransaction } from '../../db';
+            const { withTransaction } = await import('../../db');
             
             // Perform the entire match creation within a transaction
             return await withTransaction(async (tx) => {
@@ -544,7 +543,7 @@ export class QueueService {
                     }
 
                     // Import the transaction function from matchService
-                    import { createMatchWithPlayersTransaction } from './matchService';
+                    const { createMatchWithPlayersTransaction } = await import('./matchService');
                     
                     // Create the match - passing the transaction to ensure everything is in the same transaction
                     const matchResult = await createMatchWithPlayersTransaction(
