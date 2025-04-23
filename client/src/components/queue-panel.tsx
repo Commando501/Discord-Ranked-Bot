@@ -42,12 +42,25 @@ export default function QueuePanel() {
     });
   };
   
-  const handleResetQueue = () => {
-    toast({
-      title: "Reset queue",
-      description: "This functionality is only available in Discord.",
-      variant: "destructive"
-    });
+  const handleResetQueue = async () => {
+    try {
+      await fetch('/api/queue/reset', {
+        method: 'POST',
+      });
+      
+      await refetch();
+      toast({
+        title: "Queue reset",
+        description: "The queue has been cleared successfully.",
+      });
+    } catch (error) {
+      console.error("Error resetting queue:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reset the queue. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
   const handleRemovePlayer = (playerId: number) => {

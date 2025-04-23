@@ -642,6 +642,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to clear queue" });
     }
   });
+  
+  // Non-admin endpoint for clearing queue from dashboard
+  app.post("/api/queue/reset", async (req, res) => {
+    try {
+      await storage.clearQueue();
+      res.json({ success: true, message: "Queue cleared successfully" });
+    } catch (error) {
+      console.error("Error clearing queue:", error);
+      res.status(500).json({ message: "Failed to clear queue" });
+    }
+  });
 
   // Start a new season
   app.post("/api/admin/seasons/new", adminMiddleware, async (req, res) => {
