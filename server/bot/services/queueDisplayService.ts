@@ -1,20 +1,26 @@
-
-import { TextChannel, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, Message } from 'discord.js';
-import { logger } from '../utils/logger';
-import { QueueService } from './queueService';
-import { MatchService } from './matchService';
-import { IStorage } from '../../storage';
-import { getDiscordClient } from '../../discord/bot';
-import { formatDuration } from '../utils/timeUtils';
-import path from 'path';
-import fs from 'fs';
+import {
+  TextChannel,
+  EmbedBuilder,
+  ButtonBuilder,
+  ActionRowBuilder,
+  ButtonStyle,
+  Message,
+} from "discord.js";
+import { logger } from "../utils/logger";
+import { QueueService } from "./queueService";
+import { MatchService } from "./matchService";
+import { IStorage } from "../../storage";
+import { getDiscordClient } from "../../discord/bot";
+import { formatDuration } from "../utils/timeUtils";
+import path from "path";
+import fs from "fs";
 
 export class QueueDisplayService {
   private static instance: QueueDisplayService | null = null;
   private storage: IStorage;
   private queueService: QueueService;
   private matchService: MatchService;
-  private channelId: string = '1364742151996444723';
+  private channelId: string = "1364742151996444723";
   private displayMessage: Message | null = null;
 
   constructor(storage: IStorage) {
@@ -41,13 +47,13 @@ export class QueueDisplayService {
     try {
       // Check if we already have a message in the channel
       await this.findExistingMessage();
-      
+
       // Setup event listeners
       this.setupEventListeners();
-      
+
       // Create initial display
       await this.refreshQueueDisplay();
-      
+
       logger.info("Queue display initialized successfully");
     } catch (error) {
       logger.error(`Error initializing queue display: ${error}`);
@@ -58,11 +64,15 @@ export class QueueDisplayService {
     try {
       const client = getDiscordClient();
       if (!client) {
-        logger.warn("Cannot find existing message: Discord client not available");
+        logger.warn(
+          "Cannot find existing message: Discord client not available",
+        );
         return;
       }
 
-      const channel = await client.channels.fetch(this.channelId) as TextChannel;
+      const channel = (await client.channels.fetch(
+        this.channelId,
+      )) as TextChannel;
       if (!channel) {
         logger.warn(`Channel with ID ${this.channelId} not found`);
         return;
@@ -70,15 +80,18 @@ export class QueueDisplayService {
 
       // Fetch recent messages to see if our bot already posted a queue status
       const messages = await channel.messages.fetch({ limit: 10 });
-      const botMessage = messages.find(msg => 
-        msg.author.id === client.user?.id && 
-        msg.embeds.length > 0 && 
-        msg.embeds.some(embed => embed.title === "Matchmaking Queue")
+      const botMessage = messages.find(
+        (msg) =>
+          msg.author.id === client.user?.id &&
+          msg.embeds.length > 0 &&
+          msg.embeds.some((embed) => embed.title === "Matchmaking Queue"),
       );
 
       if (botMessage) {
         this.displayMessage = botMessage;
-        logger.info(`Found existing queue display message with ID: ${botMessage.id}`);
+        logger.info(
+          `Found existing queue display message with ID: ${botMessage.id}`,
+        );
       }
     } catch (error) {
       logger.error(`Error finding existing message: ${error}`);
@@ -88,29 +101,31 @@ export class QueueDisplayService {
   private setupEventListeners(): void {
     try {
       // Listen for queue updates with proper ES module imports
-      import('../utils/eventEmitter').then(({ EventEmitter, QUEUE_EVENTS, MATCH_EVENTS }) => {
-        const emitter = EventEmitter.getInstance();
-        
-        // Register for queue events
-        emitter.on(QUEUE_EVENTS.UPDATED, () => {
-          logger.info("Queue updated event received, refreshing display");
-          this.refreshQueueDisplay();
+      import("../utils/eventEmitter")
+        .then(({ EventEmitter, QUEUE_EVENTS, MATCH_EVENTS }) => {
+          const emitter = EventEmitter.getInstance();
+
+          // Register for queue events
+          emitter.on(QUEUE_EVENTS.UPDATED, () => {
+            logger.info("Queue updated event received, refreshing display");
+            this.refreshQueueDisplay();
+          });
+
+          emitter.on(MATCH_EVENTS.CREATED, () => {
+            logger.info("Match created event received, refreshing display");
+            this.refreshQueueDisplay();
+          });
+
+          emitter.on(MATCH_EVENTS.ENDED, () => {
+            logger.info("Match ended event received, refreshing display");
+            this.refreshQueueDisplay();
+          });
+
+          logger.info("Queue display event listeners registered successfully");
+        })
+        .catch((err) => {
+          logger.error(`Error importing event emitter: ${err}`);
         });
-        
-        emitter.on(MATCH_EVENTS.CREATED, () => {
-          logger.info("Match created event received, refreshing display");
-          this.refreshQueueDisplay();
-        });
-        
-        emitter.on(MATCH_EVENTS.ENDED, () => {
-          logger.info("Match ended event received, refreshing display");
-          this.refreshQueueDisplay();
-        });
-        
-        logger.info("Queue display event listeners registered successfully");
-      }).catch(err => {
-        logger.error(`Error importing event emitter: ${err}`);
-      });
     } catch (error) {
       logger.error(`Error setting up event listeners: ${error}`);
     }
@@ -123,21 +138,25 @@ export class QueueDisplayService {
   public async forceMessageRecreation(): Promise<void> {
     // Clear the existing message reference
     this.displayMessage = null;
-    
+
     // Refresh the display, which will create a new message
     await this.refreshQueueDisplay();
     logger.info("Force recreation of queue display completed");
   }
-  
+
   public async refreshQueueDisplay(): Promise<void> {
     try {
       const client = getDiscordClient();
       if (!client) {
-        logger.warn("Cannot refresh queue display: Discord client not available");
+        logger.warn(
+          "Cannot refresh queue display: Discord client not available",
+        );
         return;
       }
 
-      const channel = await client.channels.fetch(this.channelId) as TextChannel;
+      const channel = (await client.channels.fetch(
+        this.channelId,
+      )) as TextChannel;
       if (!channel) {
         logger.warn(`Channel with ID ${this.channelId} not found`);
         return;
@@ -165,64 +184,74 @@ export class QueueDisplayService {
           // Update existing message
           await this.displayMessage.edit({
             embeds: [queueEmbed, ...matchEmbeds],
-            components: [row]
+            components: [row],
           });
           logger.info("Updated existing queue display message");
-          
+
           // Every time we edit the message, ensure there's a collector
           // This is a redundancy step that's much safer than relying on time-based recreation
           this.ensureButtonCollector(this.displayMessage);
-          
+
           // Every 20 minutes, recreate the message to ensure fresh button collectors
           const messageAge = Date.now() - this.displayMessage.createdTimestamp;
           const twentyMinutesMs = 20 * 60 * 1000;
-          
+
           if (messageAge > twentyMinutesMs) {
-            logger.info("Message is over an hour old, recreating for fresh collectors");
-            // Delete old message
-            await this.displayMessage.delete().catch(err => 
-              logger.warn(`Could not delete old message: ${err}`)
+            logger.info(
+              "Message is over an hour old, recreating for fresh collectors",
             );
-            
+            // Delete old message
+            await this.displayMessage
+              .delete()
+              .catch((err) =>
+                logger.warn(`Could not delete old message: ${err}`),
+              );
+
             // Create new message
             const newMessage = await channel.send({
               embeds: [queueEmbed, ...matchEmbeds],
-              components: [row]
+              components: [row],
             });
             this.displayMessage = newMessage;
-            
+
             // Set up new collector
             this.setupButtonCollector(newMessage);
-            logger.info(`Recreated queue display message with ID: ${newMessage.id}`);
+            logger.info(
+              `Recreated queue display message with ID: ${newMessage.id}`,
+            );
           }
         } catch (editError) {
           logger.error(`Error editing existing message: ${editError}`);
           logger.info("Creating new message instead");
-          
+
           // If edit fails, create new message
           const newMessage = await channel.send({
             embeds: [queueEmbed, ...matchEmbeds],
-            components: [row]
+            components: [row],
           });
           this.displayMessage = newMessage;
-          
+
           // Set up collector for button interactions
           this.setupButtonCollector(newMessage);
-          
-          logger.info(`Created new queue display message with ID: ${newMessage.id}`);
+
+          logger.info(
+            `Created new queue display message with ID: ${newMessage.id}`,
+          );
         }
       } else {
         // Create new message
         const sentMessage = await channel.send({
           embeds: [queueEmbed, ...matchEmbeds],
-          components: [row]
+          components: [row],
         });
         this.displayMessage = sentMessage;
-        
+
         // Set up collector for button interactions
         this.setupButtonCollector(sentMessage);
-        
-        logger.info(`Created new queue display message with ID: ${sentMessage.id}`);
+
+        logger.info(
+          `Created new queue display message with ID: ${sentMessage.id}`,
+        );
       }
     } catch (error) {
       logger.error(`Error refreshing queue display: ${error}`);
@@ -236,7 +265,7 @@ export class QueueDisplayService {
       logger.debug(`Message ${message.id} already has an active collector`);
       return;
     }
-    
+
     // Add collector to message
     this.setupButtonCollector(message);
     logger.info(`Ensured button collector exists for message ${message.id}`);
@@ -244,121 +273,142 @@ export class QueueDisplayService {
 
   private setupButtonCollector(message: Message): void {
     // Create a collector with a longer timeout to avoid stale collectors
-    const collector = message.createMessageComponentCollector({ 
-      time: 8 * 60 * 60 * 1000 // 8 hours
+    const collector = message.createMessageComponentCollector({
+      time: 8 * 60 * 60 * 1000, // 8 hours
     });
-    
+
     // Mark this message as having a collector (custom property)
     (message as any)._hasQueueCollector = true;
 
-    collector.on('collect', async (interaction) => {
+    collector.on("collect", async (interaction) => {
       if (!interaction.isButton()) return;
-      
-      logger.info(`Button interaction received: ${interaction.customId} from user ${interaction.user.tag}`);
-      
+
+      logger.info(
+        `Button interaction received: ${interaction.customId} from user ${interaction.user.tag}`,
+      );
+
       try {
         // Use deferUpdate() here instead of deferReply
         // This acknowledges the interaction by updating the original message
         await interaction.deferUpdate();
         logger.info(`Interaction acknowledged with deferUpdate`);
-        
+
         // Import PlayerService here to avoid circular dependencies
-        const { PlayerService } = await import('./playerService');
+        const { PlayerService } = await import("./playerService");
         const playerService = new PlayerService(this.storage);
-        
+
         // Get or create player for the user who clicked the button
         const player = await playerService.getOrCreatePlayer({
           id: interaction.user.id,
           username: interaction.user.tag,
-          discriminator: '',
-          avatar: null
+          discriminator: "",
+          avatar: null,
         });
-        
-        let feedbackMessage = '';
+
+        let feedbackMessage = "";
         let actionPerformed = false;
-        
+
         if (interaction.customId === "join_queue") {
           // Check if player is already in queue
-          const existingQueueEntry = await this.queueService.getPlayerQueueEntry(player.id);
-          
+          const existingQueueEntry =
+            await this.queueService.getPlayerQueueEntry(player.id);
+
           if (existingQueueEntry) {
             feedbackMessage = "You are already in the matchmaking queue.";
           } else {
             // Add player to queue
-            const queueResult = await this.queueService.addPlayerToQueue(player.id);
-            
+            const queueResult = await this.queueService.addPlayerToQueue(
+              player.id,
+            );
+
             if (!queueResult.success) {
               feedbackMessage = `Failed to join queue: ${queueResult.message}`;
             } else {
               // Get updated queue size
-              const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
+              const updatedQueueCount = (
+                await this.queueService.getAllQueueEntries()
+              ).length;
               feedbackMessage = `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`;
               actionPerformed = true;
-              
+
               // Check if we can create a match
               if (interaction.guild) {
                 await this.queueService.checkAndCreateMatch(interaction.guild);
               }
             }
           }
-          
         } else if (interaction.customId === "leave_queue") {
           // Check if player is in queue
-          const existingQueueEntry = await this.queueService.getPlayerQueueEntry(player.id);
-          
+          const existingQueueEntry =
+            await this.queueService.getPlayerQueueEntry(player.id);
+
           if (!existingQueueEntry) {
             feedbackMessage = "You are not in the matchmaking queue.";
           } else {
             // Remove player from queue - handling boolean return value
-            const leaveResult = await this.queueService.removePlayerFromQueue(player.id);
-            
+            const leaveResult = await this.queueService.removePlayerFromQueue(
+              player.id,
+            );
+
             // The removePlayerFromQueue method returns a boolean, not an object
             if (leaveResult === false) {
-              feedbackMessage = "Failed to leave queue. Please try again later.";
+              feedbackMessage =
+                "Failed to leave queue. Please try again later.";
             } else {
-              feedbackMessage = "You have been removed from the matchmaking queue.";
+              feedbackMessage =
+                "You have been removed from the matchmaking queue.";
               actionPerformed = true;
             }
           }
         }
-        
+
         // Send an ephemeral follow-up message to give feedback to the user
         await interaction.followUp({
           content: feedbackMessage,
-          ephemeral: true
+          ephemeral: true,
         });
-        
+
         // If an action was performed, manually refresh the queue display
         // This is a backup in case the event system doesn't trigger a refresh
         if (actionPerformed) {
           logger.info("Action performed, forcing queue display refresh");
           // Small delay to ensure database operations complete
           setTimeout(() => {
-            this.refreshQueueDisplay()
-              .catch(err => logger.error(`Error refreshing queue display after button action: ${err}`));
+            this.refreshQueueDisplay().catch((err) =>
+              logger.error(
+                `Error refreshing queue display after button action: ${err}`,
+              ),
+            );
           }, 500);
         }
-        
       } catch (error) {
         logger.error(`Error handling button interaction: ${error}`);
         // Try to respond even if there was an error
         try {
           await interaction.followUp({
-            content: "An error occurred while processing your request. Please try again later.",
-            ephemeral: true
+            content:
+              "An error occurred while processing your request. Please try again later.",
+            ephemeral: true,
           });
         } catch (responseError) {
-          logger.error(`Failed to send error message to user: ${responseError}`);
+          logger.error(
+            `Failed to send error message to user: ${responseError}`,
+          );
         }
       }
     });
 
-    collector.on('end', () => {
-      logger.info("Button collector ended, creating new message with fresh buttons");
+    collector.on("end", () => {
+      logger.info(
+        "Button collector ended, creating new message with fresh buttons",
+      );
       // When collector expires, create a new message with fresh buttons
       this.displayMessage = null;
-      this.refreshQueueDisplay()
-        .catch(err => logger.error(`Error refreshing queue display after collector end: ${err}`));
+      this.refreshQueueDisplay().catch((err) =>
+        logger.error(
+          `Error refreshing queue display after collector end: ${err}`,
+        ),
+      );
     });
   }
 
@@ -380,7 +430,7 @@ export class QueueDisplayService {
       // Build queue list with rank info
       const queueListPromises = queuePlayers.map(async (entry, index) => {
         const waitTime = formatDuration(entry.joinedAt);
-        
+
         // Get player rank using the same method as the list command
         let playerRank = null;
 
@@ -401,12 +451,14 @@ export class QueueDisplayService {
               // Replace with config ranks if they exist - this ensures we use the complete set with subdivisions
               rankTiers = configData.seasonManagement.rankTiers;
               logger.info(
-                `Using ${rankTiers.length} detailed rank tiers from config file for queue display`
+                `Using ${rankTiers.length} detailed rank tiers from config file for queue display`,
               );
             }
           }
         } catch (configError) {
-          logger.error(`Error loading detailed rank tiers from config: ${configError}`);
+          logger.error(
+            `Error loading detailed rank tiers from config: ${configError}`,
+          );
         }
 
         // COMPLETE ALGORITHM REWRITE for tier determination:
@@ -415,7 +467,7 @@ export class QueueDisplayService {
 
         // Sort tiers by threshold in ascending order
         const sortedTiers = [...rankTiers].sort(
-          (a, b) => a.mmrThreshold - b.mmrThreshold
+          (a, b) => a.mmrThreshold - b.mmrThreshold,
         );
 
         // Find the appropriate tier by checking MMR ranges explicitly
@@ -430,7 +482,10 @@ export class QueueDisplayService {
           const upperBound = currentTier.mmrThreshold;
           const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
 
-          if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
+          if (
+            entry.player.mmr >= lowerBound &&
+            entry.player.mmr <= upperBound
+          ) {
             foundTier = currentTier;
             break;
           }
@@ -487,13 +542,15 @@ export class QueueDisplayService {
             if (client) {
               const emojiId = rankEmojiMap[playerRank.name];
               const emoji = client.emojis.cache.get(emojiId);
-              
+
               if (emoji) {
                 rankEmoji = ` ${emoji}`;
               }
             }
           } catch (error) {
-            logger.warn(`Error getting emoji for rank ${playerRank.name}: ${error}`);
+            logger.warn(
+              `Error getting emoji for rank ${playerRank.name}: ${error}`,
+            );
           }
         }
 
@@ -512,14 +569,16 @@ export class QueueDisplayService {
         .setColor("#57F287")
         .setTitle("Active Matches")
         .setDescription(`${activeMatches.length} active matches`);
-      
+
       matchEmbeds.push(matchesSummaryEmbed);
-      
+
       // Create a separate embed for each match with detailed information
       for (const match of activeMatches) {
         try {
           // Get detailed match information including teams
-          const matchDetails = await this.matchService.getMatchDetails(match.id);
+          const matchDetails = await this.matchService.getMatchDetails(
+            match.id,
+          );
 
           // Calculate match duration
           const matchDuration = formatDuration(match.createdAt);
@@ -529,7 +588,7 @@ export class QueueDisplayService {
             .setColor("#3BA55C")
             .setTitle(`Match #${match.id}`)
             .setDescription(
-              `Status: ${match.status} | Started: ${matchDuration} ago`
+              `Status: ${match.status} | Started: ${matchDuration} ago`,
             )
             .setFooter({
               text: `Use /endmatch ${match.id} Eagle|Cobra to end this match`,
@@ -552,20 +611,26 @@ export class QueueDisplayService {
 
           matchEmbeds.push(matchEmbed);
         } catch (error) {
-          logger.error(`Error creating match embed for match ${match.id}: ${error}`);
-          
+          logger.error(
+            `Error creating match embed for match ${match.id}: ${error}`,
+          );
+
           // Add a simple error embed
           matchEmbeds.push(
             new EmbedBuilder()
               .setColor("#ED4245")
               .setTitle(`Match #${match.id}`)
-              .setDescription(`Status: ${match.status}\nStarted: ${formatDuration(match.createdAt)}\n⚠️ Could not load detailed information`)
+              .setDescription(
+                `Status: ${match.status}\nStarted: ${formatDuration(match.createdAt)}\n⚠️ Could not load detailed information`,
+              ),
           );
         }
       }
     }
-    
+
     // Return only queue embed if no matches, otherwise return queue embed and match embeds
-    return activeMatches.length > 0 ? [queueEmbed, ...matchEmbeds] : [queueEmbed];
+    return activeMatches.length > 0
+      ? [queueEmbed, ...matchEmbeds]
+      : [queueEmbed];
   }
 }
