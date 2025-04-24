@@ -85,89 +85,32 @@ export class QueueDisplayService {
 
   private setupEventListeners(): void {
     try {
-      // Use a more reliable approach to setup event listeners
-      // Don't use async IIFE which can cause timing issues
-      
-      // Import event emitter module - use require to ensure synchronous import
-      const { EventEmitter, QUEUE_EVENTS, MATCH_EVENTS } = require('../utils/eventEmitter');
-      const emitter = EventEmitter.getInstance();
-      
-      // First, remove any existing listeners to prevent duplicates
-      emitter.removeAllListeners(QUEUE_EVENTS.UPDATED);
-      emitter.removeAllListeners(QUEUE_EVENTS.PLAYER_JOINED);
-      emitter.removeAllListeners(QUEUE_EVENTS.PLAYER_LEFT);
-      emitter.removeAllListeners(MATCH_EVENTS.CREATED);
-      emitter.removeAllListeners(MATCH_EVENTS.UPDATED);
-      emitter.removeAllListeners(MATCH_EVENTS.ENDED);
-      
-      // Define a single refresh handler to reuse for all events
-      const refreshHandler = async (eventName: string) => {
-        try {
-          logger.info(`${eventName} event received, refreshing queue display`);
-          await this.refreshQueueDisplay();
-        } catch (refreshError) {
-          logger.error(`Error refreshing display after ${eventName}: ${refreshError}`);
-          // Try again once more after a short delay
-          setTimeout(async () => {
-            try {
-              logger.info(`Retrying refresh after ${eventName} event`);
-              await this.refreshQueueDisplay();
-            } catch (retryError) {
-              logger.error(`Retry failed for refresh after ${eventName}: ${retryError}`);
-            }
-          }, 1000);
-        }
-      };
-      
-      // Register for queue events with more error handling
-      emitter.on(QUEUE_EVENTS.UPDATED, () => refreshHandler('queue:updated'));
-      emitter.on(QUEUE_EVENTS.PLAYER_JOINED, () => refreshHandler('queue:player_joined'));
-      emitter.on(QUEUE_EVENTS.PLAYER_LEFT, () => refreshHandler('queue:player_left'));
-      emitter.on(MATCH_EVENTS.CREATED, () => refreshHandler('match:created'));
-      emitter.on(MATCH_EVENTS.UPDATED, () => refreshHandler('match:updated'));
-      emitter.on(MATCH_EVENTS.ENDED, () => refreshHandler('match:ended'));
-      
-      // Log listener counts for verification
-      logger.info(`Queue display event listeners registered successfully:`);
-      logger.info(`- ${emitter.listenerCount(QUEUE_EVENTS.UPDATED)} listeners for queue:updated`);
-      logger.info(`- ${emitter.listenerCount(QUEUE_EVENTS.PLAYER_JOINED)} listeners for queue:player_joined`);
-      logger.info(`- ${emitter.listenerCount(QUEUE_EVENTS.PLAYER_LEFT)} listeners for queue:player_left`);
-      logger.info(`- ${emitter.listenerCount(MATCH_EVENTS.CREATED)} listeners for match:created`);
-      
-      // Setup a periodic refresh as a failsafe
-      setInterval(async () => {
-        try {
-          await this.refreshQueueDisplay();
-          logger.debug("Periodic failsafe queue refresh completed");
-        } catch (error) {
-          logger.error(`Error in periodic queue refresh: ${error}`);
-        }
-      }, 60000); // Every minute
+      // Listen for queue updates with proper ES module imports
+      import('../utils/eventEmitter').then(({ EventEmitter, QUEUE_EVENTS, MATCH_EVENTS }) => {
+        const emitter = EventEmitter.getInstance();
+        
+        // Register for queue events
+        emitter.on(QUEUE_EVENTS.UPDATED, () => {
+          logger.info("Queue updated event received, refreshing display");
+          this.refreshQueueDisplay();
+        });
+        
+        emitter.on(MATCH_EVENTS.CREATED, () => {
+          logger.info("Match created event received, refreshing display");
+          this.refreshQueueDisplay();
+        });
+        
+        emitter.on(MATCH_EVENTS.ENDED, () => {
+          logger.info("Match ended event received, refreshing display");
+          this.refreshQueueDisplay();
+        });
+        
+        logger.info("Queue display event listeners registered successfully");
+      }).catch(err => {
+        logger.error(`Error importing event emitter: ${err}`);
+      });
     } catch (error) {
       logger.error(`Error setting up event listeners: ${error}`);
-      
-      // Attempt to recover by using a delayed retry of setup
-      setTimeout(() => {
-        logger.info("Retrying event listener setup...");
-        try {
-          // Use direct import with require as a fallback
-          const { EventEmitter, QUEUE_EVENTS, MATCH_EVENTS } = require('../utils/eventEmitter');
-          const emitter = EventEmitter.getInstance();
-          
-          emitter.on(QUEUE_EVENTS.UPDATED, async () => {
-            try {
-              logger.info("Queue updated event received (retry setup), refreshing display");
-              await this.refreshQueueDisplay();
-            } catch (err) {
-              logger.error(`Error in retry refresh: ${err}`);
-            }
-          });
-          
-          logger.info("Fallback event listener setup completed");
-        } catch (retryError) {
-          logger.error(`Event listener retry setup failed: ${retryError}`);
-        }
-      }, 5000);
     }
   }
 
@@ -203,52 +146,24 @@ export class QueueDisplayService {
       );
 
       if (this.displayMessage) {
-        try {
-          // Update existing message
-          await this.displayMessage.edit({
-            embeds: [queueEmbed, ...matchEmbeds],
-            components: [row]
-          });
-          
-          // Set up a new collector for the updated message
-          this.setupButtonCollector(this.displayMessage);
-          
-          logger.info("Updated existing queue display message");
-        } catch (editError) {
-          logger.error(`Error editing existing queue display message: ${editError}`);
-          
-          // If editing fails, try to create a new message instead
-          try {
-            const sentMessage = await channel.send({
-              embeds: [queueEmbed, ...matchEmbeds],
-              components: [row]
-            });
-            this.displayMessage = sentMessage;
-            
-            // Set up collector for button interactions
-            this.setupButtonCollector(sentMessage);
-            
-            logger.info(`Created new queue display message after edit failure. ID: ${sentMessage.id}`);
-          } catch (sendError) {
-            logger.error(`Failed to create new message after edit error: ${sendError}`);
-          }
-        }
+        // Update existing message
+        await this.displayMessage.edit({
+          embeds: [queueEmbed, ...matchEmbeds],
+          components: [row]
+        });
+        logger.info("Updated existing queue display message");
       } else {
-        try {
-          // Create new message
-          const sentMessage = await channel.send({
-            embeds: [queueEmbed, ...matchEmbeds],
-            components: [row]
-          });
-          this.displayMessage = sentMessage;
-          
-          // Set up collector for button interactions
-          this.setupButtonCollector(sentMessage);
-          
-          logger.info(`Created new queue display message with ID: ${sentMessage.id}`);
-        } catch (sendError) {
-          logger.error(`Error creating new queue display message: ${sendError}`);
-        }
+        // Create new message
+        const sentMessage = await channel.send({
+          embeds: [queueEmbed, ...matchEmbeds],
+          components: [row]
+        });
+        this.displayMessage = sentMessage;
+        
+        // Set up collector for button interactions
+        this.setupButtonCollector(sentMessage);
+        
+        logger.info(`Created new queue display message with ID: ${sentMessage.id}`);
       }
     } catch (error) {
       logger.error(`Error refreshing queue display: ${error}`);
@@ -256,211 +171,27 @@ export class QueueDisplayService {
   }
 
   private setupButtonCollector(message: Message): void {
-    try {
-      // First, check if the message already has any collectors
-      // We don't want multiple collectors on the same message
-      if (message.createMessageComponentCollector) {
-        // Get any existing collectors on this message
-        const existingCollector = (message as any)._messageComponentCollector;
-        if (existingCollector) {
-          logger.info(`Stopping existing collector for message ID: ${message.id}`);
-          try {
-            existingCollector.stop();
-          } catch (stopError) {
-            logger.error(`Error stopping existing collector: ${stopError}`);
-          }
-        }
-        
-        // Create a new collector with proper timeout and filter
-        const collector = message.createMessageComponentCollector({ 
-          time: 24 * 60 * 60 * 1000, // 24 hours
-          componentType: 2, // Button type
-          filter: i => i.message.id === message.id && (i.customId === "join_queue" || i.customId === "leave_queue") // Only collect join/leave interactions for this specific message
-        });
-        
-        logger.info(`Set up new button collector for message ID: ${message.id}`);
-        
-        collector.on('collect', async (interaction) => {
-      if (!interaction.isButton()) return;
+    const collector = message.createMessageComponentCollector({ 
+      time: 24 * 60 * 60 * 1000 // 24 hours
+    });
+
+    collector.on('collect', async (interaction) => {
+      // Handle using the same code as in the list command
+      // This will be handled by the discord button collector setup
+      // We don't need to handle it here since it will emit queue:updated events
+      // which will trigger a refresh
       
-      // Defer the reply to acknowledge the interaction
-      await interaction.deferReply({ ephemeral: true });
-      
-      try {
-        try {
-          // Import necessary services
-          const { PlayerService } = await import('./playerService');
-          const playerService = new PlayerService(this.storage);
-          
-          // First, log the interaction details for debugging
-          logger.info(`Button interaction received from user ${interaction.user.tag} (${interaction.user.id}) with customId: ${interaction.customId}`);
-          
-          // Get or create player for the user who clicked the button
-          // We need to convert the Discord user ID (string) to our internal player ID (number)
-          const playerFromDiscord = await playerService.getOrCreatePlayer({
-            id: interaction.user.id,
-            username: interaction.user.tag,
-            discriminator: '',
-            avatar: null
-          });
-          
-          if (!playerFromDiscord || typeof playerFromDiscord.id !== 'number') {
-            logger.error(`Failed to find or create player for Discord user ${interaction.user.id}. Player object: ${JSON.stringify(playerFromDiscord)}`);
-            await interaction.editReply({
-              content: "An error occurred while processing your request. Please try again later or use the /queue command instead."
-            });
-            return;
-          }
-          
-          // Now we have a valid player ID
-          const playerId = playerFromDiscord.id;
-          logger.info(`Button pressed by player ID: ${playerId} (Discord ID: ${interaction.user.id})`);
-          
-          if (interaction.customId === "join_queue") {
-            // Check if player is already in queue
-            const existingQueueEntry = await this.queueService.getPlayerQueueEntry(playerId);
-            
-            if (existingQueueEntry) {
-              logger.info(`Player ${playerId} attempted to join queue but is already in queue`);
-              await interaction.editReply({
-                content: "You are already in the matchmaking queue."
-              });
-              return;
-            }
-            
-            // Add player to queue with proper error handling
-            try {
-              logger.info(`Adding player ${playerId} to queue via button interaction`);
-              const queueResult = await this.queueService.addPlayerToQueue(playerId);
-              
-              if (!queueResult.success) {
-                logger.warn(`Failed to add player ${playerId} to queue: ${queueResult.message}`);
-                await interaction.editReply({
-                  content: `Failed to join queue: ${queueResult.message}`
-                });
-                return;
-              }
-              
-              // Get updated queue size
-              const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
-              
-              logger.info(`Player ${playerId} successfully added to queue. New queue size: ${updatedQueueCount}`);
-              await interaction.editReply({
-                content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`
-              });
-              
-              // Check if we have enough players to create a match
-              if (interaction.guild) {
-                try {
-                  await this.queueService.checkAndCreateMatch(interaction.guild);
-                } catch (matchError) {
-                  logger.error(`Error checking and creating match: ${matchError}`);
-                  // Don't fail the interaction due to match creation error
-                }
-              }
-            } catch (queueError) {
-              logger.error(`Error adding player ${playerId} to queue: ${queueError}`);
-              await interaction.editReply({
-                content: "An error occurred while joining the queue. Please try again later."
-              }).catch(replyError => 
-                logger.error(`Failed to send error reply: ${replyError}`)
-              );
-            }
-            
-          } else if (interaction.customId === "leave_queue") {
-            try {
-              // Check if player is in queue
-              const queueEntry = await this.queueService.getPlayerQueueEntry(playerId);
-              
-              if (!queueEntry) {
-                logger.info(`Player ${playerId} attempted to leave queue but is not in queue`);
-                await interaction.editReply({
-                  content: "You are not currently in the matchmaking queue."
-                });
-                return;
-              }
-              
-              // Remove player from queue
-              logger.info(`Removing player ${playerId} from queue via button interaction`);
-              const removeResult = await this.queueService.removePlayerFromQueue(playerId);
-              
-              if (!removeResult) {
-                logger.warn(`Failed to remove player ${playerId} from queue`);
-                await interaction.editReply({
-                  content: "Failed to leave queue. Please try again later."
-                });
-                return;
-              }
-              
-              // Get updated queue size
-              const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
-              
-              logger.info(`Player ${playerId} successfully removed from queue. New queue size: ${updatedQueueCount}`);
-              await interaction.editReply({
-                content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`
-              });
-            } catch (leaveError) {
-              logger.error(`Error removing player ${playerId} from queue: ${leaveError}`);
-              await interaction.editReply({
-                content: "An error occurred while leaving the queue. Please try again later."
-              }).catch(replyError => 
-                logger.error(`Failed to send error reply: ${replyError}`)
-              );
-            }
-          }
-        } catch (error) {
-          // Catch-all error handler for unexpected issues
-          logger.error(`Uncaught error in button interaction handler: ${error}`);
-          try {
-            await interaction.editReply({
-              content: "An unexpected error occurred. Please try again later or use the /queue or /leave commands instead."
-            });
-          } catch (replyError) {
-            logger.error(`Failed to send error reply: ${replyError}`);
-          }
-        }
-        
-        // Note: We don't need to manually refresh the queue display here
-        // since the queue service emits events that will trigger a refresh
-        
-      } catch (error) {
-        logger.error(`Error processing button interaction: ${error}`);
-        await interaction.editReply({
-          content: "An error occurred while processing your request. Please try again later."
-        });
+      // Just acknowledge the interaction to avoid errors
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferUpdate();
       }
     });
 
-    collector.on('end', (collected, reason) => {
-      logger.info(`Button collector for message ID: ${message.id} ended. Reason: ${reason}. Collected ${collected.size} interactions.`);
-      
+    collector.on('end', () => {
       // When collector expires, create a new message with fresh buttons
-      try {
-        this.displayMessage = null;
-        this.refreshQueueDisplay()
-          .catch(refreshError => {
-            logger.error(`Error refreshing queue display after collector end: ${refreshError}`);
-          });
-      } catch (error) {
-        logger.error(`Error handling collector end event: ${error}`);
-      }
+      this.displayMessage = null;
+      this.refreshQueueDisplay();
     });
-    
-    // Add an error handler to the collector
-    collector.on('dispose', () => {
-      logger.warn(`Button collector for message ID: ${message.id} was disposed.`);
-    });
-    
-    // Handle collector errors
-    if (collector.on && typeof collector.on === 'function') {
-      try {
-        collector.on('error', (error) => {
-          logger.error(`Error in button collector for message ID: ${message.id}: ${error}`);
-        });
-      } catch (handlerError) {
-        logger.error(`Failed to add error handler to collector: ${handlerError}`);
-      }
-    }
   }
 
   private async createQueueEmbeds(): Promise<EmbedBuilder[]> {
