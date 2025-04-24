@@ -178,10 +178,14 @@ export class QueueDisplayService {
     collector.on('collect', async (interaction) => {
       if (!interaction.isButton()) return;
       
-      // Defer the ephemeral reply to acknowledge the interaction
-      await interaction.deferReply({ ephemeral: true });
+      logger.info(`Button interaction received: ${interaction.customId} from user ${interaction.user.tag}`);
       
       try {
+        // First acknowledge the interaction immediately to prevent "This interaction failed"
+        logger.info(`Acknowledging interaction with deferUpdate()`);
+        await interaction.deferUpdate();
+        logger.info(`Interaction deferred successfully`);
+        
         // Import PlayerService here to avoid circular dependencies
         const { PlayerService } = await import('./playerService');
         const playerService = new PlayerService(this.storage);
@@ -199,8 +203,10 @@ export class QueueDisplayService {
           const existingQueueEntry = await this.queueService.getPlayerQueueEntry(player.id);
           
           if (existingQueueEntry) {
-            await interaction.editReply({
-              content: "You are already in the matchmaking queue."
+            // Send follow-up ephemeral message instead of editing the reply
+            await interaction.followUp({
+              content: "You are already in the matchmaking queue.",
+              ephemeral: true
             });
             return;
           }
@@ -209,8 +215,9 @@ export class QueueDisplayService {
           const queueResult = await this.queueService.addPlayerToQueue(player.id);
           
           if (!queueResult.success) {
-            await interaction.editReply({
-              content: `Failed to join queue: ${queueResult.message}`
+            await interaction.followUp({
+              content: `Failed to join queue: ${queueResult.message}`,
+              ephemeral: true
             });
             return;
           }
@@ -218,8 +225,9 @@ export class QueueDisplayService {
           // Get updated queue size
           const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
           
-          await interaction.editReply({
-            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`
+          await interaction.followUp({
+            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`,
+            ephemeral: true
           });
           
           // Check if we can create a match
@@ -232,8 +240,9 @@ export class QueueDisplayService {
           const existingQueueEntry = await this.queueService.getPlayerQueueEntry(player.id);
           
           if (!existingQueueEntry) {
-            await interaction.editReply({
-              content: "You are not in the matchmaking queue."
+            await interaction.followUp({
+              content: "You are not in the matchmaking queue.",
+              ephemeral: true
             });
             return;
           }
@@ -242,21 +251,40 @@ export class QueueDisplayService {
           const leaveResult = await this.queueService.removePlayerFromQueue(player.id);
           
           if (!leaveResult.success) {
-            await interaction.editReply({
-              content: `Failed to leave queue: ${leaveResult.message}`
+            await interaction.followUp({
+              content: `Failed to leave queue: ${leaveResult.message}`,
+              ephemeral: true
             });
             return;
           }
           
-          await interaction.editReply({
-            content: "You have been removed from the matchmaking queue."
+          await interaction.followUp({
+            content: "You have been removed from the matchmaking queue.",
+            ephemeral: true
           });
         }
       } catch (error) {
         logger.error(`Error handling button interaction: ${error}`);
-        await interaction.editReply({
-          content: "An error occurred while processing your request. Please try again later."
-        });
+        // Try to respond even if there was an error
+        try {
+          // If we already deferred the update, use followUp
+          await interaction.followUp({
+            content: "An error occurred while processing your request. Please try again later.",
+            ephemeral: true
+          });
+        } catch (followUpError) {
+          // If followUp fails, try to send a new reply
+          try {
+            if (!interaction.replied && !interaction.deferred) {
+              await interaction.reply({
+                content: "An error occurred while processing your request. Please try again later.",
+                ephemeral: true
+              });
+            }
+          } catch (replyError) {
+            logger.error(`Failed to send error message to user: ${replyError}`);
+          }
+        }
       }
     });
 
