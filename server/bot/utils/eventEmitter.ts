@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { logger } from './logger'; // Assuming a logger is available
 
 // Create a singleton EventEmitter for global application events
 class GlobalEventEmitter extends EventEmitter {
@@ -15,6 +16,11 @@ class GlobalEventEmitter extends EventEmitter {
       GlobalEventEmitter.instance = new GlobalEventEmitter();
     }
     return GlobalEventEmitter.instance;
+  }
+
+  public emit(event: string, ...args: any[]): boolean {
+    logger.debug(`[EventEmitter] Emitting event: ${event}`);
+    return super.emit(event, ...args);
   }
 }
 

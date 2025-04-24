@@ -154,11 +154,11 @@ export class QueueDisplayService {
           });
           logger.info("Updated existing queue display message");
           
-          // Every hour, recreate the message to ensure fresh button collectors
+          // Every 30 minutes, recreate the message to ensure fresh button collectors
           const messageAge = Date.now() - this.displayMessage.createdTimestamp;
-          const oneHourMs = 60 * 60 * 1000;
+          const thirtyMinutesMs = 30 * 60 * 1000;
           
-          if (messageAge > oneHourMs) {
+          if (messageAge > thirtyMinutesMs) {
             logger.info("Message is over an hour old, recreating for fresh collectors");
             // Delete old message
             await this.displayMessage.delete().catch(err => 
@@ -211,9 +211,9 @@ export class QueueDisplayService {
   }
 
   private setupButtonCollector(message: Message): void {
-    // Create a collector with a shorter timeout to avoid stale collectors
+    // Create a collector with a longer timeout to avoid stale collectors
     const collector = message.createMessageComponentCollector({ 
-      time: 6 * 60 * 60 * 1000 // 6 hours instead of 24
+      time: 12 * 60 * 60 * 1000 // 12 hours instead of 6
     });
 
     collector.on('collect', async (interaction) => {
@@ -274,11 +274,12 @@ export class QueueDisplayService {
           if (!existingQueueEntry) {
             feedbackMessage = "You are not in the matchmaking queue.";
           } else {
-            // Remove player from queue
+            // Remove player from queue - handling boolean return value
             const leaveResult = await this.queueService.removePlayerFromQueue(player.id);
             
-            if (!leaveResult.success) {
-              feedbackMessage = `Failed to leave queue: ${leaveResult.message}`;
+            // The removePlayerFromQueue method returns a boolean, not an object
+            if (leaveResult === false) {
+              feedbackMessage = "Failed to leave queue. Please try again later.";
             } else {
               feedbackMessage = "You have been removed from the matchmaking queue.";
               actionPerformed = true;
