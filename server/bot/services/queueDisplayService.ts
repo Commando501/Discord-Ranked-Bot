@@ -218,12 +218,12 @@ export class QueueDisplayService {
         const collector = message.createMessageComponentCollector({ 
           time: 24 * 60 * 60 * 1000, // 24 hours
           componentType: 2, // Button type
-          filter: (i) => i.message.id === message.id // Only collect interactions for this specific message
+          filter: i => i.message.id === message.id && (i.customId === "join_queue" || i.customId === "leave_queue") // Only collect join/leave interactions for this specific message
         });
         
         logger.info(`Set up new button collector for message ID: ${message.id}`);
-
-    collector.on('collect', async (interaction) => {
+        
+        collector.on('collect', async (interaction) => {
       if (!interaction.isButton()) return;
       
       // Defer the reply to acknowledge the interaction
