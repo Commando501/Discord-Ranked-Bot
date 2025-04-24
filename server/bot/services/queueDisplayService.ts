@@ -6,6 +6,8 @@ import { MatchService } from './matchService';
 import { IStorage } from '../../storage';
 import { getDiscordClient } from '../../discord/bot';
 import { formatDuration } from '../utils/timeUtils';
+import path from 'path';
+import fs from 'fs';
 
 export class QueueDisplayService {
   private static instance: QueueDisplayService | null = null;
@@ -379,11 +381,123 @@ export class QueueDisplayService {
       const queueListPromises = queuePlayers.map(async (entry, index) => {
         const waitTime = formatDuration(entry.joinedAt);
         
-        // Get player rank
-        const { getPlayerRank } = await import("@shared/rankSystem");
-        const playerRank = await getPlayerRank(entry.player.mmr, rankTiers);
+        // Get player rank using the same method as the list command
+        let playerRank = null;
 
-        return `${index + 1}. ${entry.player.username} [${playerRank.name}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
+        // First, try to load directly from discordbot-config.json to ensure we get the full set of tiers with subdivisions
+        try {
+          // Use dynamic imports for fs and path
+          const fs = await import("fs");
+          const path = await import("path");
+          const configPath = path.join(process.cwd(), "discordbot-config.json");
+
+          if (fs.existsSync(configPath)) {
+            const configData = JSON.parse(fs.readFileSync(configPath, "utf8"));
+            if (
+              configData.seasonManagement &&
+              configData.seasonManagement.rankTiers &&
+              configData.seasonManagement.rankTiers.length > 0
+            ) {
+              // Replace with config ranks if they exist - this ensures we use the complete set with subdivisions
+              rankTiers = configData.seasonManagement.rankTiers;
+              logger.info(
+                `Using ${rankTiers.length} detailed rank tiers from config file for queue display`
+              );
+            }
+          }
+        } catch (configError) {
+          logger.error(`Error loading detailed rank tiers from config: ${configError}`);
+        }
+
+        // COMPLETE ALGORITHM REWRITE for tier determination:
+        // Each tier's threshold is the UPPER bound of its range
+        // The lower bound is the previous tier's threshold + 1 or 0 for the lowest tier
+
+        // Sort tiers by threshold in ascending order
+        const sortedTiers = [...rankTiers].sort(
+          (a, b) => a.mmrThreshold - b.mmrThreshold
+        );
+
+        // Find the appropriate tier by checking MMR ranges explicitly
+        let foundTier = null;
+
+        // For each tier, explicitly define its range and check if player MMR falls within it
+        for (let i = 0; i < sortedTiers.length; i++) {
+          const currentTier = sortedTiers[i];
+          const prevTier = i > 0 ? sortedTiers[i - 1] : null;
+
+          // Upper bound is inclusive (<=), lower bound is previous tier's threshold + 1 or 0
+          const upperBound = currentTier.mmrThreshold;
+          const lowerBound = prevTier ? prevTier.mmrThreshold + 1 : 0;
+
+          if (entry.player.mmr >= lowerBound && entry.player.mmr <= upperBound) {
+            foundTier = currentTier;
+            break;
+          }
+        }
+
+        // If tier found, use it
+        if (foundTier) {
+          playerRank = foundTier;
+        }
+
+        // If no tier found, use the lowest one
+        if (!playerRank && sortedTiers.length > 0) {
+          playerRank = sortedTiers[0];
+        }
+
+        // Fallback to getPlayerRank if needed
+        if (!playerRank) {
+          const { getPlayerRank } = await import("@shared/rankSystem");
+          playerRank = await getPlayerRank(entry.player.mmr, rankTiers);
+        }
+
+        // Create emoji reference
+        let rankEmoji = "";
+
+        // Map rank names to emoji IDs
+        const rankEmojiMap: Record<string, string> = {
+          "Iron 1": "1363039589538861057",
+          "Iron 2": "1363039575013851156",
+          "Bronze 3": "1363039607536615454",
+          "Bronze 2": "1363039615044288522",
+          "Bronze 1": "1363039622195839107",
+          "Silver 3": "1363039663228719124",
+          "Silver 2": "1363039669922824344",
+          "Silver 1": "1363039677724233849",
+          "Gold 3": "1363042192196632666",
+          "Gold 2": "1363042203340902530",
+          "Gold 1": "1363042214715986041",
+          "Platinum 3": "1363039687358287872",
+          "Platinum 2": "1363039694878806186",
+          "Platinum 1": "1363039703909138502",
+          "Diamond 3": "1363039725136379955",
+          "Diamond 2": "1363039734028435618",
+          "Diamond 1": "1363039742249402428",
+          "Masters 3": "1363039762142986350",
+          "Masters 2": "1363039770342723604",
+          "Masters 1": "1363039778580205619",
+          Challenger: "1363039996868558879",
+        };
+
+        // Get the emoji for this rank if it exists
+        if (playerRank && rankEmojiMap[playerRank.name]) {
+          try {
+            const client = getDiscordClient();
+            if (client) {
+              const emojiId = rankEmojiMap[playerRank.name];
+              const emoji = client.emojis.cache.get(emojiId);
+              
+              if (emoji) {
+                rankEmoji = ` ${emoji}`;
+              }
+            }
+          } catch (error) {
+            logger.warn(`Error getting emoji for rank ${playerRank.name}: ${error}`);
+          }
+        }
+
+        return `${index + 1}. ${entry.player.username} [${playerRank.name}${rankEmoji}] (MMR: ${entry.player.mmr}) - waiting for ${waitTime}`;
       });
 
       const queueList = (await Promise.all(queueListPromises)).join("\n");
