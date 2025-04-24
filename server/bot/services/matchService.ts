@@ -409,8 +409,52 @@ export class MatchService {
         finishedAt: new Date(),
       });
 
+      // Collect player MMR changes for event logging
+      const mmrChanges = {
+        winners: [] as {playerId: number, username: string, oldMmr: number, newMmr: number, change: number}[],
+        losers: [] as {playerId: number, username: string, oldMmr: number, newMmr: number, change: number}[]
+      };
+      
+      // Store original MMR values before updating
+      const winnerOriginalMmr = winningTeam.players.map(p => ({id: p.id, mmr: p.mmr, username: p.username}));
+      const loserOriginalMmr = losingTeam.players.map(p => ({id: p.id, mmr: p.mmr, username: p.username}));
+      
       // Update player stats based on the outcome
       await this.updatePlayerStats(winningTeam.players, losingTeam.players);
+      
+      // Retrieve updated players to get new MMR values
+      const updatedWinners = await Promise.all(winningTeam.players.map(p => this.storage.getPlayer(p.id)));
+      const updatedLosers = await Promise.all(losingTeam.players.map(p => this.storage.getPlayer(p.id)));
+      
+      // Calculate MMR changes for winners
+      for (let i = 0; i < winnerOriginalMmr.length; i++) {
+        const original = winnerOriginalMmr[i];
+        const updated = updatedWinners[i];
+        if (original && updated) {
+          mmrChanges.winners.push({
+            playerId: original.id,
+            username: original.username,
+            oldMmr: original.mmr,
+            newMmr: updated.mmr,
+            change: updated.mmr - original.mmr
+          });
+        }
+      }
+      
+      // Calculate MMR changes for losers
+      for (let i = 0; i < loserOriginalMmr.length; i++) {
+        const original = loserOriginalMmr[i];
+        const updated = updatedLosers[i];
+        if (original && updated) {
+          mmrChanges.losers.push({
+            playerId: original.id,
+            username: original.username,
+            oldMmr: original.mmr,
+            newMmr: updated.mmr,
+            change: updated.mmr - original.mmr
+          });
+        }
+      }
 
       // Update consecutive win/loss tracking for player groups if they exist
       try {
@@ -440,6 +484,36 @@ export class MatchService {
 
       logger.info(
         `Match #${matchId} ended with team ${winningTeamName} as winner`,
+      );
+      
+      // Prepare MMR change fields for event log
+      const winnerMmrField = {
+        name: `Team ${winningTeamName} MMR Changes`,
+        value: mmrChanges.winners.map(p => 
+          `${p.username}: ${p.oldMmr} → ${p.newMmr} (${p.change >= 0 ? '+' + p.change : p.change})`
+        ).join('\n') || "No data",
+        inline: true
+      };
+      
+      const loserMmrField = {
+        name: `Team ${losingTeam.name} MMR Changes`,
+        value: mmrChanges.losers.map(p => 
+          `${p.username}: ${p.oldMmr} → ${p.newMmr} (${p.change >= 0 ? '+' + p.change : p.change})`
+        ).join('\n') || "No data",
+        inline: true
+      };
+      
+      // Log the match end with MMR changes
+      await this.logEvent(
+        "Match Ended",
+        `Match #${matchId} has been completed. Team ${winningTeamName} is the winner!`,
+        [
+          { name: "Match ID", value: matchId.toString(), inline: true },
+          { name: "Winning Team", value: winningTeamName, inline: true },
+          { name: "Duration", value: this.getMatchDuration(match.createdAt), inline: true },
+          winnerMmrField,
+          loserMmrField
+        ]
       );
 
       // Emit match ended event
@@ -1556,6 +1630,29 @@ export class MatchService {
         success: false,
         message: "Failed to process player leaving match due to an error",
       };
+    }
+  }
+
+  /**
+   * Helper method to calculate match duration in a human-readable format
+   */
+  private getMatchDuration(startTime: Date | string): string {
+    try {
+      const start = typeof startTime === "string" ? new Date(startTime) : startTime;
+      const end = new Date();
+      
+      const durationMs = end.getTime() - start.getTime();
+      const minutes = Math.floor(durationMs / 60000);
+      const hours = Math.floor(minutes / 60);
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes % 60}m`;
+      } else {
+        return `${minutes}m`;
+      }
+    } catch (error) {
+      logger.error(`Error calculating match duration: ${error}`);
+      return "Unknown";
     }
   }
 
