@@ -274,14 +274,14 @@ export class QueueDisplayService {
           if (!existingQueueEntry) {
             feedbackMessage = "You are not in the matchmaking queue.";
           } else {
-            // Remove player from queue - this returns a boolean, not an object with success/message
+            // Remove player from queue
             const leaveResult = await this.queueService.removePlayerFromQueue(player.id);
             
-            if (leaveResult) {
+            if (!leaveResult.success) {
+              feedbackMessage = `Failed to leave queue: ${leaveResult.message}`;
+            } else {
               feedbackMessage = "You have been removed from the matchmaking queue.";
               actionPerformed = true;
-            } else {
-              feedbackMessage = "Failed to leave queue. Please try again later.";
             }
           }
         }
