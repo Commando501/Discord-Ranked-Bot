@@ -412,6 +412,32 @@ export class MatchService {
       // Update player stats based on the outcome
       await this.updatePlayerStats(winningTeam.players, losingTeam.players);
 
+      // Update consecutive win/loss tracking for player groups if they exist
+      try {
+        const queueService = QueueService.getInstance(this.storage);
+        const allMatchPlayers = [...winningTeam.players, ...losingTeam.players];
+        
+        // Attempt to find the current active group for these players
+        const playerIds = allMatchPlayers.map(p => p.id);
+        const groupId = queueService.generateGroupId(playerIds);
+        
+        if (queueService.groupExists(groupId)) {
+          // Record wins/losses in the player group
+          for (const player of winningTeam.players) {
+            queueService.recordPlayerWin(player.id, groupId);
+          }
+          
+          for (const player of losingTeam.players) {
+            queueService.recordPlayerLoss(player.id, groupId);
+          }
+          
+          logger.info(`Updated consecutive win/loss tracking for group ${groupId}`);
+        }
+      } catch (error) {
+        logger.error(`Error updating consecutive win/loss tracking: ${error}`);
+        // Continue with match ending even if tracking update fails
+      }
+
       logger.info(
         `Match #${matchId} ended with team ${winningTeamName} as winner`,
       );

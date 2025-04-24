@@ -394,10 +394,10 @@ export class QueueService {
     }
 
     /**
-     * Record a loss for a player in their group and check if they've hit the loss limit
+     * Record a loss for a player in their group and check if they've hit the consecutive loss limit
      * @param playerId The player ID
      * @param groupId The group ID
-     * @returns True if the player has hit the loss limit (2 losses)
+     * @returns True if the player has hit the consecutive loss limit (2 losses in a row)
      */
     recordPlayerLoss(playerId: number, groupId: string): boolean {
         if (!this.playerGroups.has(groupId)) {
@@ -406,13 +406,12 @@ export class QueueService {
         }
 
         const playerLosses = this.playerGroups.get(groupId)!;
-        const currentLosses = playerLosses.get(playerId) || 0;
-        const newLosses = currentLosses + 1;
-        playerLosses.set(playerId, newLosses);
+        const currentConsecutiveLosses = playerLosses.get(playerId) || 0;
+        const newConsecutiveLosses = currentConsecutiveLosses + 1;
+        playerLosses.set(playerId, newConsecutiveLosses);
 
-        logger.info(`Player ${playerId} now has ${newLosses} losses in group ${groupId}`);
-
-        return newLosses >= 2; // Return true if player has hit the loss limit
+        logger.info(`Player ${playerId} now has ${newConsecutiveLosses} consecutive losses in group ${groupId}`);
+        return newConsecutiveLosses >= 2; // Return true if player has hit the consecutive loss limit
     }
 
     /**
@@ -455,7 +454,7 @@ export class QueueService {
             // Get bot config to get the timeout period
             const botConfig = await this.storage.getBotConfig();
             const timeoutMinutes = botConfig.matchmaking.queueTimeoutMinutes;
-            
+
             if (!timeoutMinutes || timeoutMinutes <= 0) {
                 logger.debug("Queue timeout is disabled (set to 0 minutes)");
                 return;
@@ -464,41 +463,41 @@ export class QueueService {
             // Calculate the cutoff time
             const now = new Date();
             const cutoffTime = new Date(now.getTime() - (timeoutMinutes * 60 * 1000));
-            
+
             // Get all queue entries
             const queueEntries = await this.storage.getQueuePlayers();
-            
+
             // Find players who have been in the queue longer than the timeout
             const timedOutPlayers = queueEntries.filter(entry => 
                 entry.joinedAt && new Date(entry.joinedAt) < cutoffTime
             );
-            
+
             if (timedOutPlayers.length === 0) {
                 logger.debug("No timed out players found in queue");
                 return;
             }
 
             logger.info(`Found ${timedOutPlayers.length} players timed out after ${timeoutMinutes} minutes`);
-            
+
             // Remove each timed out player
             for (const player of timedOutPlayers) {
                 logger.info(`Removing player ${player.playerId} from queue due to timeout (joined at ${player.joinedAt})`);
-                
+
                 // Remove the player
                 const removed = await this.removePlayerFromQueue(player.playerId);
-                
+
                 if (removed) {
                     logger.info(`Successfully removed timed out player ${player.playerId} from queue`);
-                    
+
                     // Attempt to send a DM to the player if notifications are enabled
                     try {
                         const { NotificationService } = await import('./notificationService');
                         const notificationService = new NotificationService(this.storage);
-                        
+
                         // Check if DM notifications for queue timeout are enabled
                         if (botConfig.notifications.dmNotifications.queueTimeout) {
                             const playerData = await this.storage.getPlayer(player.playerId);
-                            
+
                             if (playerData && playerData.discordId) {
                                 await notificationService.sendDirectMessage(
                                     playerData.discordId,
@@ -515,7 +514,7 @@ export class QueueService {
                     logger.warn(`Failed to remove timed out player ${player.playerId} from queue`);
                 }
             }
-            
+
             // Force refresh of the queue display after removing players
             try {
                 const { QueueDisplayService } = await import('./queueDisplayService');
