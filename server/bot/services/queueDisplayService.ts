@@ -390,19 +390,17 @@ export class QueueDisplayService {
       queueEmbed.addFields({ name: "Players", value: queueList });
     }
 
-    // Create matches embed
-    const matchesEmbed = new EmbedBuilder()
-      .setColor("#57F287")
-      .setTitle("Active Matches")
-      .setDescription(
-        activeMatches.length > 0
-          ? `${activeMatches.length} active matches`
-          : "No active matches"
-      );
-
-    // If there are active matches, fetch detailed information for each
+    // If there are active matches, create detailed embeds for each
     const matchEmbeds: EmbedBuilder[] = [];
     if (activeMatches.length > 0) {
+      // Create a summary embed for active matches
+      const matchesSummaryEmbed = new EmbedBuilder()
+        .setColor("#57F287")
+        .setTitle("Active Matches")
+        .setDescription(`${activeMatches.length} active matches`);
+      
+      matchEmbeds.push(matchesSummaryEmbed);
+      
       // Create a separate embed for each match with detailed information
       for (const match of activeMatches) {
         try {
@@ -451,12 +449,9 @@ export class QueueDisplayService {
           );
         }
       }
-      
-      // Return both queue and match embeds
-      return [queueEmbed, ...matchEmbeds];
     }
     
-    // If no active matches, only return the queue embed
-    return [queueEmbed];
+    // Return queue embed and any match embeds (if they exist)
+    return [queueEmbed, ...matchEmbeds];
   }
 }
