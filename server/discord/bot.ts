@@ -42,38 +42,85 @@ function setupEventHandlers(discordClient: Client) {
 
       // Initialize the QueueDisplayService
       try {
-        const { QueueDisplayService } = await import('../bot/services/queueDisplayService');
-        const { storage } = await import('../storage');
+        // Import synchronously to ensure proper loading order
+        const { QueueDisplayService } = require('../bot/services/queueDisplayService');
+        const { storage } = require('../storage');
+        const { EventEmitter, QUEUE_EVENTS, MATCH_EVENTS } = require('../bot/utils/eventEmitter');
+        
+        // Get instances
         const queueDisplayService = QueueDisplayService.getInstance(storage);
+        const emitter = EventEmitter.getInstance();
+        
+        logger.info("Queue display service instance created");
+        
+        // Make sure event emitter has listeners before emitting any events
+        if (emitter.listenerCount(QUEUE_EVENTS.UPDATED) === 0) {
+          logger.warn("No listeners found for queue events, reinitializing event system");
+          
+          // Directly call the setup method again to ensure it's properly initialized
+          if (typeof queueDisplayService['setupEventListeners'] === 'function') {
+            queueDisplayService['setupEventListeners']();
+          }
+        }
         
         // Force an initial refresh of the queue display with more reliable timing
         setTimeout(async () => {
           try {
+            // Refresh queue display
             await queueDisplayService.refreshQueueDisplay();
             logger.info("Initial queue display refreshed successfully");
             
-            // Double-check event emitter setup
-            const { EventEmitter, QUEUE_EVENTS } = await import('../bot/utils/eventEmitter');
-            const emitter = EventEmitter.getInstance();
+            // Verify event listeners are properly set up
+            const listenerCounts = {
+              queueUpdated: emitter.listenerCount(QUEUE_EVENTS.UPDATED),
+              playerJoined: emitter.listenerCount(QUEUE_EVENTS.PLAYER_JOINED),
+              playerLeft: emitter.listenerCount(QUEUE_EVENTS.PLAYER_LEFT),
+              matchCreated: emitter.listenerCount(MATCH_EVENTS.CREATED)
+            };
             
-            // Log event listener counts to verify they're registered
-            logger.info(`Queue update listeners count: ${emitter.listenerCount(QUEUE_EVENTS.UPDATED)}`);
+            logger.info(`Event listener verification: ${JSON.stringify(listenerCounts)}`);
             
-            // Set up a periodic refresh as a fallback mechanism
-            setInterval(async () => {
+            // If we still don't have listeners, emit a test event to force initialization
+            if (listenerCounts.queueUpdated === 0) {
+              logger.warn("Still no queue event listeners found, forcing initialization");
+              
+              // Re-initialize queue display service
+              const refreshedService = QueueDisplayService.getInstance(storage);
+              
+              // Wait a moment and check again
+              setTimeout(() => {
+                const updatedCount = emitter.listenerCount(QUEUE_EVENTS.UPDATED);
+                logger.info(`After forced initialization, listener count: ${updatedCount}`);
+                
+                // Test event emission
+                if (updatedCount > 0) {
+                  emitter.emit(QUEUE_EVENTS.UPDATED);
+                  logger.info("Test event emitted successfully");
+                }
+              }, 2000);
+            }
+            
+            // Set up a periodic refresh as a failsafe mechanism
+            const refreshInterval = setInterval(async () => {
               try {
                 await queueDisplayService.refreshQueueDisplay();
                 logger.debug("Periodic queue display refresh completed");
               } catch (refreshError) {
                 logger.error(`Error in periodic queue display refresh: ${refreshError}`);
               }
-            }, 30000); // Refresh every 30 seconds as a fallback (reduced from 60s)
+            }, 30000); // Refresh every 30 seconds as a fallback
+            
+            // Ensure interval is cleared if bot is shutting down
+            process.on('SIGTERM', () => {
+              clearInterval(refreshInterval);
+            });
+            
           } catch (err) {
             logger.error(`Error refreshing initial queue display: ${err}`);
           }
         }, 5000); // Wait 5 seconds to ensure bot is fully ready
         
-        logger.info("Queue display service initialized");
+        logger.info("Queue display service initialization complete");
       } catch (error) {
         logger.error(`Error initializing queue display service: ${error}`, 
           error instanceof Error ? error.stack : 'No stack trace');
