@@ -146,12 +146,52 @@ export class QueueDisplayService {
       );
 
       if (this.displayMessage) {
-        // Update existing message
-        await this.displayMessage.edit({
-          embeds: [queueEmbed, ...matchEmbeds],
-          components: [row]
-        });
-        logger.info("Updated existing queue display message");
+        try {
+          // Update existing message
+          await this.displayMessage.edit({
+            embeds: [queueEmbed, ...matchEmbeds],
+            components: [row]
+          });
+          logger.info("Updated existing queue display message");
+          
+          // Every hour, recreate the message to ensure fresh button collectors
+          const messageAge = Date.now() - this.displayMessage.createdTimestamp;
+          const oneHourMs = 60 * 60 * 1000;
+          
+          if (messageAge > oneHourMs) {
+            logger.info("Message is over an hour old, recreating for fresh collectors");
+            // Delete old message
+            await this.displayMessage.delete().catch(err => 
+              logger.warn(`Could not delete old message: ${err}`)
+            );
+            
+            // Create new message
+            const newMessage = await channel.send({
+              embeds: [queueEmbed, ...matchEmbeds],
+              components: [row]
+            });
+            this.displayMessage = newMessage;
+            
+            // Set up new collector
+            this.setupButtonCollector(newMessage);
+            logger.info(`Recreated queue display message with ID: ${newMessage.id}`);
+          }
+        } catch (editError) {
+          logger.error(`Error editing existing message: ${editError}`);
+          logger.info("Creating new message instead");
+          
+          // If edit fails, create new message
+          const newMessage = await channel.send({
+            embeds: [queueEmbed, ...matchEmbeds],
+            components: [row]
+          });
+          this.displayMessage = newMessage;
+          
+          // Set up collector for button interactions
+          this.setupButtonCollector(newMessage);
+          
+          logger.info(`Created new queue display message with ID: ${newMessage.id}`);
+        }
       } else {
         // Create new message
         const sentMessage = await channel.send({
@@ -171,8 +211,9 @@ export class QueueDisplayService {
   }
 
   private setupButtonCollector(message: Message): void {
+    // Create a collector with a shorter timeout to avoid stale collectors
     const collector = message.createMessageComponentCollector({ 
-      time: 24 * 60 * 60 * 1000 // 24 hours
+      time: 6 * 60 * 60 * 1000 // 6 hours instead of 24
     });
 
     collector.on('collect', async (interaction) => {
@@ -181,10 +222,10 @@ export class QueueDisplayService {
       logger.info(`Button interaction received: ${interaction.customId} from user ${interaction.user.tag}`);
       
       try {
-        // Use defer reply with ephemeral option instead of deferUpdate
-        // This approach creates a new ephemeral response rather than updating the existing message
-        await interaction.deferReply({ ephemeral: true });
-        logger.info(`Interaction deferred with ephemeral reply`);
+        // Use deferUpdate() here instead of deferReply
+        // This acknowledges the interaction by updating the original message
+        await interaction.deferUpdate();
+        logger.info(`Interaction acknowledged with deferUpdate`);
         
         // Import PlayerService here to avoid circular dependencies
         const { PlayerService } = await import('./playerService');
@@ -198,37 +239,32 @@ export class QueueDisplayService {
           avatar: null
         });
         
+        let feedbackMessage = '';
+        let actionPerformed = false;
+        
         if (interaction.customId === "join_queue") {
           // Check if player is already in queue
           const existingQueueEntry = await this.queueService.getPlayerQueueEntry(player.id);
           
           if (existingQueueEntry) {
-            await interaction.editReply({
-              content: "You are already in the matchmaking queue."
-            });
-            return;
-          }
-          
-          // Add player to queue
-          const queueResult = await this.queueService.addPlayerToQueue(player.id);
-          
-          if (!queueResult.success) {
-            await interaction.editReply({
-              content: `Failed to join queue: ${queueResult.message}`
-            });
-            return;
-          }
-          
-          // Get updated queue size
-          const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
-          
-          await interaction.editReply({
-            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`
-          });
-          
-          // Check if we can create a match
-          if (interaction.guild) {
-            await this.queueService.checkAndCreateMatch(interaction.guild);
+            feedbackMessage = "You are already in the matchmaking queue.";
+          } else {
+            // Add player to queue
+            const queueResult = await this.queueService.addPlayerToQueue(player.id);
+            
+            if (!queueResult.success) {
+              feedbackMessage = `Failed to join queue: ${queueResult.message}`;
+            } else {
+              // Get updated queue size
+              const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
+              feedbackMessage = `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`;
+              actionPerformed = true;
+              
+              // Check if we can create a match
+              if (interaction.guild) {
+                await this.queueService.checkAndCreateMatch(interaction.guild);
+              }
+            }
           }
           
         } else if (interaction.customId === "leave_queue") {
@@ -236,40 +272,45 @@ export class QueueDisplayService {
           const existingQueueEntry = await this.queueService.getPlayerQueueEntry(player.id);
           
           if (!existingQueueEntry) {
-            await interaction.editReply({
-              content: "You are not in the matchmaking queue."
-            });
-            return;
+            feedbackMessage = "You are not in the matchmaking queue.";
+          } else {
+            // Remove player from queue
+            const leaveResult = await this.queueService.removePlayerFromQueue(player.id);
+            
+            if (!leaveResult.success) {
+              feedbackMessage = `Failed to leave queue: ${leaveResult.message}`;
+            } else {
+              feedbackMessage = "You have been removed from the matchmaking queue.";
+              actionPerformed = true;
+            }
           }
-          
-          // Remove player from queue
-          const leaveResult = await this.queueService.removePlayerFromQueue(player.id);
-          
-          if (!leaveResult.success) {
-            await interaction.editReply({
-              content: `Failed to leave queue: ${leaveResult.message}`
-            });
-            return;
-          }
-          
-          await interaction.editReply({
-            content: "You have been removed from the matchmaking queue."
-          });
         }
+        
+        // Send an ephemeral follow-up message to give feedback to the user
+        await interaction.followUp({
+          content: feedbackMessage,
+          ephemeral: true
+        });
+        
+        // If an action was performed, manually refresh the queue display
+        // This is a backup in case the event system doesn't trigger a refresh
+        if (actionPerformed) {
+          logger.info("Action performed, forcing queue display refresh");
+          // Small delay to ensure database operations complete
+          setTimeout(() => {
+            this.refreshQueueDisplay()
+              .catch(err => logger.error(`Error refreshing queue display after button action: ${err}`));
+          }, 500);
+        }
+        
       } catch (error) {
         logger.error(`Error handling button interaction: ${error}`);
         // Try to respond even if there was an error
         try {
-          if (interaction.deferred) {
-            await interaction.editReply({
-              content: "An error occurred while processing your request. Please try again later."
-            });
-          } else {
-            await interaction.reply({
-              content: "An error occurred while processing your request. Please try again later.",
-              ephemeral: true
-            });
-          }
+          await interaction.followUp({
+            content: "An error occurred while processing your request. Please try again later.",
+            ephemeral: true
+          });
         } catch (responseError) {
           logger.error(`Failed to send error message to user: ${responseError}`);
         }
@@ -277,9 +318,11 @@ export class QueueDisplayService {
     });
 
     collector.on('end', () => {
+      logger.info("Button collector ended, creating new message with fresh buttons");
       // When collector expires, create a new message with fresh buttons
       this.displayMessage = null;
-      this.refreshQueueDisplay();
+      this.refreshQueueDisplay()
+        .catch(err => logger.error(`Error refreshing queue display after collector end: ${err}`));
     });
   }
 

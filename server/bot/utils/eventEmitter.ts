@@ -1,4 +1,3 @@
-
 import { EventEmitter } from 'events';
 
 // Create a singleton EventEmitter for global application events
@@ -23,13 +22,15 @@ class GlobalEventEmitter extends EventEmitter {
 export const QUEUE_EVENTS = {
   UPDATED: 'queue:updated',
   PLAYER_JOINED: 'queue:player_joined',
-  PLAYER_LEFT: 'queue:player_left'
+  PLAYER_LEFT: 'queue:player_left',
+  BUTTON_INTERACTION: 'queue:button_interaction',
 };
 
 export const MATCH_EVENTS = {
   CREATED: 'match:created',
   UPDATED: 'match:updated',
-  ENDED: 'match:ended'
+  ENDED: 'match:ended',
+  BUTTON_INTERACTION: 'match:button_interaction',
 };
 
 // Export the singleton instance getter
