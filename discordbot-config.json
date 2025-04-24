@@ -210,13 +210,7 @@
     "enableForfeit": false,
     "noShowTimeoutMinutes": 10,
     "minPlayersToStart": 4,
-    "allowSubstitutes": false,
-    "playerRotation": {
-      "enabled": true,
-      "rotationMethod": "losses",
-      "autoRotateOnLosses": 2,
-      "timeoutMinutes": 30
-    }
+    "allowSubstitutes": false
   },
   "notifications": {
     "matchReminders": true,
