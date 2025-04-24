@@ -390,7 +390,7 @@ export class QueueDisplayService {
       queueEmbed.addFields({ name: "Players", value: queueList });
     }
 
-    // If there are active matches, create detailed embeds for each
+    // Only create match embeds if there are active matches
     const matchEmbeds: EmbedBuilder[] = [];
     if (activeMatches.length > 0) {
       // Create a summary embed for active matches
@@ -451,7 +451,7 @@ export class QueueDisplayService {
       }
     }
     
-    // Return queue embed and any match embeds (if they exist)
-    return [queueEmbed, ...matchEmbeds];
+    // Return only queue embed if no matches, otherwise return queue embed and match embeds
+    return activeMatches.length > 0 ? [queueEmbed, ...matchEmbeds] : [queueEmbed];
   }
 }
