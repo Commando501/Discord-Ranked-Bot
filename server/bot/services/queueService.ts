@@ -74,6 +74,9 @@ export class QueueService {
                     `Queue check interval triggered. Current queue size: ${queueSize}`,
                 );
 
+                // Check for timed out players and remove them
+                await this.checkAndRemoveTimedOutPlayers();
+
                 const bot = getDiscordBot();
                 const guild = bot?.guilds.cache.first();
 
@@ -440,6 +443,91 @@ export class QueueService {
         const playerLosses = this.playerGroups.get(groupId)!;
         // Group is active if all players have fewer than 2 losses
         return Array.from(playerLosses.values()).every(losses => losses < 2);
+    }
+
+
+    /**
+     * Check for players who have been in the queue longer than the timeout period and remove them
+     * This is called during each queue check interval
+     */
+    private async checkAndRemoveTimedOutPlayers(): Promise<void> {
+        try {
+            // Get bot config to get the timeout period
+            const botConfig = await this.storage.getBotConfig();
+            const timeoutMinutes = botConfig.matchmaking.queueTimeoutMinutes;
+            
+            if (!timeoutMinutes || timeoutMinutes <= 0) {
+                logger.debug("Queue timeout is disabled (set to 0 minutes)");
+                return;
+            }
+
+            // Calculate the cutoff time
+            const now = new Date();
+            const cutoffTime = new Date(now.getTime() - (timeoutMinutes * 60 * 1000));
+            
+            // Get all queue entries
+            const queueEntries = await this.storage.getQueuePlayers();
+            
+            // Find players who have been in the queue longer than the timeout
+            const timedOutPlayers = queueEntries.filter(entry => 
+                entry.joinedAt && new Date(entry.joinedAt) < cutoffTime
+            );
+            
+            if (timedOutPlayers.length === 0) {
+                logger.debug("No timed out players found in queue");
+                return;
+            }
+
+            logger.info(`Found ${timedOutPlayers.length} players timed out after ${timeoutMinutes} minutes`);
+            
+            // Remove each timed out player
+            for (const player of timedOutPlayers) {
+                logger.info(`Removing player ${player.playerId} from queue due to timeout (joined at ${player.joinedAt})`);
+                
+                // Remove the player
+                const removed = await this.removePlayerFromQueue(player.playerId);
+                
+                if (removed) {
+                    logger.info(`Successfully removed timed out player ${player.playerId} from queue`);
+                    
+                    // Attempt to send a DM to the player if notifications are enabled
+                    try {
+                        const { NotificationService } = await import('./notificationService');
+                        const notificationService = new NotificationService(this.storage);
+                        
+                        // Check if DM notifications for queue timeout are enabled
+                        if (botConfig.notifications.dmNotifications.queueTimeout) {
+                            const playerData = await this.storage.getPlayer(player.playerId);
+                            
+                            if (playerData && playerData.discordId) {
+                                await notificationService.sendDirectMessage(
+                                    playerData.discordId,
+                                    `You have been removed from the matchmaking queue after ${timeoutMinutes} minutes of inactivity.`
+                                );
+                                logger.info(`Sent queue timeout notification to player ${player.playerId}`);
+                            }
+                        }
+                    } catch (notificationError) {
+                        logger.error(`Error sending queue timeout notification: ${notificationError}`);
+                        // Continue with the next player even if notification fails
+                    }
+                } else {
+                    logger.warn(`Failed to remove timed out player ${player.playerId} from queue`);
+                }
+            }
+            
+            // Force refresh of the queue display after removing players
+            try {
+                const { QueueDisplayService } = await import('./queueDisplayService');
+                const queueDisplayService = QueueDisplayService.getInstance(this.storage);
+                await queueDisplayService.refreshQueueDisplay();
+                logger.info("Refreshed queue display after removing timed out players");
+            } catch (displayError) {
+                logger.error(`Error refreshing queue display: ${displayError}`);
+            }
+        } catch (error) {
+            logger.error(`Error checking for timed out players: ${error}`);
+        }
     }
 
     async checkAndCreateMatch(
