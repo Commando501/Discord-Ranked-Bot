@@ -151,6 +151,10 @@ export class QueueDisplayService {
           embeds: [queueEmbed, ...matchEmbeds],
           components: [row]
         });
+        
+        // Remove any existing collectors and set up a new one for the updated message
+        this.setupButtonCollector(this.displayMessage);
+        
         logger.info("Updated existing queue display message");
       } else {
         // Create new message
@@ -171,9 +175,25 @@ export class QueueDisplayService {
   }
 
   private setupButtonCollector(message: Message): void {
+    // Remove any existing collectors from this message
+    // This ensures we don't have multiple collectors on the same message
+    const existingCollectors = message.client.listeners('interactionCreate');
+    for (const collector of existingCollectors) {
+      if ((collector as any)._messageId === message.id) {
+        message.client.removeListener('interactionCreate', collector);
+      }
+    }
+    
+    // Create a new collector with proper timeout
     const collector = message.createMessageComponentCollector({ 
-      time: 24 * 60 * 60 * 1000 // 24 hours
+      time: 24 * 60 * 60 * 1000, // 24 hours
+      componentType: 2 // Button type
     });
+    
+    // Store message ID for identification
+    (collector as any)._messageId = message.id;
+    
+    logger.info(`Set up new button collector for message ID: ${message.id}`);
 
     collector.on('collect', async (interaction) => {
       if (!interaction.isButton()) return;
