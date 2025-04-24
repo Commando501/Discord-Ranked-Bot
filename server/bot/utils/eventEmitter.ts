@@ -20,7 +20,29 @@ class GlobalEventEmitter extends EventEmitter {
 
   public emit(event: string, ...args: any[]): boolean {
     logger.debug(`[EventEmitter] Emitting event: ${event}`);
-    return super.emit(event, ...args);
+    
+    // Adding a try/catch around the emit to ensure robustness
+    try {
+      return super.emit(event, ...args);
+    } catch (error) {
+      logger.error(`[EventEmitter] Error emitting event ${event}: ${error}`);
+      return false;
+    }
+  }
+  
+  /**
+   * Enhanced version of on that includes error handling
+   */
+  public on(event: string, listener: (...args: any[]) => void): this {
+    const wrappedListener = (...args: any[]) => {
+      try {
+        listener(...args);
+      } catch (error) {
+        logger.error(`[EventEmitter] Error in listener for event ${event}: ${error}`);
+      }
+    };
+    
+    return super.on(event, wrappedListener);
   }
 }
 

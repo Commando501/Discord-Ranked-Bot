@@ -61,8 +61,21 @@ function setupEventHandlers(discordClient: Client) {
             } catch (refreshError) {
               logger.error(`Error in queue display refresh interval: ${refreshError}`);
             }
-          }, 60000); // Refresh every minute as a fallback
+          }, 30000); // Refresh every 30 seconds as a fallback
         }, 5000); // Wait 5 seconds to ensure bot is fully ready
+        
+        // Also set up an hourly forced recreation of the message
+        setInterval(() => {
+          try {
+            // Force recreation by nullifying the display message reference
+            logger.info("Hourly forced recreation of queue display");
+            queueDisplayService.forceMessageRecreation()
+              .then(() => logger.info("Queue display forcibly recreated"))
+              .catch(err => logger.error(`Error in forced recreation: ${err}`));
+          } catch (error) {
+            logger.error(`Error in hourly queue recreation: ${error}`);
+          }
+        }, 60 * 60 * 1000); // Every hour
         
         logger.info("Queue display service initialized");
       } catch (error) {

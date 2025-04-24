@@ -114,6 +114,19 @@ export class QueueDisplayService {
     }
   }
 
+  /**
+   * Force recreation of the queue display message
+   * This is useful for ensuring fresh button collectors
+   */
+  public async forceMessageRecreation(): Promise<void> {
+    // Clear the existing message reference
+    this.displayMessage = null;
+    
+    // Refresh the display, which will create a new message
+    await this.refreshQueueDisplay();
+    logger.info("Force recreation of queue display completed");
+  }
+  
   public async refreshQueueDisplay(): Promise<void> {
     try {
       const client = getDiscordClient();
@@ -154,11 +167,15 @@ export class QueueDisplayService {
           });
           logger.info("Updated existing queue display message");
           
-          // Every 30 minutes, recreate the message to ensure fresh button collectors
-          const messageAge = Date.now() - this.displayMessage.createdTimestamp;
-          const thirtyMinutesMs = 30 * 60 * 1000;
+          // Every time we edit the message, ensure there's a collector
+          // This is a redundancy step that's much safer than relying on time-based recreation
+          this.ensureButtonCollector(this.displayMessage);
           
-          if (messageAge > thirtyMinutesMs) {
+          // Every 20 minutes, recreate the message to ensure fresh button collectors
+          const messageAge = Date.now() - this.displayMessage.createdTimestamp;
+          const twentyMinutesMs = 20 * 60 * 1000;
+          
+          if (messageAge > twentyMinutesMs) {
             logger.info("Message is over an hour old, recreating for fresh collectors");
             // Delete old message
             await this.displayMessage.delete().catch(err => 
@@ -210,11 +227,27 @@ export class QueueDisplayService {
     }
   }
 
+  private ensureButtonCollector(message: Message): void {
+    // Check if the message already has an active collector
+    // We can't directly check for collectors, so we'll add a custom property
+    if ((message as any)._hasQueueCollector) {
+      logger.debug(`Message ${message.id} already has an active collector`);
+      return;
+    }
+    
+    // Add collector to message
+    this.setupButtonCollector(message);
+    logger.info(`Ensured button collector exists for message ${message.id}`);
+  }
+
   private setupButtonCollector(message: Message): void {
     // Create a collector with a longer timeout to avoid stale collectors
     const collector = message.createMessageComponentCollector({ 
-      time: 12 * 60 * 60 * 1000 // 12 hours instead of 6
+      time: 8 * 60 * 60 * 1000 // 8 hours
     });
+    
+    // Mark this message as having a collector (custom property)
+    (message as any)._hasQueueCollector = true;
 
     collector.on('collect', async (interaction) => {
       if (!interaction.isButton()) return;
