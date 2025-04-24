@@ -451,10 +451,12 @@ export class QueueDisplayService {
           );
         }
       }
-    } else {
-      matchEmbeds.push(matchesEmbed);
+      
+      // Return both queue and match embeds
+      return [queueEmbed, ...matchEmbeds];
     }
-
-    return [queueEmbed, ...matchEmbeds];
+    
+    // If no active matches, only return the queue embed
+    return [queueEmbed];
   }
 }
