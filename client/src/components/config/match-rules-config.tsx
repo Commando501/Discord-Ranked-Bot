@@ -224,6 +224,113 @@ export default function MatchRulesConfigPanel({ config, onChange }: MatchRulesCo
                 />
               </div>
             </div>
+            
+            {/* Player Rotation Settings */}
+            <div className="space-y-4 pt-4">
+              <div className="text-lg font-medium">Player Rotation</div>
+              
+              <div className="grid grid-cols-1 gap-4">
+                <FormField
+                  control={form.control}
+                  name="playerRotation.enabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Enable Player Rotation</FormLabel>
+                        <FormDescription>
+                          Automatically rotate players out of lobbies based on configured rules
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="playerRotation.rotationMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rotation Method</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        disabled={!form.watch("playerRotation.enabled")}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select method" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="manual">Manual (Admin Only)</SelectItem>
+                          <SelectItem value="votekick">Vote Kick</SelectItem>
+                          <SelectItem value="losses">Based on Losses</SelectItem>
+                          <SelectItem value="timeout">Timeout After Match</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        How players are rotated out of active lobbies
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="playerRotation.autoRotateOnLosses"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Losses Before Rotation</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min={1} 
+                          max={5} 
+                          {...field} 
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                          disabled={!form.watch("playerRotation.enabled") || form.watch("playerRotation.rotationMethod") !== "losses"}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Number of consecutive losses before a player is rotated out (only applies to loss-based rotation)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="playerRotation.timeoutMinutes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Timeout Duration (minutes)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          min={5} 
+                          max={120} 
+                          {...field} 
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                          disabled={!form.watch("playerRotation.enabled") || form.watch("playerRotation.rotationMethod") !== "timeout"}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        How long a player must wait before rejoining after being rotated out (only applies to timeout-based rotation)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
           </div>
         </Form>
       </CardContent>

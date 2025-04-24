@@ -85,6 +85,12 @@ export const matchRulesConfigSchema = z.object({
   noShowTimeoutMinutes: z.number().int().min(1).max(30).default(10),
   minPlayersToStart: z.number().int().min(1).default(4),
   allowSubstitutes: z.boolean().default(true),
+  playerRotation: z.object({
+    enabled: z.boolean().default(false),
+    rotationMethod: z.enum(["votekick", "timeout", "losses", "manual"]).default("manual"),
+    autoRotateOnLosses: z.number().int().min(1).max(5).default(2),
+    timeoutMinutes: z.number().int().min(5).max(120).default(30),
+  }),
 });
 
 // Notification Settings
@@ -213,6 +219,12 @@ export const defaultBotConfig: BotConfig = {
     noShowTimeoutMinutes: 10,
     minPlayersToStart: 4,
     allowSubstitutes: true,
+    playerRotation: {
+      enabled: false,
+      rotationMethod: "manual",
+      autoRotateOnLosses: 2,
+      timeoutMinutes: 30,
+    },
   },
   notifications: {
     matchReminders: true,
