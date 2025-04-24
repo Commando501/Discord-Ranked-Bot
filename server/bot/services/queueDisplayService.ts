@@ -225,55 +225,74 @@ export class QueueDisplayService {
             return;
           }
           
-          // Add player to queue
-          const queueResult = await this.queueService.addPlayerToQueue(player.id);
-          
-          if (!queueResult.success) {
+          try {
+            // Add player to queue
+            const queueResult = await this.queueService.addPlayerToQueue(player.id);
+            
+            if (!queueResult.success) {
+              await interaction.editReply({
+                content: `Failed to join queue: ${queueResult.message}`
+              });
+              return;
+            }
+            
+            // Get updated queue size
+            const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
+            
             await interaction.editReply({
-              content: `Failed to join queue: ${queueResult.message}`
+              content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`
             });
-            return;
-          }
-          
-          // Get updated queue size
-          const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
-          
-          await interaction.editReply({
-            content: `You have been added to the matchmaking queue! Current queue size: ${updatedQueueCount} players.`
-          });
-          
-          // Check if we have enough players to create a match
-          if (interaction.guild) {
-            await this.queueService.checkAndCreateMatch(interaction.guild);
+            
+            // Check if we have enough players to create a match
+            if (interaction.guild) {
+              try {
+                await this.queueService.checkAndCreateMatch(interaction.guild);
+              } catch (matchError) {
+                logger.error(`Error checking and creating match: ${matchError}`);
+                // Don't fail the interaction due to match creation error
+              }
+            }
+          } catch (queueError) {
+            logger.error(`Error adding player to queue: ${queueError}`);
+            await interaction.editReply({
+              content: "An error occurred while joining the queue. Please try again later."
+            });
           }
           
         } else if (interaction.customId === "leave_queue") {
-          // Check if player is in queue
-          const queueEntry = await this.queueService.getPlayerQueueEntry(player.id);
-          
-          if (!queueEntry) {
+          try {
+            // Check if player is in queue
+            const queueEntry = await this.queueService.getPlayerQueueEntry(player.id);
+            
+            if (!queueEntry) {
+              await interaction.editReply({
+                content: "You are not currently in the matchmaking queue."
+              });
+              return;
+            }
+            
+            // Remove player from queue
+            const leaveResult = await this.queueService.removePlayerFromQueue(player.id);
+            
+            if (!leaveResult.success) {
+              await interaction.editReply({
+                content: `Failed to leave queue: ${leaveResult.message}`
+              });
+              return;
+            }
+            
+            // Get updated queue size
+            const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
+            
             await interaction.editReply({
-              content: "You are not currently in the matchmaking queue."
+              content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`
             });
-            return;
-          }
-          
-          // Remove player from queue
-          const leaveResult = await this.queueService.removePlayerFromQueue(player.id);
-          
-          if (!leaveResult.success) {
+          } catch (leaveError) {
+            logger.error(`Error removing player from queue: ${leaveError}`);
             await interaction.editReply({
-              content: `Failed to leave queue: ${leaveResult.message}`
+              content: "An error occurred while leaving the queue. Please try again later."
             });
-            return;
           }
-          
-          // Get updated queue size
-          const updatedQueueCount = (await this.queueService.getAllQueueEntries()).length;
-          
-          await interaction.editReply({
-            content: `You have been removed from the matchmaking queue. Current queue size: ${updatedQueueCount} players.`
-          });
         }
         
         // Note: We don't need to manually refresh the queue display here
