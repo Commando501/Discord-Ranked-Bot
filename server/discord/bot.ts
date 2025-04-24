@@ -47,21 +47,30 @@ function setupEventHandlers(discordClient: Client) {
         const queueDisplayService = QueueDisplayService.getInstance(storage);
         
         // Force an initial refresh of the queue display with more reliable timing
-        setTimeout(() => {
-          queueDisplayService.refreshQueueDisplay()
-            .then(() => logger.info("Initial queue display refreshed"))
-            .catch(err => logger.error(`Error refreshing initial queue display: ${err}`));
+        setTimeout(async () => {
+          try {
+            await queueDisplayService.refreshQueueDisplay();
+            logger.info("Initial queue display refreshed successfully");
             
-          // Set up a periodic refresh as a fallback mechanism
-          setInterval(() => {
-            try {
-              queueDisplayService.refreshQueueDisplay()
-                .then(() => logger.debug("Periodic queue display refresh completed"))
-                .catch(err => logger.error(`Error in periodic queue display refresh: ${err}`));
-            } catch (refreshError) {
-              logger.error(`Error in queue display refresh interval: ${refreshError}`);
-            }
-          }, 60000); // Refresh every minute as a fallback
+            // Double-check event emitter setup
+            const { EventEmitter, QUEUE_EVENTS } = await import('../bot/utils/eventEmitter');
+            const emitter = EventEmitter.getInstance();
+            
+            // Log event listener counts to verify they're registered
+            logger.info(`Queue update listeners count: ${emitter.listenerCount(QUEUE_EVENTS.UPDATED)}`);
+            
+            // Set up a periodic refresh as a fallback mechanism
+            setInterval(async () => {
+              try {
+                await queueDisplayService.refreshQueueDisplay();
+                logger.debug("Periodic queue display refresh completed");
+              } catch (refreshError) {
+                logger.error(`Error in periodic queue display refresh: ${refreshError}`);
+              }
+            }, 30000); // Refresh every 30 seconds as a fallback (reduced from 60s)
+          } catch (err) {
+            logger.error(`Error refreshing initial queue display: ${err}`);
+          }
         }, 5000); // Wait 5 seconds to ensure bot is fully ready
         
         logger.info("Queue display service initialized");

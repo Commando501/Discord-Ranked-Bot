@@ -36,7 +36,13 @@ export class EventEmitter {
 
   public emit(eventName: string, ...args: any[]): boolean {
     try {
-      logger.info(`Emitting event: ${eventName}`);
+      const listenerCount = this.emitter.listenerCount(eventName);
+      logger.info(`Emitting event: ${eventName} to ${listenerCount} listeners`);
+      
+      if (listenerCount === 0) {
+        logger.warn(`Warning: No listeners registered for event "${eventName}"`);
+      }
+      
       return this.emitter.emit(eventName, ...args);
     } catch (error) {
       logger.error(`Error emitting event ${eventName}: ${error}`);

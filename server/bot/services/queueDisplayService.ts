@@ -85,30 +85,82 @@ export class QueueDisplayService {
 
   private setupEventListeners(): void {
     try {
-      // Listen for queue updates with proper ES module imports
-      import('../utils/eventEmitter').then(({ EventEmitter, QUEUE_EVENTS, MATCH_EVENTS }) => {
-        const emitter = EventEmitter.getInstance();
-        
-        // Register for queue events
-        emitter.on(QUEUE_EVENTS.UPDATED, () => {
-          logger.info("Queue updated event received, refreshing display");
-          this.refreshQueueDisplay();
-        });
-        
-        emitter.on(MATCH_EVENTS.CREATED, () => {
-          logger.info("Match created event received, refreshing display");
-          this.refreshQueueDisplay();
-        });
-        
-        emitter.on(MATCH_EVENTS.ENDED, () => {
-          logger.info("Match ended event received, refreshing display");
-          this.refreshQueueDisplay();
-        });
-        
-        logger.info("Queue display event listeners registered successfully");
-      }).catch(err => {
-        logger.error(`Error importing event emitter: ${err}`);
-      });
+      // Import and set up event listeners with async/await for better reliability
+      (async () => {
+        try {
+          // Import event emitter module
+          const { EventEmitter, QUEUE_EVENTS, MATCH_EVENTS } = await import('../utils/eventEmitter');
+          const emitter = EventEmitter.getInstance();
+          
+          // First, remove any existing listeners to prevent duplicates
+          emitter.removeAllListeners(QUEUE_EVENTS.UPDATED);
+          emitter.removeAllListeners(QUEUE_EVENTS.PLAYER_JOINED);
+          emitter.removeAllListeners(QUEUE_EVENTS.PLAYER_LEFT);
+          emitter.removeAllListeners(MATCH_EVENTS.CREATED);
+          emitter.removeAllListeners(MATCH_EVENTS.UPDATED);
+          emitter.removeAllListeners(MATCH_EVENTS.ENDED);
+          
+          // Register for queue events with more error handling
+          emitter.on(QUEUE_EVENTS.UPDATED, async () => {
+            try {
+              logger.info("Queue updated event received, refreshing display");
+              await this.refreshQueueDisplay();
+            } catch (refreshError) {
+              logger.error(`Error refreshing display after queue update: ${refreshError}`);
+            }
+          });
+          
+          // Add specific player events as well for more granular updates
+          emitter.on(QUEUE_EVENTS.PLAYER_JOINED, async () => {
+            try {
+              logger.info("Player joined event received, refreshing display");
+              await this.refreshQueueDisplay();
+            } catch (refreshError) {
+              logger.error(`Error refreshing display after player joined: ${refreshError}`);
+            }
+          });
+          
+          emitter.on(QUEUE_EVENTS.PLAYER_LEFT, async () => {
+            try {
+              logger.info("Player left event received, refreshing display");
+              await this.refreshQueueDisplay();
+            } catch (refreshError) {
+              logger.error(`Error refreshing display after player left: ${refreshError}`);
+            }
+          });
+          
+          emitter.on(MATCH_EVENTS.CREATED, async () => {
+            try {
+              logger.info("Match created event received, refreshing display");
+              await this.refreshQueueDisplay();
+            } catch (refreshError) {
+              logger.error(`Error refreshing display after match created: ${refreshError}`);
+            }
+          });
+          
+          emitter.on(MATCH_EVENTS.UPDATED, async () => {
+            try {
+              logger.info("Match updated event received, refreshing display");
+              await this.refreshQueueDisplay();
+            } catch (refreshError) {
+              logger.error(`Error refreshing display after match updated: ${refreshError}`);
+            }
+          });
+          
+          emitter.on(MATCH_EVENTS.ENDED, async () => {
+            try {
+              logger.info("Match ended event received, refreshing display");
+              await this.refreshQueueDisplay();
+            } catch (refreshError) {
+              logger.error(`Error refreshing display after match ended: ${refreshError}`);
+            }
+          });
+          
+          logger.info(`Queue display event listeners registered successfully (${emitter.listenerCount(QUEUE_EVENTS.UPDATED)} listeners for queue updates)`);
+        } catch (importError) {
+          logger.error(`Error importing event emitter: ${importError}`);
+        }
+      })();
     } catch (error) {
       logger.error(`Error setting up event listeners: ${error}`);
     }
