@@ -39,6 +39,17 @@ interface Player {
   createdAt: string;
 }
 
+interface EditPlayerData {
+  mmr: number;
+  wins: number;
+  losses: number;
+  winStreak: number;
+  lossStreak: number;
+  isActive: boolean;
+  xboxGamertag: string | null;
+  xuid: string | null;
+}
+
 interface PlayerMatch {
   id: number;
   status: string;
@@ -61,12 +72,16 @@ export default function PlayersPage() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [activeTab, setActiveTab] = useState("all");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editPlayerData, setEditPlayerData] = useState<{
-    mmr: number;
-    isActive: boolean;
-    xboxGamertag: string | null;
-    xuid: string | null;
-  }>({ mmr: 0, isActive: true, xboxGamertag: null, xuid: null });
+  const [editPlayerData, setEditPlayerData] = useState<EditPlayerData>({
+    mmr: 0,
+    wins: 0,
+    losses: 0,
+    winStreak: 0,
+    lossStreak: 0,
+    isActive: true,
+    xboxGamertag: null,
+    xuid: null
+  });
   const playersPerPage = 12;
 
   // Get all players
@@ -184,6 +199,10 @@ export default function PlayersPage() {
     if (selectedPlayer) {
       setEditPlayerData({
         mmr: selectedPlayer.mmr,
+        wins: selectedPlayer.wins,
+        losses: selectedPlayer.losses,
+        winStreak: selectedPlayer.winStreak,
+        lossStreak: selectedPlayer.lossStreak,
         isActive: selectedPlayer.isActive,
         xboxGamertag: selectedPlayer.xboxGamertag,
         xuid: selectedPlayer.xuid
@@ -655,47 +674,113 @@ export default function PlayersPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="mmr" className="text-[#DCDDDE] text-sm">MMR</Label>
-              <Input 
-                id="mmr" 
-                type="number" 
-                min="0"
-                className="bg-[#40444B] border-none text-white"
-                value={editPlayerData.mmr}
-                onChange={(e) => setEditPlayerData(prev => ({
-                  ...prev,
-                  mmr: parseInt(e.target.value) || 0
-                }))}
-              />
-            </div>
-            
-            <div className="space-y-2 mt-4">
-              <Label htmlFor="xboxGamertag" className="text-[#DCDDDE] text-sm">Xbox Gamertag</Label>
-              <Input 
-                id="xboxGamertag" 
-                type="text" 
-                className="bg-[#40444B] border-none text-white"
-                value={editPlayerData.xboxGamertag || ''}
-                onChange={(e) => setEditPlayerData(prev => ({
-                  ...prev,
-                  xboxGamertag: e.target.value || null
-                }))}
-              />
-            </div>
-            
-            <div className="space-y-2 mt-4">
-              <Label htmlFor="xuid" className="text-[#DCDDDE] text-sm">XUID</Label>
-              <Input 
-                id="xuid" 
-                type="text" 
-                className="bg-[#40444B] border-none text-white"
-                value={editPlayerData.xuid || ''}
-                onChange={(e) => setEditPlayerData(prev => ({
-                  ...prev,
-                  xuid: e.target.value || null
-                }))}
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="mmr" className="text-[#DCDDDE] text-sm">MMR</Label>
+                <Input 
+                  id="mmr" 
+                  type="number" 
+                  min="0"
+                  className="bg-[#40444B] border-none text-white"
+                  value={editPlayerData.mmr}
+                  onChange={(e) => setEditPlayerData(prev => ({
+                    ...prev,
+                    mmr: parseInt(e.target.value) || 0
+                  }))}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="wins" className="text-[#DCDDDE] text-sm">Wins</Label>
+                  <Input 
+                    id="wins" 
+                    type="number" 
+                    min="0"
+                    className="bg-[#40444B] border-none text-white"
+                    value={editPlayerData.wins}
+                    onChange={(e) => setEditPlayerData(prev => ({
+                      ...prev,
+                      wins: parseInt(e.target.value) || 0
+                    }))}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="losses" className="text-[#DCDDDE] text-sm">Losses</Label>
+                  <Input 
+                    id="losses" 
+                    type="number" 
+                    min="0"
+                    className="bg-[#40444B] border-none text-white"
+                    value={editPlayerData.losses}
+                    onChange={(e) => setEditPlayerData(prev => ({
+                      ...prev,
+                      losses: parseInt(e.target.value) || 0
+                    }))}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="winStreak" className="text-[#DCDDDE] text-sm">Win Streak</Label>
+                  <Input 
+                    id="winStreak" 
+                    type="number" 
+                    min="0"
+                    className="bg-[#40444B] border-none text-white"
+                    value={editPlayerData.winStreak}
+                    onChange={(e) => setEditPlayerData(prev => ({
+                      ...prev,
+                      winStreak: parseInt(e.target.value) || 0
+                    }))}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="lossStreak" className="text-[#DCDDDE] text-sm">Loss Streak</Label>
+                  <Input 
+                    id="lossStreak" 
+                    type="number" 
+                    min="0"
+                    className="bg-[#40444B] border-none text-white"
+                    value={editPlayerData.lossStreak}
+                    onChange={(e) => setEditPlayerData(prev => ({
+                      ...prev,
+                      lossStreak: parseInt(e.target.value) || 0
+                    }))}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2 mt-4">
+                <Label htmlFor="xboxGamertag" className="text-[#DCDDDE] text-sm">Xbox Gamertag</Label>
+                <Input 
+                  id="xboxGamertag" 
+                  type="text" 
+                  className="bg-[#40444B] border-none text-white"
+                  value={editPlayerData.xboxGamertag || ''}
+                  onChange={(e) => setEditPlayerData(prev => ({
+                    ...prev,
+                    xboxGamertag: e.target.value || null
+                  }))}
+                />
+              </div>
+              
+              <div className="space-y-2 mt-4">
+                <Label htmlFor="xuid" className="text-[#DCDDDE] text-sm">XUID</Label>
+                <Input 
+                  id="xuid" 
+                  type="text" 
+                  className="bg-[#40444B] border-none text-white"
+                  value={editPlayerData.xuid || ''}
+                  onChange={(e) => setEditPlayerData(prev => ({
+                    ...prev,
+                    xuid: e.target.value || null
+                  }))}
+                />
+              </div>
             </div>
 
             <div className="flex items-center space-x-2 my-6">
