@@ -529,6 +529,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update player" });
     }
   });
+  
+  // Delete a player
+  app.delete("/api/admin/players/:id", adminMiddleware, async (req, res) => {
+    try {
+      const playerId = parseInt(req.params.id);
+
+      if (isNaN(playerId)) {
+        return res.status(400).json({ message: "Invalid player ID" });
+      }
+      
+      // Check if player exists
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      
+      // Check if player is involved in any active matches
+      const playerMatches = await storage.getPlayerMatches(playerId, 10);
+      const activeMatches = playerMatches.filter(match => match.status === 'ACTIVE');
+      
+      if (activeMatches.length > 0) {
+        return res.status(400).json({ 
+          message: "Cannot delete player involved in active matches. Cancel or complete matches first."
+        });
+      }
+      
+      // Check if player is in queue and remove if necessary
+      await storage.removePlayerFromQueue(playerId);
+      
+      // Delete the player
+      const deleted = await storage.deletePlayer(playerId);
+      
+      if (!deleted) {
+        return res.status(500).json({ message: "Failed to delete player" });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Player successfully deleted",
+        playerId
+      });
+    } catch (error) {
+      console.error("Error deleting player:", error);
+      res.status(500).json({ message: "Failed to delete player" });
+    }
+  });
 
   // Get all matches for admin
   app.get("/api/admin/matches", adminMiddleware, async (req, res) => {

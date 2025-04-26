@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, RefreshCcw, Users, User, Trophy, Clock, ChevronDown, UserPlus, Shield, Edit, Save, X } from "lucide-react";
+import { Search, RefreshCcw, Users, User, Trophy, Clock, ChevronDown, UserPlus, Shield, Edit, Save, X, Trash2, AlertTriangle } from "lucide-react";
 import AppLayout from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Player {
   id: number;
@@ -72,6 +73,7 @@ export default function PlayersPage() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [activeTab, setActiveTab] = useState("all");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editPlayerData, setEditPlayerData] = useState<EditPlayerData>({
     mmr: 0,
     wins: 0,
@@ -240,6 +242,34 @@ export default function PlayersPage() {
       console.error("Error updating player:", error);
     }
   });
+  
+  // Delete player mutation
+  const deletePlayerMutation = useMutation({
+    mutationFn: async (playerId: number) => {
+      return await apiRequest(
+        `/api/admin/players/${playerId}`,
+        'DELETE'
+      );
+    },
+    onSuccess: () => {
+      toast({
+        title: "Player Deleted",
+        description: "Player has been permanently removed from the database.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/players'] });
+      setSelectedPlayer(null);
+      setIsDeleteDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Deletion Failed",
+        description: "There was a problem deleting the player. They may be involved in active matches.",
+        variant: "destructive",
+      });
+      console.error("Error deleting player:", error);
+      setIsDeleteDialogOpen(false);
+    }
+  });
 
   const handleEditPlayer = () => {
     if (!selectedPlayer) return;
@@ -252,6 +282,16 @@ export default function PlayersPage() {
       id: selectedPlayer.id, 
       data: editPlayerData 
     });
+  };
+  
+  const handleDeletePlayer = () => {
+    if (!selectedPlayer) return;
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const confirmDeletePlayer = () => {
+    if (!selectedPlayer) return;
+    deletePlayerMutation.mutate(selectedPlayer.id);
   };
 
   return (
@@ -481,15 +521,25 @@ export default function PlayersPage() {
                           </CardDescription>
                         </div>
                       </div>
-                      <Button 
-                        onClick={handleEditPlayer} 
-                        variant="outline" 
-                        size="sm"
-                        className="h-8 px-2"
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={handleDeletePlayer}
+                          variant="outline" 
+                          size="sm"
+                          className="h-8 px-2 text-[#ED4245] hover:bg-[#ED4245]/10 hover:text-[#ED4245]"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          onClick={handleEditPlayer} 
+                          variant="outline" 
+                          size="sm"
+                          className="h-8 px-2"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -610,6 +660,14 @@ export default function PlayersPage() {
                     Back to List
                   </Button>
                   <Button 
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={handleDeletePlayer}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Player
+                  </Button>
+                  <Button 
                     className="flex-1 bg-[#5865F2] hover:bg-[#4752C4]"
                     onClick={handleEditPlayer}
                   >
@@ -641,6 +699,43 @@ export default function PlayersPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Player Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="bg-[#36393F] text-white border-none shadow-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white flex items-center">
+              <AlertTriangle className="h-5 w-5 text-[#ED4245] mr-2" />
+              Delete Player
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[#B9BBBE]">
+              Are you sure you want to delete {selectedPlayer?.username}#{selectedPlayer?.discriminator}? This action cannot be undone and will permanently remove the player from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel className="bg-[#36393F] hover:bg-[#2F3136] border-[#202225] text-white">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-[#ED4245] hover:bg-[#A12D2F] text-white"
+              onClick={confirmDeletePlayer}
+              disabled={deletePlayerMutation.isPending}
+            >
+              {deletePlayerMutation.isPending ? (
+                <>
+                  <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Player
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Edit Player Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
