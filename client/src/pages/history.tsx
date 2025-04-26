@@ -383,6 +383,68 @@ export default function HistoryPage() {
                                             })}
                                           </div>
                                         )}
+                                        
+                                        {/* Players list */}
+                                        {team.players && team.players.length > 0 && (
+                                          <div className="mt-2 space-y-1.5">
+                                            {team.players.map(player => {
+                                              // Calculate player rank from MMR
+                                              const playerRank = getRankFromMMR(player.mmr);
+                                              const mmrChange = player.mmrChange || 0;
+                                              
+                                              return (
+                                                <div key={player.id} className="flex items-center justify-between border-t border-black/10 pt-1.5">
+                                                  <div className="flex items-center">
+                                                    <div className="relative mr-2">
+                                                      <Avatar className="h-6 w-6">
+                                                        <AvatarImage 
+                                                          src={player.avatar 
+                                                            ? `https://cdn.discordapp.com/avatars/${player.discordId}/${player.avatar}.png` 
+                                                            : undefined
+                                                          } 
+                                                          alt={player.username} 
+                                                        />
+                                                        <AvatarFallback className="bg-[#5865F2] text-[9px]">
+                                                          {player.username.substring(0, 2).toUpperCase()}
+                                                        </AvatarFallback>
+                                                      </Avatar>
+                                                      
+                                                      {/* Rank icon */}
+                                                      {playerRank && (
+                                                        <div className="absolute -bottom-1 -right-1 h-3 w-3">
+                                                          <img 
+                                                            src={`/ranks/${playerRank.icon}`} 
+                                                            alt={playerRank.name} 
+                                                            className="h-3 w-3 rounded-full"
+                                                            title={playerRank.name}
+                                                          />
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                    <span className="text-[#DCDDDE] text-xs">{player.username}</span>
+                                                  </div>
+                                                  
+                                                  <div className="flex items-center gap-2">
+                                                    {match.status === 'COMPLETED' && (
+                                                      <span className={`text-xs ${
+                                                        mmrChange > 0 
+                                                          ? 'text-emerald-400' 
+                                                          : mmrChange < 0 
+                                                            ? 'text-rose-400' 
+                                                            : 'text-gray-400'
+                                                      }`}>
+                                                        {mmrChange > 0 ? '+' : ''}{mmrChange}
+                                                      </span>
+                                                    )}
+                                                    <span className="text-xs bg-[#36393F] px-1.5 py-0.5 rounded text-[#B9BBBE]">
+                                                      {player.mmr}
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   })}
