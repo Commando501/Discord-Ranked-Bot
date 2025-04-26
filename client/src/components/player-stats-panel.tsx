@@ -8,6 +8,8 @@ interface Player {
   discriminator: string;
   discordId: string;
   avatar: string | null;
+  xboxGamertag: string | null;
+  xuid: string | null;
   mmr: number;
   wins: number;
   losses: number;

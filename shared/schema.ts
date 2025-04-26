@@ -10,6 +10,8 @@ export const players = pgTable("players", {
   username: text("username").notNull(),
   discriminator: text("discriminator").notNull(),
   avatar: text("avatar"),
+  xboxGamertag: text("xbox_gamertag"),
+  xuid: text("xuid"),
   mmr: integer("mmr").notNull().default(1000),
   wins: integer("wins").notNull().default(0),
   losses: integer("losses").notNull().default(0),

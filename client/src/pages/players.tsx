@@ -28,6 +28,8 @@ interface Player {
   discriminator: string;
   discordId: string;
   avatar: string | null;
+  xboxGamertag: string | null;
+  xuid: string | null;
   mmr: number;
   wins: number;
   losses: number;
@@ -62,7 +64,9 @@ export default function PlayersPage() {
   const [editPlayerData, setEditPlayerData] = useState<{
     mmr: number;
     isActive: boolean;
-  }>({ mmr: 0, isActive: true });
+    xboxGamertag: string | null;
+    xuid: string | null;
+  }>({ mmr: 0, isActive: true, xboxGamertag: null, xuid: null });
   const playersPerPage = 12;
 
   // Get all players
@@ -180,7 +184,9 @@ export default function PlayersPage() {
     if (selectedPlayer) {
       setEditPlayerData({
         mmr: selectedPlayer.mmr,
-        isActive: selectedPlayer.isActive
+        isActive: selectedPlayer.isActive,
+        xboxGamertag: selectedPlayer.xboxGamertag,
+        xuid: selectedPlayer.xuid
       });
     }
   }, [selectedPlayer]);
@@ -509,6 +515,20 @@ export default function PlayersPage() {
                         </div>
                         <span className="text-[#DCDDDE] text-sm font-mono">{selectedPlayer.discordId}</span>
                       </div>
+                      <div className="flex justify-between items-center p-2 bg-[#36393F] rounded-md">
+                        <div className="flex items-center">
+                          <Shield className="h-4 w-4 text-green-500 mr-2" />
+                          <span className="text-white">Xbox Gamertag</span>
+                        </div>
+                        <span className="text-[#DCDDDE] text-sm">{selectedPlayer.xboxGamertag || 'Not set'}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-2 bg-[#36393F] rounded-md">
+                        <div className="flex items-center">
+                          <Shield className="h-4 w-4 text-green-500 mr-2" />
+                          <span className="text-white">XUID</span>
+                        </div>
+                        <span className="text-[#DCDDDE] text-sm font-mono">{selectedPlayer.xuid || 'Not set'}</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -646,6 +666,34 @@ export default function PlayersPage() {
                 onChange={(e) => setEditPlayerData(prev => ({
                   ...prev,
                   mmr: parseInt(e.target.value) || 0
+                }))}
+              />
+            </div>
+            
+            <div className="space-y-2 mt-4">
+              <Label htmlFor="xboxGamertag" className="text-[#DCDDDE] text-sm">Xbox Gamertag</Label>
+              <Input 
+                id="xboxGamertag" 
+                type="text" 
+                className="bg-[#40444B] border-none text-white"
+                value={editPlayerData.xboxGamertag || ''}
+                onChange={(e) => setEditPlayerData(prev => ({
+                  ...prev,
+                  xboxGamertag: e.target.value || null
+                }))}
+              />
+            </div>
+            
+            <div className="space-y-2 mt-4">
+              <Label htmlFor="xuid" className="text-[#DCDDDE] text-sm">XUID</Label>
+              <Input 
+                id="xuid" 
+                type="text" 
+                className="bg-[#40444B] border-none text-white"
+                value={editPlayerData.xuid || ''}
+                onChange={(e) => setEditPlayerData(prev => ({
+                  ...prev,
+                  xuid: e.target.value || null
                 }))}
               />
             </div>
