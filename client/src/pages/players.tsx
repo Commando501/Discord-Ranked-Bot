@@ -531,7 +531,7 @@ export default function PlayersPage() {
                         <div className="text-xs text-[#B9BBBE] uppercase mb-1">MMR</div>
                         <div className="text-xl font-bold text-white">{selectedPlayer.mmr}</div>
                         <div className="text-xs text-[#B9BBBE] mt-1">
-                          {getStreakText(selectedPlayer.winStreak, selectedPlayer.lossStreak)}
+                          {getTotalGames(selectedPlayer)} games played
                         </div>
                       </div>
                       <div className="bg-[#40444B] rounded-md p-3 text-center">
@@ -540,7 +540,34 @@ export default function PlayersPage() {
                           {getWinRate(selectedPlayer.wins, selectedPlayer.losses).toFixed(1)}%
                         </div>
                         <div className="text-xs text-[#B9BBBE] mt-1">
-                          {getTotalGames(selectedPlayer)} games played
+                          <span className="text-[#3BA55C]">{selectedPlayer.wins}W</span> / <span className="text-[#ED4245]">{selectedPlayer.losses}L</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className={`bg-[#40444B] rounded-md p-3 text-center ${selectedPlayer.winStreak > 0 ? 'border-l-4 border-[#3BA55C]' : ''}`}>
+                        <div className="text-xs text-[#B9BBBE] uppercase mb-1">Win Streak</div>
+                        <div className="text-xl font-bold text-white flex items-center justify-center">
+                          <span className={selectedPlayer.winStreak > 0 ? 'text-[#3BA55C]' : 'text-white'}>
+                            {selectedPlayer.winStreak}
+                          </span>
+                          {selectedPlayer.winStreak > 0 && <span className="ml-1">🔥</span>}
+                        </div>
+                        <div className="text-xs text-[#B9BBBE] mt-1">
+                          {selectedPlayer.winStreak > 0 ? 'Current streak' : 'No active streak'}
+                        </div>
+                      </div>
+                      <div className={`bg-[#40444B] rounded-md p-3 text-center ${selectedPlayer.lossStreak > 0 ? 'border-l-4 border-[#ED4245]' : ''}`}>
+                        <div className="text-xs text-[#B9BBBE] uppercase mb-1">Loss Streak</div>
+                        <div className="text-xl font-bold text-white flex items-center justify-center">
+                          <span className={selectedPlayer.lossStreak > 0 ? 'text-[#ED4245]' : 'text-white'}>
+                            {selectedPlayer.lossStreak}
+                          </span>
+                          {selectedPlayer.lossStreak > 0 && <span className="ml-1">❄️</span>}
+                        </div>
+                        <div className="text-xs text-[#B9BBBE] mt-1">
+                          {selectedPlayer.lossStreak > 0 ? 'Current streak' : 'No active streak'}
                         </div>
                       </div>
                     </div>
