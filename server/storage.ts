@@ -27,6 +27,7 @@ export interface IStorage {
   getPlayer(id: number): Promise<Player | undefined>;
   createPlayer(player: InsertPlayer): Promise<Player>;
   updatePlayer(id: number, data: Partial<Player>): Promise<Player | undefined>;
+  deletePlayer(id: number): Promise<boolean>;
   listTopPlayers(limit: number): Promise<Player[]>;
   getRankTiers(): Promise<RankTier[]>;
   getPlayerRank(mmr: number, tiers: RankTier[]): Promise<RankTier>;
@@ -170,6 +171,22 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error in updatePlayer:', error);
       return undefined;
+    }
+  }
+  
+  async deletePlayer(id: number): Promise<boolean> {
+    try {
+      // Delete the player from the database
+      const result = await db
+        .delete(players)
+        .where(eq(players.id, id));
+      
+      // In Drizzle ORM, the delete operation doesn't return the deleted rows
+      // So we'll assume success if no error was thrown
+      return true;
+    } catch (error) {
+      console.error('Error in deletePlayer:', error);
+      return false;
     }
   }
 
