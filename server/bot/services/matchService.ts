@@ -1679,11 +1679,11 @@ export class MatchService {
     }
   }
 
-  private internalLogEvent = async (
+  private async internalLogEvent(
     title: string,
     description: string,
     fields: Array<{ name: string; value: string; inline?: boolean }>,
-  ) => {
+  ): Promise<void> {
     try {
       // Implement logging logic here
       logger.info(`${title}: ${description}`);
