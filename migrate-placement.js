@@ -1,8 +1,6 @@
 
-import pg from 'pg';
-import dotenv from 'dotenv';
-const { Pool } = pg;
-dotenv.config();
+const { Pool } = require('pg');
+require('dotenv').config();
 
 async function main() {
   console.log('Starting migration for placement matches...');
@@ -65,35 +63,18 @@ async function main() {
     console.log('Updating existing players to mark placement completion based on match history...');
     
     // Get config value for required placement matches
-    let requiredPlacementMatches = 5; // Default value
+    const botConfigResult = await pool.query(`
+      SELECT value FROM config WHERE key = 'botConfig'
+    `);
     
-    try {
-      // Check if config table exists first
-      const tableCheckResult = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_name = 'config'
-        ) as exists
-      `);
-      
-      if (tableCheckResult.rows[0].exists) {
-        const botConfigResult = await pool.query(`
-          SELECT value FROM config WHERE key = 'botConfig'
-        `);
-        
-        if (botConfigResult.rows.length > 0) {
-          try {
-            const botConfig = JSON.parse(botConfigResult.rows[0].value);
-            requiredPlacementMatches = botConfig.mmrSystem?.placementMatches || 5;
-          } catch (e) {
-            console.log('Error parsing botConfig, using default value of 5 placement matches');
-          }
-        }
-      } else {
-        console.log('Config table not found, using default value of 5 placement matches');
+    let requiredPlacementMatches = 5; // Default value
+    if (botConfigResult.rows.length > 0) {
+      try {
+        const botConfig = JSON.parse(botConfigResult.rows[0].value);
+        requiredPlacementMatches = botConfig.mmrSystem?.placementMatches || 5;
+      } catch (e) {
+        console.log('Error parsing botConfig, using default value of 5 placement matches');
       }
-    } catch (err) {
-      console.log('Error checking for config table, using default value of 5 placement matches:', err.message);
     }
     
     console.log(`Required placement matches configured as: ${requiredPlacementMatches}`);
