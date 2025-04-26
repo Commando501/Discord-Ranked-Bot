@@ -42,7 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function AdminPage() {
   const { toast } = useToast();
-  const [selectedTab, setSelectedTab] = useState("matches");
+  const [selectedTab, setSelectedTab] = useState("players");
   const [editingItem, setEditingItem] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
@@ -197,11 +197,7 @@ export default function AdminPage() {
     <AppLayout>
       <div className="container mx-auto px-4 py-6">
         <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">Admin Management</h1>
-            <p className="text-muted-foreground">Manage matches, teams, and queue settings</p>
-            <p className="text-sm text-muted-foreground mt-1">For player management, please use the <a href="/players" className="text-primary hover:underline">Players page</a></p>
-          </div>
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
           <div className="flex gap-2">
             <Button 
               variant="outline" 
@@ -222,12 +218,82 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="matches" value={selectedTab} onValueChange={setSelectedTab}>
+        <Tabs defaultValue="players" value={selectedTab} onValueChange={setSelectedTab}>
           <TabsList className="mb-4">
+            <TabsTrigger value="players">Players</TabsTrigger>
             <TabsTrigger value="matches">Matches</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="queue">Queue</TabsTrigger>
           </TabsList>
+
+          {/* Players Tab */}
+          <TabsContent value="players">
+            <Card>
+              <CardHeader>
+                <CardTitle>Manage Players</CardTitle>
+                <CardDescription>View and edit player details, MMR, and statistics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {playersQuery.isLoading ? (
+                  <div className="flex justify-center py-4">Loading players...</div>
+                ) : playersQuery.isError ? (
+                  <div className="text-red-500 py-4">Error loading players data</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Username</TableHead>
+                          <TableHead>MMR</TableHead>
+                          <TableHead>Wins/Losses</TableHead>
+                          <TableHead>Streaks</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {playersQuery.data?.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-4">
+                              No players found
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          playersQuery.data?.map((player: any) => (
+                            <TableRow key={player.id}>
+                              <TableCell>{player.id}</TableCell>
+                              <TableCell>
+                                {player.username}#{player.discriminator}
+                              </TableCell>
+                              <TableCell>{player.mmr}</TableCell>
+                              <TableCell>{player.wins}/{player.losses}</TableCell>
+                              <TableCell>
+                                {player.winStreak > 0 && (
+                                  <Badge className="mr-2 bg-green-600">Win: {player.winStreak}</Badge>
+                                )}
+                                {player.lossStreak > 0 && (
+                                  <Badge className="bg-red-600">Loss: {player.lossStreak}</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => openEditDialog(player)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Matches Tab */}
           <TabsContent value="matches">
