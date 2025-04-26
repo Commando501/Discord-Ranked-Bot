@@ -523,25 +523,6 @@ export default function PlayersPage() {
                           </CardDescription>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          onClick={handleDeletePlayer}
-                          variant="outline" 
-                          size="sm"
-                          className="h-8 px-2 text-[#ED4245] hover:bg-[#ED4245]/10 hover:text-[#ED4245]"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          onClick={handleEditPlayer} 
-                          variant="outline" 
-                          size="sm"
-                          className="h-8 px-2"
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
