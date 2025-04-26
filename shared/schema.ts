@@ -16,9 +16,6 @@ export const players = pgTable("players", {
   winStreak: integer("win_streak").notNull().default(0),
   lossStreak: integer("loss_streak").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
-  placementMatchesPlayed: integer("placement_matches_played").notNull().default(0),
-  placementMatchesComplete: boolean("placement_matches_complete").notNull().default(false),
-  seasonId: integer("season_id").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

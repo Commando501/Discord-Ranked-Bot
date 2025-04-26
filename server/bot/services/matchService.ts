@@ -489,27 +489,17 @@ export class MatchService {
       // Prepare MMR change fields for event log
       const winnerMmrField = {
         name: `Team ${winningTeamName} MMR Changes`,
-        value: mmrChanges.winners.map(p => {
-          // Get updated player to check placement status
-          const player = updatedWinners.find(up => up.id === p.playerId);
-          const placementStatus = player && !player.placementMatchesComplete ? 
-            ` [Placement ${player.placementMatchesPlayed}/${await this.getRequiredPlacementMatches()}]` : '';
-            
-          return `${p.username}: ${p.oldMmr} → ${p.newMmr} (${p.change >= 0 ? '+' + p.change : p.change})${placementStatus}`;
-        }).join('\n') || "No data",
+        value: mmrChanges.winners.map(p => 
+          `${p.username}: ${p.oldMmr} → ${p.newMmr} (${p.change >= 0 ? '+' + p.change : p.change})`
+        ).join('\n') || "No data",
         inline: true
       };
       
       const loserMmrField = {
         name: `Team ${losingTeam.name} MMR Changes`,
-        value: mmrChanges.losers.map(p => {
-          // Get updated player to check placement status
-          const player = updatedLosers.find(up => up.id === p.playerId);
-          const placementStatus = player && !player.placementMatchesComplete ? 
-            ` [Placement ${player.placementMatchesPlayed}/${await this.getRequiredPlacementMatches()}]` : '';
-            
-          return `${p.username}: ${p.oldMmr} → ${p.newMmr} (${p.change >= 0 ? '+' + p.change : p.change})${placementStatus}`;
-        }).join('\n') || "No data",
+        value: mmrChanges.losers.map(p => 
+          `${p.username}: ${p.oldMmr} → ${p.newMmr} (${p.change >= 0 ? '+' + p.change : p.change})`
+        ).join('\n') || "No data",
         inline: true
       };
       
@@ -1665,19 +1655,6 @@ export class MatchService {
       return "Unknown";
     }
   }
-  
-  /**
-   * Helper method to get required placement matches from config
-   */
-  private async getRequiredPlacementMatches(): Promise<number> {
-    try {
-      const botConfig = await this.storage.getBotConfig();
-      return botConfig.mmrSystem.placementMatches || 5; // Default to 5 if not configured
-    } catch (error) {
-      logger.error(`Error getting required placement matches: ${error}`);
-      return 5; // Default value
-    }
-  }
 
   private internalLogEvent = async (
     title: string,
@@ -1706,9 +1683,6 @@ export class MatchService {
       const kFactor = mmrSettings.kFactor;
       const mmrGain = Math.round(kFactor * 0.75); // Simplified calculation
       const mmrLoss = Math.round(kFactor * 0.625); // Simplified calculation
-      
-      // Get required placement matches from config
-      const requiredPlacementMatches = mmrSettings.placementMatches;
 
       // Update winning players
       for (const player of winningPlayers) {
@@ -1718,49 +1692,28 @@ export class MatchService {
 
         winStreak += 1;
         lossStreak = 0;
-        
-        // Check if player is in placement matches
-        const isInPlacement = !player.placementMatchesComplete && 
-                             player.placementMatchesPlayed < requiredPlacementMatches;
-        
-        // Determine if this match completes placements
-        const placementMatchesPlayed = player.placementMatchesPlayed + 1;
-        const placementMatchesComplete = placementMatchesPlayed >= requiredPlacementMatches;
-        
+
         // Apply streak bonuses or penalties
         let streakModifier = 0;
-        let mmrChange = 0;
 
-        if (isInPlacement) {
-          // Special placement match MMR calculation
-          // More aggressive MMR adjustment during placements (50% more than normal)
-          mmrChange = Math.round(mmrGain * 1.5);
-          logger.info(`Player ${player.username} won placement match ${placementMatchesPlayed}/${requiredPlacementMatches}`);
-        } else {
-          // Regular match MMR calculation
-          mmrChange = mmrGain;
-          
-          // Win streak bonus logic - only apply for non-placement matches
-          if (winStreak >= mmrSettings.streakSettings.threshold) {
-            streakModifier = Math.min(
-              mmrSettings.streakSettings.maxBonus,
-              Math.floor(
-                (winStreak - mmrSettings.streakSettings.threshold + 1) *
-                  mmrSettings.streakSettings.bonusPerWin,
-              ),
-            );
-          }
+        // Win streak bonus logic
+        if (winStreak >= mmrSettings.streakSettings.threshold) {
+          streakModifier = Math.min(
+            mmrSettings.streakSettings.maxBonus,
+            Math.floor(
+              (winStreak - mmrSettings.streakSettings.threshold + 1) *
+                mmrSettings.streakSettings.bonusPerWin,
+            ),
+          );
         }
 
         // Update player stats
         await this.storage.updatePlayer(player.id, {
-          mmr: Math.max(1, player.mmr + mmrChange + streakModifier),
+          mmr: Math.max(1, player.mmr + mmrGain + streakModifier),
           wins: player.wins + 1,
           losses: player.losses,
           winStreak,
           lossStreak,
-          placementMatchesPlayed,
-          placementMatchesComplete,
         });
       }
 
@@ -1772,50 +1725,29 @@ export class MatchService {
 
         lossStreak += 1;
         winStreak = 0;
-        
-        // Check if player is in placement matches
-        const isInPlacement = !player.placementMatchesComplete && 
-                             player.placementMatchesPlayed < requiredPlacementMatches;
-        
-        // Determine if this match completes placements
-        const placementMatchesPlayed = player.placementMatchesPlayed + 1;
-        const placementMatchesComplete = placementMatchesPlayed >= requiredPlacementMatches;
-        
+
         // Apply streak bonuses or penalties
         let streakModifier = 0;
-        let mmrChange = 0;
 
-        if (isInPlacement) {
-          // Special placement match MMR calculation
-          // More aggressive MMR adjustment during placements (50% more than normal)
-          mmrChange = Math.round(mmrLoss * 1.5);
-          logger.info(`Player ${player.username} lost placement match ${placementMatchesPlayed}/${requiredPlacementMatches}`);
-        } else {
-          // Regular match MMR calculation
-          mmrChange = mmrLoss;
-          
-          // Loss streak penalty logic - only apply for non-placement matches
-          if (lossStreak >= mmrSettings.streakSettings.lossThreshold) {
-            // For losses, we use a negative modifier to increase the MMR loss
-            streakModifier = -Math.min(
-              mmrSettings.streakSettings.maxLossPenalty,
-              Math.floor(
-                (lossStreak - mmrSettings.streakSettings.lossThreshold + 1) *
-                  mmrSettings.streakSettings.penaltyPerLoss,
-              ),
-            );
-          }
+        // Loss streak penalty logic
+        if (lossStreak >= mmrSettings.streakSettings.lossThreshold) {
+          // For losses, we use a negative modifier to increase the MMR loss
+          streakModifier = -Math.min(
+            mmrSettings.streakSettings.maxLossPenalty,
+            Math.floor(
+              (lossStreak - mmrSettings.streakSettings.lossThreshold + 1) *
+                mmrSettings.streakSettings.penaltyPerLoss,
+            ),
+          );
         }
 
         // Update player stats
         await this.storage.updatePlayer(player.id, {
-          mmr: Math.max(1, player.mmr - mmrChange + streakModifier),
+          mmr: Math.max(1, player.mmr - mmrLoss + streakModifier),
           wins: player.wins,
           losses: player.losses + 1,
           winStreak,
           lossStreak,
-          placementMatchesPlayed,
-          placementMatchesComplete,
         });
       }
     } catch (error) {
