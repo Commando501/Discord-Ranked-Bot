@@ -215,6 +215,8 @@ export default function PlayersPage() {
   // Update player mutation
   const updatePlayerMutation = useMutation({
     mutationFn: async (data: { id: number, data: Partial<Player> }) => {
+      // Log the data being sent to verify Xbox fields are included
+      console.log("Sending player update data:", data.data);
       return await apiRequest(
         `/api/admin/players/${data.id}`,
         'PATCH',

@@ -499,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate the request body
-      const { mmr, wins, losses, winStreak, lossStreak, isActive } = req.body;
+      const { mmr, wins, losses, winStreak, lossStreak, isActive, xboxGamertag, xuid } = req.body;
 
       // Build the update data with only valid fields
       const updateData: Partial<Player> = {};
@@ -510,6 +510,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (typeof winStreak === "number") updateData.winStreak = winStreak;
       if (typeof lossStreak === "number") updateData.lossStreak = lossStreak;
       if (typeof isActive === "boolean") updateData.isActive = isActive;
+      // Include Xbox fields in the update
+      if (xboxGamertag !== undefined) updateData.xboxGamertag = xboxGamertag;
+      if (xuid !== undefined) updateData.xuid = xuid;
 
       // Check if there's anything to update
       if (Object.keys(updateData).length === 0) {
