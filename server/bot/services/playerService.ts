@@ -103,4 +103,61 @@ export class PlayerService {
   async getPlayerById(playerId: number): Promise<any | null> {
     return this.storage.getPlayer(playerId);
   }
+  
+  /**
+   * Check if player has completed placement matches
+   */
+  async hasCompletedPlacements(playerId: number): Promise<boolean> {
+    try {
+      const player = await this.storage.getPlayer(playerId);
+      if (!player) return false;
+      
+      // If already marked as complete, return true
+      if (player.placementMatchesComplete) return true;
+      
+      // Get config to check requirements
+      const botConfig = await this.storage.getBotConfig();
+      const requiredMatches = botConfig.mmrSystem.placementMatches || 5;
+      
+      // Check if player has played enough matches
+      return player.placementMatchesPlayed >= requiredMatches;
+    } catch (error) {
+      logger.error(`Error checking placement completion: ${error}`);
+      return false;
+    }
+  }
+  
+  /**
+   * Get player's placement match progress
+   */
+  async getPlacementProgress(playerId: number): Promise<{
+    completed: boolean;
+    matchesPlayed: number;
+    requiredMatches: number;
+    remainingMatches: number;
+  }> {
+    try {
+      const player = await this.storage.getPlayer(playerId);
+      if (!player) {
+        throw new Error(`Player with ID ${playerId} not found`);
+      }
+      
+      const botConfig = await this.storage.getBotConfig();
+      const requiredMatches = botConfig.mmrSystem.placementMatches || 5;
+      
+      const matchesPlayed = player.placementMatchesPlayed || 0;
+      const completed = player.placementMatchesComplete || matchesPlayed >= requiredMatches;
+      const remainingMatches = Math.max(0, requiredMatches - matchesPlayed);
+      
+      return {
+        completed,
+        matchesPlayed,
+        requiredMatches,
+        remainingMatches
+      };
+    } catch (error) {
+      logger.error(`Error getting placement progress: ${error}`);
+      throw error;
+    }
+  }
 }
