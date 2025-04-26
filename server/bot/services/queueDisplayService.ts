@@ -45,14 +45,27 @@ export class QueueDisplayService {
 
   private async initialize(): Promise<void> {
     try {
-      // Check if we already have a message in the channel
-      await this.findExistingMessage();
+      logger.info("Starting QueueDisplayService initialization");
+      
+      // First, clean up any existing duplicate messages in the channel
+      // We'll do this immediately on initialization to ensure a clean state
+      const existingMessage = await this.cleanupDuplicateMessages();
+      if (existingMessage) {
+        this.displayMessage = existingMessage;
+        logger.info(`Using existing message with ID ${existingMessage.id} after initialization cleanup`);
+      } else {
+        logger.info("No existing messages found during initialization cleanup");
+      }
 
       // Setup event listeners
       this.setupEventListeners();
 
-      // Create initial display
-      await this.refreshQueueDisplay();
+      // Create initial display or update the existing one
+      // We'll introduce a small delay to ensure any previous operations have completed
+      setTimeout(async () => {
+        await this.refreshQueueDisplay();
+        logger.info("Initial queue display refreshed after initialization");
+      }, 1000);
 
       logger.info("Queue display initialized successfully");
     } catch (error) {
@@ -60,63 +73,13 @@ export class QueueDisplayService {
     }
   }
 
+  // This method is replaced by the more comprehensive cleanupDuplicateMessages()
+  // We'll keep it for backwards compatibility but just defer to the new method
   private async findExistingMessage(): Promise<void> {
     try {
-      const client = getDiscordClient();
-      if (!client) {
-        logger.warn(
-          "Cannot find existing message: Discord client not available",
-        );
-        return;
-      }
-
-      const channel = (await client.channels.fetch(
-        this.channelId,
-      )) as TextChannel;
-      if (!channel) {
-        logger.warn(`Channel with ID ${this.channelId} not found`);
-        return;
-      }
-
-      // Fetch recent messages to see if our bot already posted a queue status
-      const messages = await channel.messages.fetch({ limit: 20 });
-      const queueMessages = messages.filter(
-        (msg) =>
-          msg.author.id === client.user?.id &&
-          msg.embeds.length > 0 &&
-          msg.embeds.some((embed) => embed.title === "Matchmaking Queue"),
-      );
-
-      // If multiple queue messages exist, clean up extras
-      if (queueMessages.size > 1) {
-        logger.warn(`Found ${queueMessages.size} queue messages - cleaning up duplicates`);
-        
-        // Keep the most recent message and delete others
-        const sortedMessages = [...queueMessages.values()].sort(
-          (a, b) => b.createdTimestamp - a.createdTimestamp
-        );
-        
-        // Set the most recent as our display message
-        this.displayMessage = sortedMessages[0];
-        logger.info(
-          `Using most recent queue display message with ID: ${this.displayMessage.id}`
-        );
-        
-        // Delete all other queue messages
-        for (let i = 1; i < sortedMessages.length; i++) {
-          try {
-            await sortedMessages[i].delete();
-            logger.info(`Deleted duplicate queue message with ID: ${sortedMessages[i].id}`);
-          } catch (deleteError) {
-            logger.error(`Failed to delete duplicate message: ${deleteError}`);
-          }
-        }
-      } else if (queueMessages.size === 1) {
-        // Just one message exists, use it
-        this.displayMessage = queueMessages.first()!;
-        logger.info(
-          `Found existing queue display message with ID: ${this.displayMessage.id}`
-        );
+      const existingMessage = await this.cleanupDuplicateMessages();
+      if (existingMessage) {
+        this.displayMessage = existingMessage;
       }
     } catch (error) {
       logger.error(`Error finding existing message: ${error}`);
@@ -159,9 +122,12 @@ export class QueueDisplayService {
   /**
    * Force recreation of the queue display message
    * This is useful for ensuring fresh button collectors
+   * Now with improved duplicate detection and prevention
    */
   public async forceMessageRecreation(): Promise<void> {
     try {
+      logger.info("Starting forced recreation of queue display");
+      
       const client = getDiscordClient();
       if (!client) {
         logger.warn("Cannot recreate message: Discord client not available");
@@ -174,37 +140,136 @@ export class QueueDisplayService {
         return;
       }
 
-      // Find and delete all existing queue messages
-      const messages = await channel.messages.fetch({ limit: 20 });
-      const queueMessages = messages.filter(
+      // Use our enhanced cleanup method to handle existing messages
+      logger.info("Cleaning up any existing messages before force recreation");
+      await this.cleanupDuplicateMessages();
+      
+      // Clear the existing message reference
+      this.displayMessage = null;
+
+      // Short delay to ensure cleanup is complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Get fresh queue and match data for the new message
+      const [queueEmbed, ...matchEmbeds] = await this.createQueueEmbeds();
+      
+      // Create button row
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId("join_queue")
+          .setLabel("Join Queue")
+          .setStyle(ButtonStyle.Success)
+          .setEmoji("✅"),
+        new ButtonBuilder()
+          .setCustomId("leave_queue")
+          .setLabel("Leave Queue")
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji("❌"),
+      );
+      
+      // Create a fresh message
+      const newMessage = await channel.send({
+        embeds: [queueEmbed, ...matchEmbeds],
+        components: [row],
+      });
+      
+      this.displayMessage = newMessage;
+      
+      // Set up fresh collectors
+      this.setupButtonCollector(newMessage);
+      
+      logger.info(`Force recreation completed successfully: new message ID ${newMessage.id}`);
+      
+      // One final verification to check for any duplicates that might have slipped through
+      setTimeout(async () => {
+        await this.cleanupDuplicateMessages();
+      }, 2000);
+      
+    } catch (error) {
+      logger.error(`Error during force recreation of queue display: ${error}`);
+      
+      // If there was an error, still try to ensure we don't have duplicates
+      setTimeout(async () => {
+        try {
+          await this.cleanupDuplicateMessages();
+          await this.refreshQueueDisplay();
+        } catch (cleanupError) {
+          logger.error(`Error during post-error cleanup: ${cleanupError}`);
+        }
+      }, 5000);
+    }
+  }
+
+  /**
+   * Comprehensive cleanup of any duplicate queue messages
+   * This resolves the ongoing issue with multiple queue embeds appearing
+   */
+  private async cleanupDuplicateMessages(): Promise<Message | null> {
+    try {
+      const client = getDiscordClient();
+      if (!client) {
+        logger.warn("Cannot cleanup duplicates: Discord client not available");
+        return null;
+      }
+
+      const channel = (await client.channels.fetch(this.channelId)) as TextChannel;
+      if (!channel) {
+        logger.warn(`Channel with ID ${this.channelId} not found`);
+        return null;
+      }
+
+      // Fetch a larger number of messages to ensure we catch all duplicates
+      // This is more thorough than the previous approach that only fetched 10-20 messages
+      const allMessages = await channel.messages.fetch({ limit: 50 });
+      
+      // Find all queue messages by our bot
+      const queueMessages = allMessages.filter(
         (msg) =>
           msg.author.id === client.user?.id &&
           msg.embeds.length > 0 &&
           msg.embeds.some((embed) => embed.title === "Matchmaking Queue")
       );
 
-      // Delete all existing queue messages
-      if (queueMessages.size > 0) {
-        logger.info(`Found ${queueMessages.size} queue messages to clean up before recreation`);
-        
-        for (const message of queueMessages.values()) {
-          try {
-            await message.delete();
-            logger.info(`Deleted queue message with ID: ${message.id}`);
-          } catch (deleteError) {
-            logger.error(`Failed to delete queue message: ${deleteError}`);
-          }
-        }
+      if (queueMessages.size === 0) {
+        logger.info("No existing queue messages found during cleanup");
+        return null;
       }
 
-      // Clear the existing message reference
-      this.displayMessage = null;
-
-      // Refresh the display, which will create a new message
-      await this.refreshQueueDisplay();
-      logger.info("Force recreation of queue display completed");
+      if (queueMessages.size > 1) {
+        logger.warn(`Found ${queueMessages.size} queue messages during cleanup - removing duplicates`);
+        
+        // Sort messages by creation timestamp (newest first)
+        const sortedMessages = [...queueMessages.values()].sort(
+          (a, b) => b.createdTimestamp - a.createdTimestamp
+        );
+        
+        // Keep the most recent message
+        const mostRecentMessage = sortedMessages[0];
+        logger.info(`Keeping most recent queue message with ID: ${mostRecentMessage.id}`);
+        
+        // Delete all other queue messages
+        for (let i = 1; i < sortedMessages.length; i++) {
+          try {
+            await sortedMessages[i].delete();
+            logger.info(`Deleted duplicate queue message with ID: ${sortedMessages[i].id}`);
+          } catch (deleteError) {
+            logger.error(`Failed to delete duplicate message: ${deleteError}`);
+          }
+          
+          // Add a small delay between deletions to avoid rate limits
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        
+        return mostRecentMessage;
+      } else {
+        // Only one message found
+        const singleMessage = queueMessages.first()!;
+        logger.info(`Found single queue message with ID: ${singleMessage.id}`);
+        return singleMessage;
+      }
     } catch (error) {
-      logger.error(`Error during force recreation of queue display: ${error}`);
+      logger.error(`Error cleaning up duplicate messages: ${error}`);
+      return null;
     }
   }
 
@@ -224,6 +289,13 @@ export class QueueDisplayService {
       if (!channel) {
         logger.warn(`Channel with ID ${this.channelId} not found`);
         return;
+      }
+
+      // First, clean up any duplicate messages and get the most recent one
+      // This runs on every refresh to ensure we never have duplicates
+      const existingMessage = await this.cleanupDuplicateMessages();
+      if (existingMessage) {
+        this.displayMessage = existingMessage;
       }
 
       // Create embeds with queue and match information
@@ -253,7 +325,6 @@ export class QueueDisplayService {
           logger.info("Updated existing queue display message");
 
           // Every time we edit the message, ensure there's a collector
-          // This is a redundancy step that's much safer than relying on time-based recreation
           this.ensureButtonCollector(this.displayMessage);
 
           // Every 20 minutes, recreate the message to ensure fresh button collectors
@@ -262,7 +333,7 @@ export class QueueDisplayService {
 
           if (messageAge > twentyMinutesMs) {
             logger.info(
-              "Message is over an hour old, recreating for fresh collectors",
+              "Message is over 20 minutes old, recreating for fresh collectors",
             );
             // Delete old message
             await this.displayMessage
@@ -288,6 +359,10 @@ export class QueueDisplayService {
           logger.error(`Error editing existing message: ${editError}`);
           logger.info("Creating new message instead");
 
+          // First try to delete all existing messages
+          await this.cleanupDuplicateMessages();
+          this.displayMessage = null;
+
           // If edit fails, create new message
           const newMessage = await channel.send({
             embeds: [queueEmbed, ...matchEmbeds],
@@ -303,45 +378,22 @@ export class QueueDisplayService {
           );
         }
       } else {
-        // Before creating a new message, double-check if there are any existing queue messages
-        const recentMessages = await channel.messages.fetch({ limit: 10 });
-        const existingQueueMessage = recentMessages.find(
-          (msg) =>
-            msg.author.id === client.user?.id &&
-            msg.embeds.length > 0 &&
-            msg.embeds.some((embed) => embed.title === "Matchmaking Queue"),
-        );
+        // No message reference in memory, but run cleanup again to be certain
+        await this.cleanupDuplicateMessages();
         
-        if (existingQueueMessage) {
-          // Use the existing message instead of creating a new one
-          this.displayMessage = existingQueueMessage;
-          logger.info(`Found existing message during refresh with ID: ${existingQueueMessage.id}`);
-          
-          // Update the existing message
-          await existingQueueMessage.edit({
-            embeds: [queueEmbed, ...matchEmbeds],
-            components: [row],
-          });
-          
-          // Ensure button collector is set up
-          this.ensureButtonCollector(existingQueueMessage);
-          
-          logger.info(`Updated existing queue message instead of creating new one`);
-        } else {
-          // Create new message only if no existing message was found
-          const sentMessage = await channel.send({
-            embeds: [queueEmbed, ...matchEmbeds],
-            components: [row],
-          });
-          this.displayMessage = sentMessage;
+        // Create a fresh message
+        const sentMessage = await channel.send({
+          embeds: [queueEmbed, ...matchEmbeds],
+          components: [row],
+        });
+        this.displayMessage = sentMessage;
 
-          // Set up collector for button interactions
-          this.setupButtonCollector(sentMessage);
+        // Set up collector for button interactions
+        this.setupButtonCollector(sentMessage);
 
-          logger.info(
-            `Created new queue display message with ID: ${sentMessage.id}`,
-          );
-        }
+        logger.info(
+          `Created new queue display message with ID: ${sentMessage.id}`,
+        );
       }
     } catch (error) {
       logger.error(`Error refreshing queue display: ${error}`);
