@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, RefreshCcw, Search, ChevronDown, ChevronUp, Trophy } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInSeconds, differenceInMinutes, differenceInHours } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import AppLayout from "@/components/layout/app-layout";
 import {
   Table,
@@ -16,12 +17,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+interface Player {
+  id: number;
+  username: string;
+  discriminator: string;
+  mmr: number;
+  avatar: string | null;
+  discordId: string;
+  mmrChange?: number; // MMR change after match
+}
+
 interface Team {
   id: number;
   name: string;
   matchId: number;
   winner: boolean;
   avgMMR: number;
+  players: Player[]; // Add players to team interface
 }
 
 interface Match {
@@ -32,7 +44,7 @@ interface Match {
   teams: Team[];
   map?: string;
   server?: string;
-  winningTeamId?: number; // Added winningTeamId
+  winningTeamId?: number;
 }
 
 export default function HistoryPage() {
@@ -56,21 +68,49 @@ export default function HistoryPage() {
     return format(new Date(dateString), "MMM dd, yyyy • HH:mm");
   };
 
+  // Get match duration with more detailed formatting
   const getMatchDuration = (startDate: string, endDate: string | null) => {
     if (!endDate) return "In progress";
 
-    const start = new Date(startDate).getTime();
-    const end = new Date(endDate).getTime();
-    const durationMs = end - start;
-
-    const minutes = Math.floor(durationMs / (1000 * 60));
-    if (minutes < 60) {
-      return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const hours = differenceInHours(end, start);
+    const minutes = differenceInMinutes(end, start) % 60;
+    const seconds = differenceInSeconds(end, start) % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${seconds}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
     } else {
-      const hours = Math.floor(minutes / 60);
-      const remainingMinutes = minutes % 60;
-      return `${hours}h ${remainingMinutes}m`;
+      return `${seconds}s`;
     }
+  };
+  
+  // Get player rank information based on MMR
+  const getRankFromMMR = (mmr: number) => {
+    if (mmr >= 2000) return { name: "Challenger", icon: "Challenger.png" };
+    if (mmr >= 1900) return { name: "Masters 3", icon: "Masters3.png" };
+    if (mmr >= 1800) return { name: "Masters 2", icon: "Masters2.png" };
+    if (mmr >= 1700) return { name: "Masters 1", icon: "Masters1.png" };
+    if (mmr >= 1600) return { name: "Diamond 3", icon: "Diamond3.png" };
+    if (mmr >= 1500) return { name: "Diamond 2", icon: "Diamond2.png" };
+    if (mmr >= 1400) return { name: "Diamond 1", icon: "Diamond1.png" };
+    if (mmr >= 1300) return { name: "Platinum 3", icon: "Platinum3.png" };
+    if (mmr >= 1200) return { name: "Platinum 2", icon: "Platinum2.png" };
+    if (mmr >= 1100) return { name: "Platinum 1", icon: "Platinum1.png" };
+    if (mmr >= 1000) return { name: "Gold 3", icon: "gold3.png" };
+    if (mmr >= 900) return { name: "Gold 2", icon: "Gold2.png" };
+    if (mmr >= 800) return { name: "Gold 1", icon: "Gold1.png" };
+    if (mmr >= 700) return { name: "Silver 3", icon: "Silver3.png" };
+    if (mmr >= 600) return { name: "Silver 2", icon: "Silver2.png" };
+    if (mmr >= 500) return { name: "Silver 1", icon: "Silver1.png" };
+    if (mmr >= 400) return { name: "Bronze 3", icon: "Bronze3.png" };
+    if (mmr >= 300) return { name: "Bronze 2", icon: "Bronze2.png" };
+    if (mmr >= 200) return { name: "Bronze 1", icon: "Bronze1.png" };
+    if (mmr >= 100) return { name: "Iron 2", icon: "Iron2.png" };
+    return { name: "Iron 1", icon: "iron1.png" };
   };
 
   const getStatusBadge = (status: string) => {
@@ -247,30 +287,105 @@ export default function HistoryPage() {
                                       }
                                     </span>
                                   </div>
+                                  <div className="flex justify-between py-1 border-t border-black/10 mt-1">
+                                    <span className="text-[#B9BBBE]">Match Date</span>
+                                    <span className="text-white">{formatDate(match.createdAt)}</span>
+                                  </div>
+                                  {match.status === 'COMPLETED' && match.endedAt && (
+                                    <div className="flex justify-between py-1 border-t border-black/10">
+                                      <span className="text-[#B9BBBE]">Match Duration</span>
+                                      <span className="text-white">{getMatchDuration(match.createdAt, match.endedAt)}</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
                               <div>
                                 <h4 className="text-sm font-medium text-[#B9BBBE] mb-2">Teams</h4>
                                 <div className="space-y-2">
-                                  {match.teams.map(team => (
-                                    <div 
-                                      key={team.id} 
-                                      className={`bg-[#40444B] rounded-md p-3 text-sm ${
-                                        team.id === match.winningTeamId ? 'border-l-2 border-amber-500' : '' //Use winningTeamId for highlighting
-                                      }`}
-                                    >
-                                      <div className="flex justify-between items-center">
-                                        <div className="text-white font-medium flex items-center">
-                                          {team.id === match.winningTeamId && <Trophy className="h-3 w-3 mr-1 text-amber-500" />}
-                                          Team {team.name}
+                                  {match.teams.map(team => {
+                                    const isWinner = team.id === match.winningTeamId;
+                                    return (
+                                      <div 
+                                        key={team.id} 
+                                        className={`bg-[#40444B] rounded-md p-3 text-sm ${
+                                          isWinner ? 'border-l-2 border-amber-500' : ''
+                                        }`}
+                                      >
+                                        <div className="flex justify-between items-center mb-2">
+                                          <div className="text-white font-medium flex items-center">
+                                            {isWinner && <Trophy className="h-3 w-3 mr-1 text-amber-500" />}
+                                            Team {team.name}
+                                          </div>
+                                          <div className="text-xs bg-[#5865F2]/20 text-[#5865F2] px-2 py-0.5 rounded">
+                                            Avg MMR: {team.avgMMR}
+                                          </div>
                                         </div>
-                                        <div className="text-xs bg-[#5865F2]/20 text-[#5865F2] px-2 py-0.5 rounded">
-                                          MMR: {team.avgMMR}
-                                        </div>
+                                        
+                                        {/* Players list */}
+                                        {team.players && team.players.length > 0 && (
+                                          <div className="mt-2 space-y-1.5">
+                                            {team.players.map(player => {
+                                              // Calculate player rank from MMR
+                                              const playerRank = getRankFromMMR(player.mmr);
+                                              const mmrChange = player.mmrChange || 0;
+                                              
+                                              return (
+                                                <div key={player.id} className="flex items-center justify-between border-t border-black/10 pt-1.5">
+                                                  <div className="flex items-center">
+                                                    <div className="relative mr-2">
+                                                      <Avatar className="h-6 w-6">
+                                                        <AvatarImage 
+                                                          src={player.avatar 
+                                                            ? `https://cdn.discordapp.com/avatars/${player.discordId}/${player.avatar}.png` 
+                                                            : undefined
+                                                          } 
+                                                          alt={player.username} 
+                                                        />
+                                                        <AvatarFallback className="bg-[#5865F2] text-[9px]">
+                                                          {player.username.substring(0, 2).toUpperCase()}
+                                                        </AvatarFallback>
+                                                      </Avatar>
+                                                      
+                                                      {/* Rank icon */}
+                                                      {playerRank && (
+                                                        <div className="absolute -bottom-1 -right-1 h-3 w-3">
+                                                          <img 
+                                                            src={`/ranks/${playerRank.icon}`} 
+                                                            alt={playerRank.name} 
+                                                            className="h-3 w-3 rounded-full"
+                                                            title={playerRank.name}
+                                                          />
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                    <span className="text-[#DCDDDE] text-xs">{player.username}</span>
+                                                  </div>
+                                                  
+                                                  <div className="flex items-center gap-2">
+                                                    {match.status === 'COMPLETED' && (
+                                                      <span className={`text-xs ${
+                                                        mmrChange > 0 
+                                                          ? 'text-emerald-400' 
+                                                          : mmrChange < 0 
+                                                            ? 'text-rose-400' 
+                                                            : 'text-gray-400'
+                                                      }`}>
+                                                        {mmrChange > 0 ? '+' : ''}{mmrChange}
+                                                      </span>
+                                                    )}
+                                                    <span className="text-xs bg-[#36393F] px-1.5 py-0.5 rounded text-[#B9BBBE]">
+                                                      {player.mmr}
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
                                       </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               </div>
                             </div>
