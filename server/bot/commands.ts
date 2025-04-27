@@ -293,43 +293,177 @@ export const commands = [
           );
         }
 
-        const embed = new EmbedBuilder()
-          .setColor("#5865F2")
-          .setTitle(`${player.username}'s Match History`)
-          .setDescription(`Recent ${matches.length} matches`);
+        // Create match embeds with detailed information
+        let currentPage = 0;
+        const matchEmbeds: EmbedBuilder[] = [];
 
+        // Process each match to create detailed embeds
         for (const match of matches) {
-          const teams = await storage.getMatchTeams(match.id);
-          const playerTeam = teams.find((t) =>
-            t.players.some((p) => p.id === player.id),
-          );
+          try {
+            // Get detailed match information
+            const matchDetails = await storage.getMatch(match.id);
+            const matchTeams = await storage.getMatchTeams(match.id);
 
-          if (!playerTeam) continue;
+            if (!matchDetails || !matchTeams || matchTeams.length === 0) {
+              continue;
+            }
 
-          const isWinner = match.winningTeamId === playerTeam.id;
-          const matchResult =
-            match.status === "COMPLETED"
-              ? isWinner
-                ? "Win"
-                : "Loss"
-              : match.status;
+            // Find player's team
+            const playerTeam = matchTeams.find(t => 
+              t.players.some(p => p.id === player.id)
+            );
 
-          const opponentTeam = teams.find((t) => t.id !== playerTeam.id);
-          const opponentText = opponentTeam
-            ? `vs Team ${opponentTeam.name} (Avg MMR: ${opponentTeam.avgMMR})`
-            : "vs Unknown Opponent";
+            if (!playerTeam) continue;
 
-          const date = new Date(match.createdAt).toLocaleDateString();
-          const fieldColor = isWinner ? "🟢" : "🔴";
+            // Find opponent team
+            const opponentTeam = matchTeams.find(t => t.id !== playerTeam.id);
 
-          embed.addFields({
-            name: `${fieldColor} Match #${match.id} - ${matchResult}`,
-            value: `${date} | Team ${playerTeam.name} (Avg MMR: ${playerTeam.avgMMR}) ${opponentText}`,
-            inline: false,
+            // Determine if player won
+            const isWinner = matchDetails.status === "COMPLETED" && 
+                              matchDetails.winningTeamId === playerTeam.id;
+
+            // Format dates and calculate duration
+            const startDate = new Date(matchDetails.createdAt);
+            const endDate = matchDetails.finishedAt ? new Date(matchDetails.finishedAt) : null;
+
+            let matchDuration = "In progress";
+            if (endDate) {
+              const durationMs = endDate.getTime() - startDate.getTime();
+              const minutes = Math.floor(durationMs / 60000);
+              const seconds = Math.floor((durationMs % 60000) / 1000);
+              const hours = Math.floor(minutes / 60);
+
+              if (hours > 0) {
+                matchDuration = `${hours}h ${minutes % 60}m ${seconds}s`;
+              } else if (minutes > 0) {
+                matchDuration = `${minutes}m ${seconds}s`;
+              } else {
+                matchDuration = `${seconds}s`;
+              }
+            }
+
+            // Create embed for this match
+            const embed = new EmbedBuilder()
+              .setColor(isWinner ? "#3BA55C" : matchDetails.status === "COMPLETED" ? "#ED4245" : "#5865F2")
+              .setTitle(`Match #${match.id}`)
+              .setDescription(`
+Status: ${matchDetails.status}
+Started: ${startDate.toLocaleString()}${endDate ? `\nEnded: ${endDate.toLocaleString()}` : ''}
+Duration: ${matchDuration}
+${matchDetails.map ? `Map: ${matchDetails.map}` : ''}
+${matchDetails.server ? `Server: ${matchDetails.server}` : ''}
+              `)
+              .setFooter({
+                text: `Page ${matchEmbeds.length + 1}/${matches.length} | ${player.username}'s Match History`,
+              })
+              .setTimestamp();
+
+            // Add team information
+            matchTeams.forEach((team) => {
+              // Format all players in the team with their MMR and changes
+              const teamPlayers = team.players.map((p) => {
+                // Find if player has MMR change recorded
+                const mmrChange = p.mmrChange || 0;
+                const mmrChangeText = mmrChange > 0 ? `+${mmrChange}` : mmrChange < 0 ? `${mmrChange}` : "+0";
+
+                // Highlight if this is the current player
+                const isCurrentPlayer = p.id === player.id;
+                return `${isCurrentPlayer ? '**' : ''}${p.username} (MMR: ${p.mmr}${matchDetails.status === "COMPLETED" ? ` ${mmrChangeText}` : ''})${isCurrentPlayer ? '**' : ''}`;
+              }).join("\n");
+
+              // Add field for team highlighting winner
+              const isWinningTeam = matchDetails.status === "COMPLETED" && matchDetails.winningTeamId === team.id;
+              const teamSymbol = isWinningTeam ? "🏆 " : "";
+
+              embed.addFields({
+                name: `${teamSymbol}Team ${team.name} (Avg MMR: ${team.avgMMR})`,
+                value: teamPlayers || "No players",
+                inline: true,
+              });
+            });
+
+            matchEmbeds.push(embed);
+          } catch (error) {
+            logger.error(`Error creating embed for match ${match.id}: ${error}`);
+          }
+        }
+
+        // If no valid embeds were created
+        if (matchEmbeds.length === 0) {
+          return interaction.followUp({
+            content: "Could not retrieve detailed match history information.",
           });
         }
 
-        await interaction.followUp({ embeds: [embed] });
+        // Create navigation buttons
+        const prevButton = new ButtonBuilder()
+          .setCustomId('history_prev')
+          .setLabel('Previous')
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(true);
+
+        const nextButton = new ButtonBuilder()
+          .setCustomId('history_next')
+          .setLabel('Next')
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(matchEmbeds.length <= 1);
+
+        const pageRow = new ActionRowBuilder<ButtonBuilder>().addComponents(prevButton, nextButton);
+
+        // Send initial message with the first embed and buttons
+        const message = await interaction.followUp({
+          embeds: [matchEmbeds[0]],
+          components: matchEmbeds.length > 1 ? [pageRow] : []
+        });
+
+        // Set up collector for button interactions
+        if (matchEmbeds.length > 1) {
+          const collector = message.createMessageComponentCollector({
+            time: 300000, // 5 minutes timeout
+          });
+
+          collector.on('collect', async (i) => {
+            // Verify that the user who clicked is the user who ran the command
+            if (i.user.id !== interaction.user.id) {
+              await i.reply({ 
+                content: "These buttons are not for you.", 
+                ephemeral: true 
+              });
+              return;
+            }
+
+            await i.deferUpdate();
+
+            // Handle pagination
+            if (i.customId === 'history_next') {
+              currentPage = Math.min(currentPage + 1, matchEmbeds.length - 1);
+            } else if (i.customId === 'history_prev') {
+              currentPage = Math.max(currentPage - 1, 0);
+            }
+
+            // Update button states
+            prevButton.setDisabled(currentPage === 0);
+            nextButton.setDisabled(currentPage === matchEmbeds.length - 1);
+
+            // Update message with new embed and buttons
+            await i.editReply({
+              embeds: [matchEmbeds[currentPage]],
+              components: [new ActionRowBuilder<ButtonBuilder>().addComponents(prevButton, nextButton)]
+            });
+          });
+
+          collector.on('end', async () => {
+            // Remove buttons when collector expires
+            try {
+              await message.edit({
+                embeds: [matchEmbeds[currentPage]],
+                components: []
+              });
+            } catch (error) {
+              logger.error(`Error removing buttons after collector end: ${error}`);
+            }
+          });
+        }
       } catch (error) {
         logger.error(`Error in history command: ${error}`);
         await interaction.followUp(
