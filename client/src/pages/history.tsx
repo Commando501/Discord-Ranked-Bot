@@ -370,19 +370,27 @@ export default function HistoryPage() {
                                                   <div className="flex items-center">
                                                     <div className="mr-2">
                                                       <Avatar className="h-6 w-6">
-                                                        <AvatarImage 
-                                                          src={playerRank ? `/ranks/${playerRank.icon}` : undefined}
-                                                          alt={playerRank?.name || player.username} 
-                                                        />
-                                                        <AvatarFallback className="bg-[#5865F2] text-[9px]">
-                                                          {player.avatar ? 
-                                                            <img 
-                                                              src={`https://cdn.discordapp.com/avatars/${player.discordId}/${player.avatar}.png`}
-                                                              alt={player.username}
-                                                            /> :
-                                                            player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'
-                                                          }
-                                                        </AvatarFallback>
+                                                        {playerRank ? (
+                                                          <img 
+                                                            src={`/ranks/${playerRank.icon}`}
+                                                            alt={playerRank.name}
+                                                            className="h-full w-full object-cover"
+                                                          />
+                                                        ) : (
+                                                          <>
+                                                            {player.avatar ? (
+                                                              <img 
+                                                                src={`https://cdn.discordapp.com/avatars/${player.discordId}/${player.avatar}.png`}
+                                                                alt={player.username}
+                                                                className="h-full w-full object-cover rounded-full"
+                                                              />
+                                                            ) : (
+                                                              <div className="h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]">
+                                                                {player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}
+                                                              </div>
+                                                            )}
+                                                          </>
+                                                        )}
                                                       </Avatar>
                                                     </div>
                                                     <span className="text-[#DCDDDE] text-xs">{player.username}</span>
