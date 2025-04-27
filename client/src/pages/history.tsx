@@ -101,7 +101,7 @@ export default function HistoryPage() {
   const getRankFromMMR = (mmr: number) => {
     // Use configured rank tiers if available, otherwise fallback to hardcoded tiers
     const rankTiers = configData?.seasonManagement?.rankTiers || [];
-
+    
     // Helper to standardize icon names
     const standardizeIconName = (name: string): string => {
       // Remove spaces and ensure proper format
@@ -109,11 +109,11 @@ export default function HistoryPage() {
       // Make sure it ends with .png
       return cleanName.endsWith('.png') ? cleanName : `${cleanName}.png`;
     };
-
+    
     if (rankTiers.length > 0) {
       // Sort tiers by MMR threshold (highest first)
       const sortedTiers = [...rankTiers].sort((a, b) => b.mmrThreshold - a.mmrThreshold);
-
+      
       // Find the first tier where the player's MMR is greater than or equal to the threshold
       for (const tier of sortedTiers) {
         if (mmr >= tier.mmrThreshold) {
@@ -123,7 +123,7 @@ export default function HistoryPage() {
           };
         }
       }
-
+      
       // If no tier is found, return the lowest tier
       const lowestTier = sortedTiers[sortedTiers.length - 1];
       return { 
@@ -131,7 +131,7 @@ export default function HistoryPage() {
         icon: lowestTier.icon ? standardizeIconName(lowestTier.icon) : standardizeIconName(lowestTier.name)
       };
     }
-
+    
     // Fallback to hardcoded tiers if no configuration is available - using consistent capitalization
     if (mmr >= 2000) return { name: "Challenger", icon: "Challenger.png" };
     if (mmr >= 1900) return { name: "Masters 3", icon: "Masters3.png" };
@@ -380,67 +380,66 @@ export default function HistoryPage() {
                                                       {/* Simplified rank emblem display */}
                                                       <div className="h-6 w-6 rounded-full overflow-hidden flex items-center justify-center bg-[#2F3136] border border-[#1E1F22]">
                                                         {playerRank ? (
-                                                          <>
-                                                            {/* First attempt - try with icon from getRankFromMMR */}
-                                                            <img 
-                                                              src={`/ranks/${playerRank.icon}`}
-                                                              alt={playerRank.name}
-                                                              className="h-full w-full object-contain"
-                                                              onError={(e) => {
-                                                                // First error - try with name directly
-                                                                const img = e.currentTarget;
-                                                                // Normalize name - replace spaces and standardize
-                                                                const rankName = playerRank.name.replace(/\s+/g, '');
-                                                                img.src = `/ranks/${rankName}.png`;
-
-                                                                // First failover
-                                                                img.onerror = () => {
-                                                                  // Try with base name + tier for tiered ranks (Gold + 3)
-                                                                  if (rankName.match(/[123]$/)) {
-                                                                    const baseName = rankName.slice(0, -1);
-                                                                    const tier = rankName.slice(-1);
-                                                                    img.src = `/ranks/${baseName}${tier}.png`;
-
-                                                                    // Second failover
-                                                                    img.onerror = () => {
-                                                                      // Try lowercase filename
-                                                                      img.src = `/ranks/${rankName.toLowerCase()}.png`;
-
-                                                                      // Third failover - specifically checking for Gold 3
-                                                                      img.onerror = () => {
-                                                                        // Special case for Gold 3
-                                                                        if (rankName === 'Gold3') {
-                                                                          img.src = `/ranks/gold3.png`;
-                                                                        } else if (rankName === 'Iron1') {
-                                                                          img.src = `/ranks/iron1.png`;
-                                                                        } else {
-                                                                          // Last failover - show initials
-                                                                          const parent = img.parentElement;
-                                                                          if (parent) {
-                                                                            const initials = player.username ? player.username.substring(0, 2).toUpperCase() : 'UN';
-                                                                            // Clean replacement rather than DOM manipulation
-                                                                            parent.innerHTML = `<div class="h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]">${initials}</div>`;
-                                                                          }
-                                                                        }
-                                                                      };
-                                                                    };
-                                                                  } else {
-                                                                    // For non-tiered ranks, try lowercase
+                                                          <img 
+                                                            src={`/ranks/${playerRank.icon}`}
+                                                            alt={playerRank.name}
+                                                            className="h-full w-full object-contain"
+                                                            onError={(e) => {
+                                                              // Try common filename variations
+                                                              const img = e.currentTarget as HTMLImageElement;
+                                                              const rankName = playerRank.name.replace(/\s+/g, '');
+                                                              
+                                                              // Try direct rank name
+                                                              img.src = `/ranks/${rankName}.png`;
+                                                              
+                                                              img.onerror = () => {
+                                                                // Try with different capitalization
+                                                                if (rankName.includes('1') || rankName.includes('2') || rankName.includes('3')) {
+                                                                  // Handle tier numbers (Gold1, Silver2, etc.)
+                                                                  const baseName = rankName.slice(0, -1);
+                                                                  const tier = rankName.slice(-1);
+                                                                  img.src = `/ranks/${baseName}${tier}.png`;
+                                                                  
+                                                                  img.onerror = () => {
+                                                                    // Last attempt with lowercase
                                                                     img.src = `/ranks/${rankName.toLowerCase()}.png`;
-
-                                                                    // Failover to initials
+                                                                    
                                                                     img.onerror = () => {
+                                                                      // If all attempts fail, show player initials
+                                                                      img.style.display = 'none';
+                                                                      // Replace with initials
+                                                                      const initials = player.username ? player.username.substring(0, 2).toUpperCase() : 'UN';
                                                                       const parent = img.parentElement;
                                                                       if (parent) {
-                                                                        const initials = player.username ? player.username.substring(0, 2).toUpperCase() : 'UN';
-                                                                        parent.innerHTML = `<div class="h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]">${initials}</div>`;
+                                                                        parent.innerHTML = '';
+                                                                        const initialsDiv = document.createElement('div');
+                                                                        initialsDiv.className = "h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]";
+                                                                        initialsDiv.textContent = initials;
+                                                                        parent.appendChild(initialsDiv);
                                                                       }
                                                                     };
-                                                                  }
-                                                                };
-                                                              }}
-                                                            />
-                                                          </>
+                                                                  };
+                                                                } else {
+                                                                  // Handle non-tiered ranks
+                                                                  img.src = `/ranks/${rankName.toLowerCase()}.png`;
+                                                                  
+                                                                  img.onerror = () => {
+                                                                    // If all attempts fail, show player initials
+                                                                    img.style.display = 'none';
+                                                                    const initials = player.username ? player.username.substring(0, 2).toUpperCase() : 'UN';
+                                                                    const parent = img.parentElement;
+                                                                    if (parent) {
+                                                                      parent.innerHTML = '';
+                                                                      const initialsDiv = document.createElement('div');
+                                                                      initialsDiv.className = "h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]";
+                                                                      initialsDiv.textContent = initials;
+                                                                      parent.appendChild(initialsDiv);
+                                                                    }
+                                                                  };
+                                                                }
+                                                              };
+                                                            }}
+                                                          />
                                                         ) : (
                                                           <div className="h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]">
                                                             {player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}
