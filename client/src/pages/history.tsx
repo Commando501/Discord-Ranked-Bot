@@ -377,9 +377,14 @@ export default function HistoryPage() {
                                                         {player.mmrChange > 0 ? '+' : ''}{player.mmrChange || 0}
                                                       </span>
                                                     )}
-                                                    <span className="text-xs bg-[#36393F] px-1.5 py-0.5 rounded text-[#B9BBBE]">
-                                                      {player.mmr}
-                                                    </span>
+                                                    <div className="flex items-center gap-1">
+                                                      <span className="text-xs bg-[#36393F] px-1.5 py-0.5 rounded text-[#B9BBBE]">
+                                                        {player.mmr}
+                                                      </span>
+                                                      <span className="text-xs text-[#B9BBBE]">
+                                                        {playerRank ? playerRank.name : ''}
+                                                      </span>
+                                                    </div>
                                                   </div>
                                                 </div>
                                               );
