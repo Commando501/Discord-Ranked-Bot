@@ -102,6 +102,14 @@ export default function HistoryPage() {
     // Use configured rank tiers if available, otherwise fallback to hardcoded tiers
     const rankTiers = configData?.seasonManagement?.rankTiers || [];
     
+    // Helper to standardize icon names
+    const standardizeIconName = (name: string): string => {
+      // Remove spaces and ensure proper format
+      const cleanName = name.replace(/\s+/g, '');
+      // Make sure it ends with .png
+      return cleanName.endsWith('.png') ? cleanName : `${cleanName}.png`;
+    };
+    
     if (rankTiers.length > 0) {
       // Sort tiers by MMR threshold (highest first)
       const sortedTiers = [...rankTiers].sort((a, b) => b.mmrThreshold - a.mmrThreshold);
@@ -111,7 +119,7 @@ export default function HistoryPage() {
         if (mmr >= tier.mmrThreshold) {
           return { 
             name: tier.name,
-            icon: tier.icon || `${tier.name.replace(/\s+/g, '')}.png` // Fallback icon name if not specified
+            icon: tier.icon ? standardizeIconName(tier.icon) : standardizeIconName(tier.name)
           };
         }
       }
@@ -120,11 +128,11 @@ export default function HistoryPage() {
       const lowestTier = sortedTiers[sortedTiers.length - 1];
       return { 
         name: lowestTier.name,
-        icon: lowestTier.icon || `${lowestTier.name.replace(/\s+/g, '')}.png`
+        icon: lowestTier.icon ? standardizeIconName(lowestTier.icon) : standardizeIconName(lowestTier.name)
       };
     }
     
-    // Fallback to hardcoded tiers if no configuration is available
+    // Fallback to hardcoded tiers if no configuration is available - using consistent capitalization
     if (mmr >= 2000) return { name: "Challenger", icon: "Challenger.png" };
     if (mmr >= 1900) return { name: "Masters 3", icon: "Masters3.png" };
     if (mmr >= 1800) return { name: "Masters 2", icon: "Masters2.png" };
@@ -135,7 +143,7 @@ export default function HistoryPage() {
     if (mmr >= 1300) return { name: "Platinum 3", icon: "Platinum3.png" };
     if (mmr >= 1200) return { name: "Platinum 2", icon: "Platinum2.png" };
     if (mmr >= 1100) return { name: "Platinum 1", icon: "Platinum1.png" };
-    if (mmr >= 1000) return { name: "Gold 3", icon: "gold3.png" };
+    if (mmr >= 1000) return { name: "Gold 3", icon: "Gold3.png" }; // Fixed capitalization
     if (mmr >= 900) return { name: "Gold 2", icon: "Gold2.png" };
     if (mmr >= 800) return { name: "Gold 1", icon: "Gold1.png" };
     if (mmr >= 700) return { name: "Silver 3", icon: "Silver3.png" };
@@ -145,7 +153,7 @@ export default function HistoryPage() {
     if (mmr >= 300) return { name: "Bronze 2", icon: "Bronze2.png" };
     if (mmr >= 200) return { name: "Bronze 1", icon: "Bronze1.png" };
     if (mmr >= 100) return { name: "Iron 2", icon: "Iron2.png" };
-    return { name: "Iron 1", icon: "iron1.png" };
+    return { name: "Iron 1", icon: "Iron1.png" }; // Fixed capitalization
   };
 
   const getStatusBadge = (status: string) => {
@@ -369,47 +377,70 @@ export default function HistoryPage() {
                                                 <div key={player.id} className="flex items-center justify-between border-t border-black/10 pt-1.5">
                                                   <div className="flex items-center">
                                                     <div className="mr-2">
-                                                      {/* Simple rank emblem display with reliable fallbacks */}
+                                                      {/* Simplified rank emblem display */}
                                                       <div className="h-6 w-6 rounded-full overflow-hidden flex items-center justify-center bg-[#2F3136] border border-[#1E1F22]">
-                                                        {playerRank && (
+                                                        {playerRank ? (
                                                           <img 
-                                                            src={`/ranks/${playerRank.icon.toLowerCase()}`}
+                                                            src={`/ranks/${playerRank.icon}`}
                                                             alt={playerRank.name}
                                                             className="h-full w-full object-contain"
-                                                            style={{ display: 'none' }}
-                                                            onLoad={(e) => {
-                                                              e.currentTarget.style.display = 'block';
-                                                            }}
                                                             onError={(e) => {
-                                                              // Try alternative casing formats
-                                                              const img = e.currentTarget;
-                                                              const iconName = playerRank.icon;
+                                                              // Try common filename variations
+                                                              const img = e.currentTarget as HTMLImageElement;
+                                                              const rankName = playerRank.name.replace(/\s+/g, '');
                                                               
-                                                              // Try with capitalized first letter
-                                                              const capitalizedIcon = iconName.charAt(0).toUpperCase() + iconName.slice(1).toLowerCase();
-                                                              img.src = `/ranks/${capitalizedIcon}`;
+                                                              // Try direct rank name
+                                                              img.src = `/ranks/${rankName}.png`;
                                                               
                                                               img.onerror = () => {
-                                                                // Try all uppercase
-                                                                img.src = `/ranks/${iconName.toUpperCase()}.png`;
-                                                                
-                                                                img.onerror = () => {
-                                                                  // Try original name with .png explicitly added
-                                                                  img.src = `/ranks/${iconName}.png`;
+                                                                // Try with different capitalization
+                                                                if (rankName.includes('1') || rankName.includes('2') || rankName.includes('3')) {
+                                                                  // Handle tier numbers (Gold1, Silver2, etc.)
+                                                                  const baseName = rankName.slice(0, -1);
+                                                                  const tier = rankName.slice(-1);
+                                                                  img.src = `/ranks/${baseName}${tier}.png`;
+                                                                  
+                                                                  img.onerror = () => {
+                                                                    // Last attempt with lowercase
+                                                                    img.src = `/ranks/${rankName.toLowerCase()}.png`;
+                                                                    
+                                                                    img.onerror = () => {
+                                                                      // If all attempts fail, show player initials
+                                                                      img.style.display = 'none';
+                                                                      // Replace with initials
+                                                                      const initials = player.username ? player.username.substring(0, 2).toUpperCase() : 'UN';
+                                                                      const parent = img.parentElement;
+                                                                      if (parent) {
+                                                                        parent.innerHTML = '';
+                                                                        const initialsDiv = document.createElement('div');
+                                                                        initialsDiv.className = "h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]";
+                                                                        initialsDiv.textContent = initials;
+                                                                        parent.appendChild(initialsDiv);
+                                                                      }
+                                                                    };
+                                                                  };
+                                                                } else {
+                                                                  // Handle non-tiered ranks
+                                                                  img.src = `/ranks/${rankName.toLowerCase()}.png`;
                                                                   
                                                                   img.onerror = () => {
                                                                     // If all attempts fail, show player initials
                                                                     img.style.display = 'none';
-                                                                    img.parentElement.innerHTML = `<div class="h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]">${player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}</div>`;
+                                                                    const initials = player.username ? player.username.substring(0, 2).toUpperCase() : 'UN';
+                                                                    const parent = img.parentElement;
+                                                                    if (parent) {
+                                                                      parent.innerHTML = '';
+                                                                      const initialsDiv = document.createElement('div');
+                                                                      initialsDiv.className = "h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]";
+                                                                      initialsDiv.textContent = initials;
+                                                                      parent.appendChild(initialsDiv);
+                                                                    }
                                                                   };
-                                                                };
+                                                                }
                                                               };
                                                             }}
                                                           />
-                                                        )}
-                                                        
-                                                        {/* Render initials as immediate fallback */}
-                                                        {!playerRank && (
+                                                        ) : (
                                                           <div className="h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]">
                                                             {player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}
                                                           </div>
