@@ -54,6 +54,9 @@ export default function HistoryPage() {
 
   const { data: matchHistory, isLoading, refetch } = useQuery<Match[]>({
     queryKey: ['/api/matches/history'],
+    onSuccess: (data) => {
+      console.log("Match history data:", data);
+    }
   });
 
   const handleRefresh = async () => {
@@ -323,9 +326,16 @@ export default function HistoryPage() {
                                         </div>
                                         
                                         {/* Players list */}
-                                        {team.players && team.players.length > 0 && (
-                                          <div className="mt-2 space-y-1.5">
-                                            {team.players.map(player => {
+                                        <div className="mt-2 space-y-1.5">
+                                          {/* Debug information */}
+                                          {(!team.players || team.players.length === 0) && (
+                                            <div className="text-xs text-amber-400 italic border-t border-black/10 pt-1.5">
+                                              No player data available for this team
+                                            </div>
+                                          )}
+                                          
+                                          {team.players && team.players.length > 0 && 
+                                            team.players.map(player => {
                                               // Calculate player rank from MMR
                                               const playerRank = getRankFromMMR(player.mmr);
                                               const mmrChange = player.mmrChange || 0;
@@ -343,7 +353,7 @@ export default function HistoryPage() {
                                                           alt={player.username} 
                                                         />
                                                         <AvatarFallback className="bg-[#5865F2] text-[9px]">
-                                                          {player.username.substring(0, 2).toUpperCase()}
+                                                          {player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}
                                                         </AvatarFallback>
                                                       </Avatar>
                                                       
@@ -380,9 +390,9 @@ export default function HistoryPage() {
                                                   </div>
                                                 </div>
                                               );
-                                            })}
-                                          </div>
-                                        )}
+                                            })
+                                          }
+                                        </div>
                                       </div>
                                     );
                                   })}
