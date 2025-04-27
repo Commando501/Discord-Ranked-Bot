@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import AppLayout from "@/components/layout/app-layout";
 import {
   Table,
@@ -77,11 +77,11 @@ export default function HistoryPage() {
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     const hours = differenceInHours(end, start);
     const minutes = differenceInMinutes(end, start) % 60;
     const seconds = differenceInSeconds(end, start) % 60;
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m ${seconds}s`;
     } else if (minutes > 0) {
@@ -90,7 +90,7 @@ export default function HistoryPage() {
       return `${seconds}s`;
     }
   };
-  
+
   // Get player rank information based on MMR
   const getRankFromMMR = (mmr: number) => {
     if (mmr >= 2000) return { name: "Challenger", icon: "Challenger.png" };
@@ -324,22 +324,15 @@ export default function HistoryPage() {
                                             Avg MMR: {team.avgMMR}
                                           </div>
                                         </div>
-                                        
+
                                         {/* Players list */}
                                         <div className="mt-2 space-y-1.5">
-                                          {/* Debug information */}
-                                          {(!team.players || team.players.length === 0) && (
-                                            <div className="text-xs text-amber-400 italic border-t border-black/10 pt-1.5">
-                                              No player data available for this team
-                                            </div>
-                                          )}
-                                          
-                                          {team.players && team.players.length > 0 && 
+                                          {team.players && team.players.length > 0 ? (
                                             team.players.map(player => {
                                               // Calculate player rank from MMR
                                               const playerRank = getRankFromMMR(player.mmr);
                                               const mmrChange = player.mmrChange || 0;
-                                              
+
                                               return (
                                                 <div key={player.id} className="flex items-center justify-between border-t border-black/10 pt-1.5">
                                                   <div className="flex items-center">
@@ -356,7 +349,7 @@ export default function HistoryPage() {
                                                           {player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}
                                                         </AvatarFallback>
                                                       </Avatar>
-                                                      
+
                                                       {/* Rank icon */}
                                                       {playerRank && (
                                                         <div className="absolute -bottom-1 -right-1 h-3 w-3">
@@ -371,7 +364,7 @@ export default function HistoryPage() {
                                                     </div>
                                                     <span className="text-[#DCDDDE] text-xs">{player.username}</span>
                                                   </div>
-                                                  
+
                                                   <div className="flex items-center gap-2">
                                                     {match.status === 'COMPLETED' && (
                                                       <span className={`text-xs ${
@@ -391,7 +384,11 @@ export default function HistoryPage() {
                                                 </div>
                                               );
                                             })
-                                          }
+                                          ) : (
+                                            <div className="text-xs text-amber-400 italic border-t border-black/10 pt-1.5">
+                                              No player data available for this team
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     );

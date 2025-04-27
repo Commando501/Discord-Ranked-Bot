@@ -92,12 +92,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/matches/history", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const matchHistory = await storage.getMatchHistory(limit);
-      res.json(matchHistory);
+      const count = req.query.count ? parseInt(req.query.count as string) : 10;
+
+      // Get basic match history first
+      const matches = await storage.getMatchHistory(count);
+
+      // Enhance with player data for each team
+      const enhancedMatches = await Promise.all(matches.map(async (match) => {
+        // Get detailed team data including players
+        const teamsWithPlayers = await storage.getMatchTeams(match.id);
+
+        // Replace the basic teams array with the enhanced version
+        return {
+          ...match,
+          teams: teamsWithPlayers
+        };
+      }));
+
+      res.json(enhancedMatches);
     } catch (error) {
-      console.error("Error fetching match history:", error);
-      res.status(500).json({ message: "Failed to fetch match history" });
+      console.error('Error retrieving match history:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -532,7 +547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update player" });
     }
   });
-  
+
   // Delete a player
   app.delete("/api/admin/players/:id", adminMiddleware, async (req, res) => {
     try {
@@ -541,33 +556,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(playerId)) {
         return res.status(400).json({ message: "Invalid player ID" });
       }
-      
+
       // Check if player exists
       const player = await storage.getPlayer(playerId);
       if (!player) {
         return res.status(404).json({ message: "Player not found" });
       }
-      
+
       // Check if player is involved in any active matches
       const playerMatches = await storage.getPlayerMatches(playerId, 10);
       const activeMatches = playerMatches.filter(match => match.status === 'ACTIVE');
-      
+
       if (activeMatches.length > 0) {
         return res.status(400).json({ 
           message: "Cannot delete player involved in active matches. Cancel or complete matches first."
         });
       }
-      
+
       // Check if player is in queue and remove if necessary
       await storage.removePlayerFromQueue(playerId);
-      
+
       // Delete the player
       const deleted = await storage.deletePlayer(playerId);
-      
+
       if (!deleted) {
         return res.status(500).json({ message: "Failed to delete player" });
       }
-      
+
       res.json({ 
         success: true, 
         message: "Player successfully deleted",
@@ -691,7 +706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to clear queue" });
     }
   });
-  
+
   // Non-admin endpoint for clearing queue from dashboard
   app.post("/api/queue/reset", async (req, res) => {
     try {
@@ -722,20 +737,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const crypto = require('crypto');
   const { IncomingForm } = require('formidable');
   const { once } = require('events');
-  
+
   // Ensure the upload directory exists
   const uploadDir = path.join(process.cwd(), 'client', 'public', 'ranks');
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
-  
+
   // Create a simple rate limiter to prevent abuse
   const rateLimiter = new Map();
-  
+
   // Setup proxy endpoint in Express that forwards to our isolated handler
   app.post('/api/upload/rank-icon', (req, res) => {
     const ip = req.ip || '127.0.0.1';
-    
+
     // Basic rate limiting
     const now = Date.now();
     const lastRequest = rateLimiter.get(ip) || 0;
@@ -746,7 +761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
     rateLimiter.set(ip, now);
-    
+
     // Create direct file parser that doesn't rely on middleware
     const form = new IncomingForm({
       maxFileSize: 2 * 1024 * 1024, // 2MB limit
@@ -754,7 +769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       keepExtensions: true,
       multiples: false,
     });
-    
+
     form.parse(req, async (err: any, fields: any, files: any) => {
       if (err) {
         console.error('Upload parsing error:', err);
@@ -763,7 +778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: 'Error uploading file: ' + err.message
         });
       }
-      
+
       // Get the uploaded file
       const file = files.file;
       if (!file) {
@@ -772,39 +787,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: 'No file uploaded'
         });
       }
-      
+
       try {
         // Validate mime type
         const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         const fileMime = file.mimetype || '';
-        
+
         if (!allowedMimes.includes(fileMime)) {
           // Remove the temporary file
           fs.unlinkSync(file.filepath);
-          
+
           return res.status(400).json({
             success: false,
             message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'
           });
         }
-        
+
         // Read file from temporary location
         const fileBuffer = fs.readFileSync(file.filepath);
-        
+
         // Generate a unique filename
         const fileExt = path.extname(file.originalFilename || '.png').toLowerCase();
         const hash = crypto.createHash('md5').update(fileBuffer).digest('hex');
         const safeFilename = hash.substring(0, 10) + '-' + Date.now() + fileExt;
         const finalPath = path.join(uploadDir, safeFilename);
-        
+
         // Move file to permanent location
         fs.writeFileSync(finalPath, fileBuffer);
-        
+
         // Remove the temporary file
         fs.unlinkSync(file.filepath);
-        
+
         console.log('File upload successful:', safeFilename);
-        
+
         // Send successful response with explicit JSON content type
         return res.json({
           success: true,
