@@ -101,6 +101,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const enhancedMatches = await Promise.all(matches.map(async (match) => {
         // Get detailed team data including players
         const teamsWithPlayers = await storage.getMatchTeams(match.id);
+        
+        // If match is completed, calculate MMR changes for each player
+        if (match.status === "COMPLETED" && match.winningTeamId) {
+          // Get configuration for MMR calculations
+          const botConfig = await storage.getBotConfig();
+          const kFactor = botConfig?.mmrSystem?.kFactor || 32;
+          
+          // Process each team
+          teamsWithPlayers.forEach(team => {
+            const isWinningTeam = team.id === match.winningTeamId;
+            
+            // Calculate MMR change for each player
+            team.players = team.players.map(player => {
+              let mmrChange = 0;
+              
+              if (isWinningTeam) {
+                // Winners gain MMR
+                mmrChange = Math.round(kFactor * 0.75);
+                
+                // Apply streak bonuses if applicable
+                if (player.winStreak > 0) {
+                  const streakThreshold = botConfig?.mmrSystem?.streakSettings?.threshold || 3;
+                  const bonusPerWin = botConfig?.mmrSystem?.streakSettings?.bonusPerWin || 2;
+                  
+                  if (player.winStreak >= streakThreshold) {
+                    const streakBonus = Math.min(
+                      botConfig?.mmrSystem?.streakSettings?.maxBonus || 10,
+                      Math.floor((player.winStreak - streakThreshold + 1) * bonusPerWin)
+                    );
+                    mmrChange += streakBonus;
+                  }
+                }
+              } else {
+                // Losers lose MMR
+                mmrChange = -Math.round(kFactor * 0.625);
+                
+                // Apply streak penalties if applicable
+                if (player.lossStreak > 0) {
+                  const lossThreshold = botConfig?.mmrSystem?.streakSettings?.lossThreshold || 3;
+                  const penaltyPerLoss = botConfig?.mmrSystem?.streakSettings?.penaltyPerLoss || 1;
+                  
+                  if (player.lossStreak >= lossThreshold) {
+                    const streakPenalty = Math.min(
+                      botConfig?.mmrSystem?.streakSettings?.maxLossPenalty || 5,
+                      Math.floor((player.lossStreak - lossThreshold + 1) * penaltyPerLoss)
+                    );
+                    mmrChange -= streakPenalty;
+                  }
+                }
+              }
+              
+              // Return player with added mmrChange property
+              return {
+                ...player,
+                mmrChange: mmrChange
+              };
+            });
+          });
+        }
 
         // Replace the basic teams array with the enhanced version
         return {

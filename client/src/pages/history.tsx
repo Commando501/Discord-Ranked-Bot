@@ -368,13 +368,13 @@ export default function HistoryPage() {
                                                   <div className="flex items-center gap-2">
                                                     {match.status === 'COMPLETED' && (
                                                       <span className={`text-xs ${
-                                                        mmrChange > 0 
+                                                        player.mmrChange > 0 
                                                           ? 'text-emerald-400' 
-                                                          : mmrChange < 0 
+                                                          : player.mmrChange < 0 
                                                             ? 'text-rose-400' 
                                                             : 'text-gray-400'
                                                       }`}>
-                                                        {mmrChange > 0 ? '+' : ''}{mmrChange}
+                                                        {player.mmrChange > 0 ? '+' : ''}{player.mmrChange || 0}
                                                       </span>
                                                     )}
                                                     <span className="text-xs bg-[#36393F] px-1.5 py-0.5 rounded text-[#B9BBBE]">
