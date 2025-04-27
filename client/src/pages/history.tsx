@@ -91,8 +91,40 @@ export default function HistoryPage() {
     }
   };
 
-  // Get player rank information based on MMR
+  // Fetch the config once for rank tier information
+  const { data: configData } = useQuery({
+    queryKey: ['/api/config'],
+    enabled: true,
+  });
+
+  // Get player rank information based on MMR using configured rank tiers
   const getRankFromMMR = (mmr: number) => {
+    // Use configured rank tiers if available, otherwise fallback to hardcoded tiers
+    const rankTiers = configData?.seasonManagement?.rankTiers || [];
+    
+    if (rankTiers.length > 0) {
+      // Sort tiers by MMR threshold (highest first)
+      const sortedTiers = [...rankTiers].sort((a, b) => b.mmrThreshold - a.mmrThreshold);
+      
+      // Find the first tier where the player's MMR is greater than or equal to the threshold
+      for (const tier of sortedTiers) {
+        if (mmr >= tier.mmrThreshold) {
+          return { 
+            name: tier.name,
+            icon: tier.icon || `${tier.name.replace(/\s+/g, '')}.png` // Fallback icon name if not specified
+          };
+        }
+      }
+      
+      // If no tier is found, return the lowest tier
+      const lowestTier = sortedTiers[sortedTiers.length - 1];
+      return { 
+        name: lowestTier.name,
+        icon: lowestTier.icon || `${lowestTier.name.replace(/\s+/g, '')}.png`
+      };
+    }
+    
+    // Fallback to hardcoded tiers if no configuration is available
     if (mmr >= 2000) return { name: "Challenger", icon: "Challenger.png" };
     if (mmr >= 1900) return { name: "Masters 3", icon: "Masters3.png" };
     if (mmr >= 1800) return { name: "Masters 2", icon: "Masters2.png" };
