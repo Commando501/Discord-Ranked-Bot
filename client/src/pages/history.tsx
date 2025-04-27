@@ -371,16 +371,17 @@ export default function HistoryPage() {
                                                     <div className="mr-2">
                                                       <Avatar className="h-6 w-6">
                                                         <AvatarImage 
-                                                          src={playerRank ? `/ranks/${playerRank.icon}` : 
-                                                            (player.avatar ? 
-                                                              `https://cdn.discordapp.com/avatars/${player.discordId}/${player.avatar}.png` : 
-                                                              undefined
-                                                            )
-                                                          }
+                                                          src={playerRank ? `/ranks/${playerRank.icon}` : undefined}
                                                           alt={playerRank?.name || player.username} 
                                                         />
                                                         <AvatarFallback className="bg-[#5865F2] text-[9px]">
-                                                          {player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}
+                                                          {player.avatar ? 
+                                                            <img 
+                                                              src={`https://cdn.discordapp.com/avatars/${player.discordId}/${player.avatar}.png`}
+                                                              alt={player.username}
+                                                            /> :
+                                                            player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'
+                                                          }
                                                         </AvatarFallback>
                                                       </Avatar>
                                                     </div>
