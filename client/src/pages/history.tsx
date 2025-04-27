@@ -369,39 +369,52 @@ export default function HistoryPage() {
                                                 <div key={player.id} className="flex items-center justify-between border-t border-black/10 pt-1.5">
                                                   <div className="flex items-center">
                                                     <div className="mr-2">
-                                                      {/* Direct rank emblem display without Avatar component */}
-                                                      {playerRank ? (
-                                                        <div className="h-6 w-6 rounded-full overflow-hidden">
+                                                      {/* Simple rank emblem display with reliable fallbacks */}
+                                                      <div className="h-6 w-6 rounded-full overflow-hidden flex items-center justify-center bg-[#2F3136] border border-[#1E1F22]">
+                                                        {playerRank && (
                                                           <img 
-                                                            src={`/ranks/${playerRank.icon}`}
+                                                            src={`/ranks/${playerRank.icon.toLowerCase()}`}
                                                             alt={playerRank.name}
                                                             className="h-full w-full object-contain"
+                                                            style={{ display: 'none' }}
+                                                            onLoad={(e) => {
+                                                              e.currentTarget.style.display = 'block';
+                                                            }}
                                                             onError={(e) => {
-                                                              console.log(`Failed to load rank icon: ${playerRank.icon}`);
-                                                              // Fall back to player initials if rank icon fails
-                                                              e.currentTarget.style.display = 'none';
-                                                              e.currentTarget.parentElement.innerHTML = `<div class="h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]">${player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}</div>`;
+                                                              // Try alternative casing formats
+                                                              const img = e.currentTarget;
+                                                              const iconName = playerRank.icon;
+                                                              
+                                                              // Try with capitalized first letter
+                                                              const capitalizedIcon = iconName.charAt(0).toUpperCase() + iconName.slice(1).toLowerCase();
+                                                              img.src = `/ranks/${capitalizedIcon}`;
+                                                              
+                                                              img.onerror = () => {
+                                                                // Try all uppercase
+                                                                img.src = `/ranks/${iconName.toUpperCase()}.png`;
+                                                                
+                                                                img.onerror = () => {
+                                                                  // Try original name with .png explicitly added
+                                                                  img.src = `/ranks/${iconName}.png`;
+                                                                  
+                                                                  img.onerror = () => {
+                                                                    // If all attempts fail, show player initials
+                                                                    img.style.display = 'none';
+                                                                    img.parentElement.innerHTML = `<div class="h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]">${player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}</div>`;
+                                                                  };
+                                                                };
+                                                              };
                                                             }}
                                                           />
-                                                        </div>
-                                                      ) : player.avatar ? (
-                                                        <div className="h-6 w-6 rounded-full overflow-hidden">
-                                                          <img 
-                                                            src={`https://cdn.discordapp.com/avatars/${player.discordId}/${player.avatar}.png`}
-                                                            alt={player.username}
-                                                            className="h-full w-full object-cover rounded-full"
-                                                            onError={(e) => {
-                                                              // Fall back to initials if Discord avatar fails
-                                                              e.currentTarget.style.display = 'none';
-                                                              e.currentTarget.parentElement.innerHTML = `<div class="h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]">${player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}</div>`;
-                                                            }}
-                                                          />
-                                                        </div>
-                                                      ) : (
-                                                        <div className="h-6 w-6 flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]">
-                                                          {player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}
-                                                        </div>
-                                                      )}
+                                                        )}
+                                                        
+                                                        {/* Render initials as immediate fallback */}
+                                                        {!playerRank && (
+                                                          <div className="h-full w-full flex items-center justify-center bg-[#5865F2] rounded-full text-white text-[9px]">
+                                                            {player.username ? player.username.substring(0, 2).toUpperCase() : 'UN'}
+                                                          </div>
+                                                        )}
+                                                      </div>
                                                     </div>
                                                     <span className="text-[#DCDDDE] text-xs">{player.username}</span>
                                                   </div>
