@@ -358,12 +358,34 @@ ${matchDetails.server ? `Server: ${matchDetails.server}` : ''}
               })
               .setTimestamp();
 
+            // Fetch player MMR changes from match data
+            // Get the botConfig to access MMR settings
+            const botConfig = await storage.getBotConfig();
+            const kFactor = botConfig?.mmrSystem?.kFactor || 32;
+
             // Add team information
             matchTeams.forEach((team) => {
               // Format all players in the team with their MMR and changes
               const teamPlayers = team.players.map((p) => {
-                // Find if player has MMR change recorded
-                const mmrChange = p.mmrChange || 0;
+                // Calculate approximate MMR change if match is completed
+                let mmrChange = 0;
+                if (matchDetails.status === "COMPLETED" && matchDetails.winningTeamId) {
+                  const isPlayerWinner = matchDetails.winningTeamId === team.id;
+                  
+                  if (isPlayerWinner) {
+                    // Winners gain MMR
+                    mmrChange = Math.round(kFactor * 0.75);
+                  } else {
+                    // Losers lose MMR
+                    mmrChange = -Math.round(kFactor * 0.625);
+                  }
+
+                  // Apply streak bonuses/penalties if this match has that data
+                  if (p.mmrChange) {
+                    mmrChange = p.mmrChange;
+                  }
+                }
+
                 const mmrChangeText = mmrChange > 0 ? `+${mmrChange}` : mmrChange < 0 ? `${mmrChange}` : "+0";
 
                 // Highlight if this is the current player
