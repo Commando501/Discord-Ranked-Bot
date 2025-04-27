@@ -176,13 +176,42 @@ export class DatabaseStorage implements IStorage {
   
   async deletePlayer(id: number): Promise<boolean> {
     try {
-      // Delete the player from the database
-      const result = await db
+      // First, delete any references to this player in related tables
+      // Remove from match_votes
+      await db
+        .delete(matchVotes)
+        .where(eq(matchVotes.playerId, id));
+        
+      // Remove from voteKick votes
+      await db
+        .delete(voteKickVotes)
+        .where(eq(voteKickVotes.playerId, id));
+        
+      // Remove from voteKicks (as target and initiator)
+      await db
+        .delete(voteKicks)
+        .where(
+          or(
+            eq(voteKicks.targetPlayerId, id),
+            eq(voteKicks.initiatorPlayerId, id)
+          )
+        );
+        
+      // Remove from team_players (team memberships)
+      await db
+        .delete(teamPlayers)
+        .where(eq(teamPlayers.playerId, id));
+        
+      // Remove from queue if they're in it
+      await db
+        .delete(queue)
+        .where(eq(queue.playerId, id));
+        
+      // Finally delete the player
+      await db
         .delete(players)
         .where(eq(players.id, id));
       
-      // In Drizzle ORM, the delete operation doesn't return the deleted rows
-      // So we'll assume success if no error was thrown
       return true;
     } catch (error) {
       console.error('Error in deletePlayer:', error);

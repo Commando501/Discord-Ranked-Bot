@@ -632,15 +632,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Check if player is in queue and remove if necessary
-      await storage.removePlayerFromQueue(playerId);
-
-      // Delete the player
+      // Delete the player with enhanced method that handles all related records
       const deleted = await storage.deletePlayer(playerId);
 
       if (!deleted) {
-        return res.status(500).json({ message: "Failed to delete player" });
+        return res.status(500).json({ 
+          message: "Failed to delete player. There may be database constraints preventing deletion." 
+        });
       }
+
+      // Log successful deletion
+      console.log(`Player ${playerId} (${player.username}#${player.discriminator}) successfully deleted`);
 
       res.json({ 
         success: true, 
@@ -649,7 +651,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error deleting player:", error);
-      res.status(500).json({ message: "Failed to delete player" });
+      
+      // Provide more helpful error message
+      let errorMessage = "Failed to delete player due to server error";
+      if (error instanceof Error) {
+        // Check for specific constraint errors
+        if (error.message?.includes("foreign key constraint")) {
+          errorMessage = "Cannot delete player as they have match history or other dependencies in the system";
+        }
+      }
+      
+      res.status(500).json({ message: errorMessage });
     }
   });
 
