@@ -99,43 +99,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Enhance with player data for each team
       const enhancedMatches = await Promise.all(matches.map(async (match) => {
-        // Only process completed matches
-        if (match.status === 'COMPLETED' && match.teams) {
-          // Enhanced teams with player MMR changes
-          const enhancedTeams = await Promise.all(match.teams.map(async (team) => {
-            if (team.players && team.players.length > 0) {
-              // Get MMR changes for players in this match
-              const playersWithMmrChanges = await Promise.all(team.players.map(async (player) => {
-                // Get player match data to find MMR change
-                const playerMatches = await storage.getPlayerMatches(player.id);
-                const thisMatch = playerMatches.find(pm => pm.matchId === match.id);
+        // Get detailed team data including players
+        const teamsWithPlayers = await storage.getMatchTeams(match.id);
 
-                return {
-                  ...player,
-                  mmrChange: thisMatch?.mmrChange || 0
-                };
-              }));
-
-              return {
-                ...team,
-                players: playersWithMmrChanges
-              };
-            }
-            return team;
-          }));
-
-          return {
-            ...match,
-            teams: enhancedTeams
-          };
-        }
-        return match;
+        // Replace the basic teams array with the enhanced version
+        return {
+          ...match,
+          teams: teamsWithPlayers
+        };
       }));
 
       res.json(enhancedMatches);
     } catch (error) {
       console.error('Error retrieving match history:', error);
-      res.status(500).json({ error: 'Failed to retrieve match history' });
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
@@ -751,6 +728,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Increment season number
       const newSeasonNumber = (seasonManagement.currentSeason || 1) + 1;
 
+  // Completely standalone upload endpoint with dedicated HTTP server
+  // This approach isolates the upload endpoint from Express's middleware stack entirely
+  const http = require('http');
+  const multer = require('multer');
+  const path = require('path');
+  const fs = require('fs');
+  const crypto = require('crypto');
+  const { IncomingForm } = require('formidable');
+  const { once } = require('events');
+
+  // Ensure the upload directory exists
+  const uploadDir = path.join(process.cwd(), 'client', 'public', 'ranks');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  // Create a simple rate limiter to prevent abuse
+  const rateLimiter = new Map();
+
+  // Setup proxy endpoint in Express that forwards to our isolated handler
+  app.post('/api/upload/rank-icon', (req, res) => {
+    const ip = req.ip || '127.0.0.1';
+
+    // Basic rate limiting
+    const now = Date.now();
+    const lastRequest = rateLimiter.get(ip) || 0;
+    if (now - lastRequest < 1000) { // 1 request per second max
+      return res.status(429).json({
+        success: false,
+        message: 'Too many requests, please try again later'
+      });
+    }
+    rateLimiter.set(ip, now);
+
+    // Create direct file parser that doesn't rely on middleware
+    const form = new IncomingForm({
+      maxFileSize: 2 * 1024 * 1024, // 2MB limit
+      uploadDir: uploadDir,
+      keepExtensions: true,
+      multiples: false,
+    });
+
+    form.parse(req, async (err: any, fields: any, files: any) => {
+      if (err) {
+        console.error('Upload parsing error:', err);
+        return res.status(400).json({
+          success: false,
+          message: 'Error uploading file: ' + err.message
+        });
+      }
+
+      // Get the uploaded file
+      const file = files.file;
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No file uploaded'
+        });
+      }
+
+      try {
+        // Validate mime type
+        const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        const fileMime = file.mimetype || '';
+
+        if (!allowedMimes.includes(fileMime)) {
+          // Remove the temporary file
+          fs.unlinkSync(file.filepath);
+
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'
+          });
+        }
+
+        // Read file from temporary location
+        const fileBuffer = fs.readFileSync(file.filepath);
+
+        // Generate a unique filename
+        const fileExt = path.extname(file.originalFilename || '.png').toLowerCase();
+        const hash = crypto.createHash('md5').update(fileBuffer).digest('hex');
+        const safeFilename = hash.substring(0, 10) + '-' + Date.now() + fileExt;
+        const finalPath = path.join(uploadDir, safeFilename);
+
+        // Move file to permanent location
+        fs.writeFileSync(finalPath, fileBuffer);
+
+        // Remove the temporary file
+        fs.unlinkSync(file.filepath);
+
+        console.log('File upload successful:', safeFilename);
+
+        // Send successful response with explicit JSON content type
+        return res.json({
+          success: true,
+          message: 'File uploaded successfully',
+          file: {
+            filename: safeFilename,
+            path: `ranks/${safeFilename}`,
+            size: file.size,
+            mimetype: fileMime
+          }
+        });
+      } catch (error) {
+        console.error('File processing error:', error);
+        return res.status(500).json({
+          success: false,
+          message: 'Error processing uploaded file',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+  });
+
+
+
       // Set new dates
       const startDate = new Date().toISOString();
 
@@ -971,7 +1064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cancel match without returning players to queue
-  appapp.post(
+  app.post(
     "/api/matches/:id/cancel-reset",
     adminMiddleware,
     async (req, res) => {
