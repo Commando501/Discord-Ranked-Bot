@@ -1175,66 +1175,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  // Database export endpoint
-  app.get("/api/admin/export-database", adminMiddleware, async (req, res) => {
-    try {
-      // Get all data from each table
-      const playersData = await storage.listTopPlayers(1000); // Get up to 1000 players
-      const queueData = await storage.getQueuePlayers();
-      const matchesData = await storage.getMatchHistory(1000); // Get up to 1000 recent matches
-      const activeMatches = await storage.getActiveMatches();
-      
-      // For teams and other data, we need to extract from matches
-      const allMatches = [...activeMatches, ...matchesData];
-      const teamsData = [];
-      const teamPlayersData = [];
-      
-      // Extract teams and team players from matches
-      for (const match of allMatches) {
-        if (match.teams) {
-          // Get detailed team data for each match
-          const matchTeams = await storage.getMatchTeams(match.id);
-          
-          for (const team of matchTeams) {
-            teamsData.push({
-              id: team.id,
-              matchId: match.id,
-              name: team.name || `Team ${team.id}`,
-              averageMmr: team.averageMmr
-            });
-            
-            // Extract team players
-            if (team.players) {
-              for (const player of team.players) {
-                teamPlayersData.push({
-                  teamId: team.id,
-                  playerId: player.id,
-                  matchId: match.id
-                });
-              }
-            }
-          }
-        }
-      }
-
-      // Prepare export data
-      const exportData = {
-        players: playersData,
-        queue: queueData,
-        matches: allMatches,
-        teams: teamsData,
-        teamPlayers: teamPlayersData,
-        exportedAt: new Date().toISOString(),
-        version: "1.0",
-      };
-
-      res.json(exportData);
-    } catch (error) {
-      console.error("Error exporting database:", error);
-      res.status(500).json({ error: "Failed to export database" });
-    }
-  });
-
   const httpServer = createServer(app);
   return httpServer;
 }
+// Database export endpoint
+app.get("/api/admin/export-database", async (req, res) => {
+  try {
+    // Get all data from each table
+    const playersData = await db.query.players.findMany();
+    const queueData = await db.query.queue.findMany();
+    const matchesData = await db.query.matches.findMany();
+    const teamsData = await db.query.teams.findMany();
+    const teamPlayersData = await db.query.teamPlayers.findMany();
+    const matchVotesData = await db.query.matchVotes.findMany();
+    const voteKicksData = await db.query.voteKicks.findMany();
+    const voteKickVotesData = await db.query.voteKickVotes.findMany();
+
+    // Prepare export data
+    const exportData = {
+      players: playersData,
+      queue: queueData,
+      matches: matchesData,
+      teams: teamsData,
+      teamPlayers: teamPlayersData,
+      matchVotes: matchVotesData,
+      voteKicks: voteKicksData,
+      voteKickVotes: voteKickVotesData,
+      exportedAt: new Date().toISOString(),
+      version: "1.0",
+    };
+
+    res.json(exportData);
+  } catch (error) {
+    console.error("Error exporting database:", error);
+    res.status(500).json({ error: "Failed to export database" });
+  }
+});
