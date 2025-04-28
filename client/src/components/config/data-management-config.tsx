@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage, Form } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -11,8 +11,6 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Download, Upload, RotateCw, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useToast } from "@/components/ui/use-toast";
-import { apiRequest } from "@/lib/api"; // Assuming apiRequest is defined elsewhere
 
 interface DataManagementConfigPanelProps {
   config: DataManagementConfig;
@@ -34,40 +32,10 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
     return () => subscription.unsubscribe();
   }, [form.watch, onChange]);
 
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleDownloadData = async () => {
-    try {
-      setIsLoading(true);
-      const response = await apiRequest.get('/api/admin/export-database');
-
-      // Create a JSON blob and download it
-      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `lateleague_db_export_${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast({
-        title: "Database exported successfully",
-        description: "Your database has been exported as a JSON file.",
-        variant: "success",
-      });
-    } catch (error) {
-      console.error("Error downloading data:", error);
-      toast({
-        title: "Export failed",
-        description: "There was an error exporting your database.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  // Mock function for download action
+  const handleDownloadData = () => {
+    // This would trigger a data export on the server in a real app
+    console.log("Data export requested");
   };
 
   // Mock function for upload action
@@ -96,7 +64,7 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
             {/* Data Retention */}
             <div className="space-y-4">
               <div className="text-lg font-medium">Data Retention</div>
-
+              
               <FormField
                 control={form.control}
                 name="dataRetentionDays"
@@ -131,11 +99,11 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                 )}
               />
             </div>
-
+            
             {/* Backup Settings */}
             <div className="space-y-4 pt-4">
               <div className="text-lg font-medium">Backup Settings</div>
-
+              
               <FormField
                 control={form.control}
                 name="backupSchedule"
@@ -165,7 +133,7 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                   </FormItem>
                 )}
               />
-
+              
               <div className="pt-2">
                 <Button
                   type="button"
@@ -178,11 +146,11 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                 </Button>
               </div>
             </div>
-
+            
             {/* Data Export */}
             <div className="space-y-4 pt-4">
               <div className="text-lg font-medium">Data Export and Import</div>
-
+              
               <FormField
                 control={form.control}
                 name="enableDataExports"
@@ -203,7 +171,7 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                   </FormItem>
                 )}
               />
-
+              
               <FormField
                 control={form.control}
                 name="enableDataImport"
@@ -224,7 +192,7 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                   </FormItem>
                 )}
               />
-
+              
               {form.watch("enableDataImport") && (
                 <Alert variant="warning" className="mt-4">
                   <AlertTriangle className="h-4 w-4" />
@@ -235,7 +203,7 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                   </AlertDescription>
                 </Alert>
               )}
-
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 <Button
                   type="button"
@@ -243,12 +211,11 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                   onClick={handleDownloadData}
                   disabled={!form.watch("enableDataExports")}
                   className="w-full"
-                  isLoading={isLoading} //Added isLoading prop
                 >
                   <Download className="mr-2 h-4 w-4" />
                   Export Data
                 </Button>
-
+                
                 <Button
                   type="button"
                   variant="outline"

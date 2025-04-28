@@ -1178,36 +1178,3 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   return httpServer;
 }
-// Database export endpoint
-app.get("/api/admin/export-database", async (req, res) => {
-  try {
-    // Get all data from each table
-    const playersData = await db.query.players.findMany();
-    const queueData = await db.query.queue.findMany();
-    const matchesData = await db.query.matches.findMany();
-    const teamsData = await db.query.teams.findMany();
-    const teamPlayersData = await db.query.teamPlayers.findMany();
-    const matchVotesData = await db.query.matchVotes.findMany();
-    const voteKicksData = await db.query.voteKicks.findMany();
-    const voteKickVotesData = await db.query.voteKickVotes.findMany();
-
-    // Prepare export data
-    const exportData = {
-      players: playersData,
-      queue: queueData,
-      matches: matchesData,
-      teams: teamsData,
-      teamPlayers: teamPlayersData,
-      matchVotes: matchVotesData,
-      voteKicks: voteKicksData,
-      voteKickVotes: voteKickVotesData,
-      exportedAt: new Date().toISOString(),
-      version: "1.0",
-    };
-
-    res.json(exportData);
-  } catch (error) {
-    console.error("Error exporting database:", error);
-    res.status(500).json({ error: "Failed to export database" });
-  }
-});
