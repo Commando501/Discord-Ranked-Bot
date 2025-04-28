@@ -11,7 +11,6 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Download, Upload, RotateCw, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { toast } from "@/components/ui/toast"; // Assuming toast is available
 
 interface DataManagementConfigPanelProps {
   config: DataManagementConfig;
@@ -33,56 +32,10 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
     return () => subscription.unsubscribe();
   }, [form.watch, onChange]);
 
-  // Updated handleDownloadData function
-  const handleDownloadData = async () => {
-    try {
-      // Call the export API endpoint
-      const response = await fetch('/api/admin/export-database', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to export database');
-      }
-
-      // Get the blob data
-      const blob = await response.blob();
-
-      // Create download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-
-      // Get current date for filename
-      const date = new Date().toISOString().split('T')[0];
-      a.download = `matchmaking-db-export-${date}.json`;
-
-      // Trigger download
-      document.body.appendChild(a);
-      a.click();
-
-      // Cleanup
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast({
-        title: "Export Successful",
-        description: "Database has been exported successfully.",
-        variant: "success",
-      });
-    } catch (error) {
-      console.error('Error downloading data:', error);
-      toast({
-        title: "Export Failed",
-        description: "Failed to export database data.",
-        variant: "destructive",
-      });
-    }
+  // Mock function for download action
+  const handleDownloadData = () => {
+    // This would trigger a data export on the server in a real app
+    console.log("Data export requested");
   };
 
   // Mock function for upload action
@@ -111,7 +64,7 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
             {/* Data Retention */}
             <div className="space-y-4">
               <div className="text-lg font-medium">Data Retention</div>
-
+              
               <FormField
                 control={form.control}
                 name="dataRetentionDays"
@@ -146,11 +99,11 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                 )}
               />
             </div>
-
+            
             {/* Backup Settings */}
             <div className="space-y-4 pt-4">
               <div className="text-lg font-medium">Backup Settings</div>
-
+              
               <FormField
                 control={form.control}
                 name="backupSchedule"
@@ -180,7 +133,7 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                   </FormItem>
                 )}
               />
-
+              
               <div className="pt-2">
                 <Button
                   type="button"
@@ -193,11 +146,11 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                 </Button>
               </div>
             </div>
-
+            
             {/* Data Export */}
             <div className="space-y-4 pt-4">
               <div className="text-lg font-medium">Data Export and Import</div>
-
+              
               <FormField
                 control={form.control}
                 name="enableDataExports"
@@ -218,7 +171,7 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                   </FormItem>
                 )}
               />
-
+              
               <FormField
                 control={form.control}
                 name="enableDataImport"
@@ -239,7 +192,7 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                   </FormItem>
                 )}
               />
-
+              
               {form.watch("enableDataImport") && (
                 <Alert variant="warning" className="mt-4">
                   <AlertTriangle className="h-4 w-4" />
@@ -250,7 +203,7 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                   </AlertDescription>
                 </Alert>
               )}
-
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 <Button
                   type="button"
@@ -262,7 +215,7 @@ export default function DataManagementConfigPanel({ config, onChange }: DataMana
                   <Download className="mr-2 h-4 w-4" />
                   Export Data
                 </Button>
-
+                
                 <Button
                   type="button"
                   variant="outline"
