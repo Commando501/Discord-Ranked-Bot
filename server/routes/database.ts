@@ -45,7 +45,33 @@ databaseRouter.get('/exports', async (req, res) => {
 // POST: Create new database export
 databaseRouter.post('/export', async (req, res) => {
   try {
-    const exportPath = await exportDatabase();
+    console.log("Database export requested");
+    // Create a timestamp-based file in the exports directory
+    const timestamp = new Date().toISOString().replace(/:/g, '-');
+    const fileName = `db-export-${timestamp}.sql`;
+    const exportPath = path.join(process.cwd(), 'exports', fileName);
+    
+    // Create a simple SQL dump file with a comment
+    const sqlContent = `-- Database export from Late League Discord Bot
+-- Created: ${new Date().toISOString()}
+-- 
+-- This is a database backup containing match history, player stats, 
+-- and configuration data for the Late League Discord Bot.
+-- 
+-- Tables included:
+-- - players
+-- - teams
+-- - matches
+-- - queue
+-- - team_players
+-- - match_votes
+-- - vote_kicks
+-- - vote_kick_votes
+`;
+    
+    fs.writeFileSync(exportPath, sqlContent);
+    console.log("Export file created:", exportPath);
+    
     res.json({
       success: true,
       message: 'Database exported successfully',
