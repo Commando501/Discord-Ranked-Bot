@@ -28,7 +28,16 @@ const upload = multer({
 // GET: List all database exports
 databaseRouter.get('/exports', async (req, res) => {
   try {
+    console.log("Fetching exports list...");
+    // Create exports directory if it doesn't exist
+    if (!fs.existsSync(path.join(process.cwd(), 'exports'))) {
+      fs.mkdirSync(path.join(process.cwd(), 'exports'), { recursive: true });
+    }
+    
+    // Get the list of exports
     const exports = getExportsList();
+    console.log(`Found ${exports.length} export files:`, exports.map(e => e.fileName));
+    
     res.json({
       success: true,
       data: exports
@@ -139,7 +148,16 @@ databaseRouter.delete('/exports/:fileName', (req, res) => {
 // GET: List all database imports
 databaseRouter.get('/imports', (req, res) => {
   try {
+    console.log("Fetching imports list...");
+    // Create imports directory if it doesn't exist
+    if (!fs.existsSync(path.join(process.cwd(), 'imports'))) {
+      fs.mkdirSync(path.join(process.cwd(), 'imports'), { recursive: true });
+    }
+    
+    // Get the list of imports
     const imports = getImportsList();
+    console.log(`Found ${imports.length} import files:`, imports.map(i => i.fileName));
+    
     res.json({
       success: true,
       data: imports

@@ -54,17 +54,7 @@ const DatabaseManagementPage = () => {
     
     try {
       console.log("Loading database files...");
-      
-      // First, create a test export to ensure we have files
-      console.log("Creating a test export first...");
-      await fetch('/api/database/export', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
+            
       // Load exports
       console.log("Fetching exports...");
       const exportsResponse = await fetch('/api/database/exports', {
