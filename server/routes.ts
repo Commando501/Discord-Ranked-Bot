@@ -1178,3 +1178,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   return httpServer;
 }
+// Add database export endpoint
+app.get('/api/admin/export-database', async (req, res) => {
+  try {
+    const { db, pool } = await import('./db');
+    
+    // Get all data from different tables
+    const playersData = await db.select().from(schema.players);
+    const matchesData = await db.select().from(schema.matches);
+    const teamsData = await db.select().from(schema.teams);
+    const teamPlayersData = await db.select().from(schema.teamPlayers);
+    const queueData = await db.select().from(schema.queue);
+    const matchVotesData = await db.select().from(schema.matchVotes);
+    const voteKicksData = await db.select().from(schema.voteKicks);
+    const voteKickVotesData = await db.select().from(schema.voteKickVotes);
+    
+    // Compile all data into a single object
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      version: '1.0',
+      data: {
+        players: playersData,
+        matches: matchesData,
+        teams: teamsData,
+        teamPlayers: teamPlayersData,
+        queue: queueData,
+        matchVotes: matchVotesData,
+        voteKicks: voteKicksData,
+        voteKickVotes: voteKickVotesData
+      }
+    };
+    
+    // Send as JSON with appropriate headers for download
+    res.setHeader('Content-Disposition', 'attachment; filename=database-export.json');
+    res.setHeader('Content-Type', 'application/json');
+    res.json(exportData);
+  } catch (error) {
+    console.error('Error exporting database:', error);
+    res.status(500).json({ error: 'Failed to export database' });
+  }
+});
