@@ -32,7 +32,7 @@ export default function Sidebar() {
             <i className="ri-settings-3-line mr-2"></i>
             <span>Bot Configuration</span>
           </Link>
-          <Link href="/database" className={getNavItemClasses("/database")}>
+          <Link href="/database-management" className={getNavItemClasses("/database-management")}>
             <i className="ri-database-2-line mr-2"></i>
             <span>Database Management</span>
           </Link>
