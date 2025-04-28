@@ -1,70 +1,107 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiRequest } from '@/lib/queryClient';
 
-type User = {
-  username: string;
-};
-
-type AuthContextType = {
-  user: User | null;
-  login: (username: string, password: string) => boolean;
+interface AuthContextType {
+  isAuthenticated: boolean;
+  username: string | null;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
-};
+  error: string | null;
+  user: { username: string } | null;  // Compatibility with existing code
+}
 
-const AuthContext = createContext<AuthContextType | null>(null);
+// Create context with default values
+const AuthContext = createContext<AuthContextType>({
+  isAuthenticated: false,
+  username: null,
+  login: async () => false,
+  logout: () => {},
+  error: null,
+  user: null
+});
 
-// Hard-coded credentials as requested
-const VALID_CREDENTIALS = [
-  { username: "lateleague1", password: "1@t3L3aGu3!23" },
-  { username: "lateleague2", password: "LaTe134gUE123" },
-  { username: "lateleague3", password: "lateL34GU3!23" },
-];
+interface AuthProviderProps {
+  children: ReactNode;
+}
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [username, setUsername] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Check for existing session on mount
+  // Check if user is already authenticated
   useEffect(() => {
-    const storedUser = localStorage.getItem("authUser");
-    if (storedUser) {
+    const checkAuthStatus = async () => {
       try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        localStorage.removeItem("authUser");
+        const response = await apiRequest('GET', '/api/auth/status');
+        
+        if (response.ok) {
+          const data = await response.json();
+          setIsAuthenticated(data.isAuthenticated);
+          setUsername(data.username || null);
+        } else {
+          setIsAuthenticated(false);
+          setUsername(null);
+        }
+      } catch (err) {
+        console.error('Error checking auth status:', err);
+        setIsAuthenticated(false);
+        setUsername(null);
       }
-    }
+    };
+
+    checkAuthStatus();
   }, []);
 
-  const login = (username: string, password: string): boolean => {
-    const isValid = VALID_CREDENTIALS.some(
-      (cred) => cred.username === username && cred.password === password
-    );
-
-    if (isValid) {
-      const user = { username };
-      setUser(user);
-      localStorage.setItem("authUser", JSON.stringify(user));
-      return true;
-    }
+  const login = async (username: string, password: string): Promise<boolean> => {
+    setError(null);
     
-    return false;
+    try {
+      const response = await apiRequest('POST', '/api/auth/login', { username, password });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIsAuthenticated(true);
+        setUsername(data.username || username);
+        return true;
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Invalid credentials');
+        return false;
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Login failed. Please try again.');
+      return false;
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("authUser");
+  const logout = async () => {
+    try {
+      await apiRequest('POST', '/api/auth/logout');
+      setIsAuthenticated(false);
+      setUsername(null);
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  };
+
+  const value = {
+    isAuthenticated,
+    username,
+    login,
+    logout,
+    error,
+    user: username ? { username } : null
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-}
+export const useAuthContext = () => useContext(AuthContext);
+// Alias for backward compatibility
+export const useAuth = () => useContext(AuthContext);

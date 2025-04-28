@@ -1,273 +1,198 @@
-import express, { Request, Response } from 'express';
+import { Router } from 'express';
 import multer from 'multer';
-import fs from 'fs';
 import path from 'path';
-import { exportDatabase, getAvailableExports, deleteExport } from '../utils/db-export';
-import { importDatabase, uploadImportFile, getAvailableImports, deleteImport } from '../utils/db-import';
+import fs from 'fs';
+import { exportDatabase, getExportsList, deleteExportFile } from '../utils/db-export';
+import { saveImportFile, importDatabase, getImportsList, deleteImportFile } from '../utils/db-import';
+import { requireAuth } from './auth';
 
-// Create multer instance for file uploads (memory storage)
-const upload = multer({ 
+export const databaseRouter = Router();
+
+// Add authentication middleware to all database routes
+databaseRouter.use(requireAuth);
+
+// Configure multer for memory storage
+const upload = multer({
   storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB max file size
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  fileFilter: (req, file, cb) => {
+    // Only accept .sql and .dump files
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.sql' || ext === '.dump') {
+      return cb(null, true);
+    }
+    cb(new Error('Only .sql and .dump files are allowed'));
   }
 });
 
-// Admin middleware function
-function adminMiddleware(req: Request, res: Response, next: express.NextFunction) {
-  // Check if the user is authenticated and is an admin
-  const session = (req as any).session;
-  if (!session || !session.isAuthenticated) {
-    return res.status(401).json({
+// GET: List all database exports
+databaseRouter.get('/exports', async (req, res) => {
+  try {
+    const exports = getExportsList();
+    res.json({
+      success: true,
+      data: exports
+    });
+  } catch (err) {
+    console.error('Error listing exports:', err);
+    res.status(500).json({
       success: false,
-      message: 'Unauthorized'
+      message: 'Failed to list database exports'
     });
   }
-  next();
-}
+});
 
-export function registerDatabaseRoutes(app: express.Express) {
-  // Create export directory if it doesn't exist
-  const exportDir = path.join(process.cwd(), 'exports');
-  if (!fs.existsSync(exportDir)) {
-    fs.mkdirSync(exportDir, { recursive: true });
+// POST: Create new database export
+databaseRouter.post('/export', async (req, res) => {
+  try {
+    const exportPath = await exportDatabase();
+    res.json({
+      success: true,
+      message: 'Database exported successfully',
+      fileName: path.basename(exportPath)
+    });
+  } catch (err) {
+    console.error('Error exporting database:', err);
+    res.status(500).json({
+      success: false,
+      message: `Failed to export database: ${err.message}`
+    });
   }
+});
 
-  // Create import directory if it doesn't exist
-  const importDir = path.join(process.cwd(), 'imports');
-  if (!fs.existsSync(importDir)) {
-    fs.mkdirSync(importDir, { recursive: true });
+// GET: Download a specific export file
+databaseRouter.get('/exports/download/:fileName', (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+    const filePath = path.join(process.cwd(), 'exports', fileName);
+    
+    // Check if file exists and is within exports directory
+    if (!fs.existsSync(filePath) || !filePath.startsWith(path.join(process.cwd(), 'exports'))) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+    
+    res.download(filePath);
+  } catch (err) {
+    console.error('Error downloading export:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to download export file'
+    });
   }
+});
 
-  /**
-   * Export the database
-   * POST /api/database/export
-   */
-  app.post('/api/database/export', adminMiddleware, async (req: Request, res: Response) => {
-    try {
-      const result = await exportDatabase();
-      res.status(200).json({
+// DELETE: Delete a specific export file
+databaseRouter.delete('/exports/:fileName', (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+    const success = deleteExportFile(fileName);
+    
+    if (success) {
+      res.json({
         success: true,
-        message: 'Database exported successfully',
-        data: {
-          fileName: result.fileName,
-          filePath: result.filePath
-        }
+        message: 'Export file deleted successfully'
       });
-    } catch (error) {
-      console.error('Error exporting database:', error);
-      res.status(500).json({
+    } else {
+      res.status(404).json({
         success: false,
-        message: 'Failed to export database',
-        error: error instanceof Error ? error.message : String(error)
+        message: 'File not found or could not be deleted'
       });
     }
-  });
+  } catch (err) {
+    console.error('Error deleting export:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete export file'
+    });
+  }
+});
 
-  /**
-   * Get a list of available exports
-   * GET /api/database/exports
-   */
-  app.get('/api/database/exports', adminMiddleware, (req: Request, res: Response) => {
-    try {
-      const exports = getAvailableExports();
-      res.status(200).json({
+// GET: List all database imports
+databaseRouter.get('/imports', (req, res) => {
+  try {
+    const imports = getImportsList();
+    res.json({
+      success: true,
+      data: imports
+    });
+  } catch (err) {
+    console.error('Error listing imports:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to list database imports'
+    });
+  }
+});
+
+// POST: Upload database import file
+databaseRouter.post('/import', upload.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+    
+    const savedPath = saveImportFile(req.file);
+    res.json({
+      success: true,
+      message: 'File uploaded successfully',
+      fileName: path.basename(savedPath)
+    });
+  } catch (err) {
+    console.error('Error uploading import file:', err);
+    res.status(500).json({
+      success: false,
+      message: `Failed to upload import file: ${err.message}`
+    });
+  }
+});
+
+// POST: Import a specific file
+databaseRouter.post('/import/:fileName', async (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+    await importDatabase(fileName);
+    
+    res.json({
+      success: true,
+      message: 'Database imported successfully'
+    });
+  } catch (err) {
+    console.error('Error importing database:', err);
+    res.status(500).json({
+      success: false,
+      message: `Failed to import database: ${err.message}`
+    });
+  }
+});
+
+// DELETE: Delete a specific import file
+databaseRouter.delete('/imports/:fileName', (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+    const success = deleteImportFile(fileName);
+    
+    if (success) {
+      res.json({
         success: true,
-        data: exports.map(exp => ({
-          fileName: exp.fileName,
-          size: exp.size,
-          created: exp.created,
-          downloadUrl: `/api/database/exports/${exp.fileName}`
-        }))
+        message: 'Import file deleted successfully'
       });
-    } catch (error) {
-      console.error('Error getting exports:', error);
-      res.status(500).json({
+    } else {
+      res.status(404).json({
         success: false,
-        message: 'Failed to get exports',
-        error: error instanceof Error ? error.message : String(error)
+        message: 'File not found or could not be deleted'
       });
     }
-  });
-
-  /**
-   * Download an export file
-   * GET /api/database/exports/:fileName
-   */
-  app.get('/api/database/exports/:fileName', adminMiddleware, (req: Request, res: Response) => {
-    try {
-      const fileName = req.params.fileName;
-      const filePath = path.join(exportDir, fileName);
-
-      // Security check - ensure the file is in the exports directory
-      if (!filePath.startsWith(exportDir) || !fs.existsSync(filePath)) {
-        return res.status(404).json({
-          success: false,
-          message: 'Export file not found'
-        });
-      }
-
-      res.download(filePath);
-    } catch (error) {
-      console.error('Error downloading export:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to download export',
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  /**
-   * Delete an export file
-   * DELETE /api/database/exports/:fileName
-   */
-  app.delete('/api/database/exports/:fileName', adminMiddleware, (req: Request, res: Response) => {
-    try {
-      const fileName = req.params.fileName;
-      const success = deleteExport(fileName);
-
-      if (success) {
-        res.status(200).json({
-          success: true,
-          message: 'Export deleted successfully'
-        });
-      } else {
-        res.status(404).json({
-          success: false,
-          message: 'Export file not found or could not be deleted'
-        });
-      }
-    } catch (error) {
-      console.error('Error deleting export:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to delete export',
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  /**
-   * Upload and import a database file
-   * POST /api/database/import
-   */
-  app.post('/api/database/import', adminMiddleware, upload.single('file'), async (req: Request, res: Response) => {
-    try {
-      const multerReq = req as any;
-      if (!multerReq.file) {
-        return res.status(400).json({
-          success: false,
-          message: 'No file uploaded'
-        });
-      }
-
-      // Upload file to imports directory
-      const filePath = await uploadImportFile(multerReq.file.buffer, multerReq.file.originalname);
-
-      res.status(200).json({
-        success: true,
-        message: 'File uploaded successfully',
-        data: {
-          filePath,
-          fileName: path.basename(filePath)
-        }
-      });
-    } catch (error) {
-      console.error('Error uploading import file:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to upload import file',
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  /**
-   * Import a previously uploaded database file
-   * POST /api/database/import/:fileName
-   */
-  app.post('/api/database/import/:fileName', adminMiddleware, async (req: Request, res: Response) => {
-    try {
-      const fileName = req.params.fileName;
-      const filePath = path.join(importDir, fileName);
-
-      // Security check - ensure the file is in the imports directory
-      if (!filePath.startsWith(importDir) || !fs.existsSync(filePath)) {
-        return res.status(404).json({
-          success: false,
-          message: 'Import file not found'
-        });
-      }
-
-      await importDatabase(filePath);
-
-      res.status(200).json({
-        success: true,
-        message: 'Database imported successfully'
-      });
-    } catch (error) {
-      console.error('Error importing database:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to import database',
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  /**
-   * Get a list of available imports
-   * GET /api/database/imports
-   */
-  app.get('/api/database/imports', adminMiddleware, (req: Request, res: Response) => {
-    try {
-      const imports = getAvailableImports();
-      res.status(200).json({
-        success: true,
-        data: imports.map(imp => ({
-          fileName: imp.fileName,
-          size: imp.size,
-          uploaded: imp.uploaded
-        }))
-      });
-    } catch (error) {
-      console.error('Error getting imports:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to get imports',
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  /**
-   * Delete an import file
-   * DELETE /api/database/imports/:fileName
-   */
-  app.delete('/api/database/imports/:fileName', adminMiddleware, (req: Request, res: Response) => {
-    try {
-      const fileName = req.params.fileName;
-      const success = deleteImport(fileName);
-
-      if (success) {
-        res.status(200).json({
-          success: true,
-          message: 'Import deleted successfully'
-        });
-      } else {
-        res.status(404).json({
-          success: false,
-          message: 'Import file not found or could not be deleted'
-        });
-      }
-    } catch (error) {
-      console.error('Error deleting import:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to delete import',
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-}
+  } catch (err) {
+    console.error('Error deleting import:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete import file'
+    });
+  }
+});

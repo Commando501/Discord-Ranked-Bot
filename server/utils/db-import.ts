@@ -1,153 +1,130 @@
-import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { promisify } from 'util';
-import { db } from '../db';
-import { pool } from '../db';
+import { spawn } from 'child_process';
 
-const execAsync = promisify(exec);
+// Directory for storing database imports
+const IMPORTS_DIR = path.join(process.cwd(), 'imports');
 
-// Directory where database imports should be placed
-const IMPORT_DIR = path.join(process.cwd(), 'imports');
-
-// Ensure import directory exists
-if (!fs.existsSync(IMPORT_DIR)) {
-  fs.mkdirSync(IMPORT_DIR, { recursive: true });
+// Ensure imports directory exists
+if (!fs.existsSync(IMPORTS_DIR)) {
+  fs.mkdirSync(IMPORTS_DIR, { recursive: true });
 }
 
 /**
- * Import database from an uploaded file
- * @param filePath Path to the uploaded file
- * @returns Promise that resolves when the import is complete
+ * Save an uploaded file to the imports directory
+ * @param file File buffer and metadata
+ * @returns Saved file path
  */
-export async function importDatabase(filePath: string): Promise<void> {
-  try {
-    // Verify file exists and is in the correct directory
-    if (!fs.existsSync(filePath)) {
-      throw new Error(`Import file not found: ${filePath}`);
-    }
+export function saveImportFile(file: Express.Multer.File): string {
+  const filePath = path.join(IMPORTS_DIR, file.originalname);
+  fs.writeFileSync(filePath, file.buffer);
+  return filePath;
+}
 
-    // Security check - ensure the file is in the imports directory
-    const normalizedFilePath = path.normalize(filePath);
-    if (!normalizedFilePath.startsWith(IMPORT_DIR)) {
-      throw new Error('Invalid import file path');
-    }
-
-    // Ensure the database is connected
-    await db.execute('SELECT 1');
-
-    // Close all connections to the database before import
-    await pool.end();
-
-    console.log('Starting database import...');
-    
-    // Create pg_restore command with environment variables
-    const pgRestoreCommand = `pg_restore -c \
-      --host=${process.env.PGHOST} \
-      --port=${process.env.PGPORT} \
-      --username=${process.env.PGUSER} \
-      --dbname=${process.env.PGDATABASE} \
-      --no-owner \
-      --no-acl \
-      ${filePath}`;
-
-    // Execute pg_restore command with password from env
-    const { stdout, stderr } = await execAsync(pgRestoreCommand, {
-      env: {
-        ...process.env,
-        PGPASSWORD: process.env.PGPASSWORD
+/**
+ * Import a database file using psql
+ * @param fileName Name of the file to import
+ * @returns Promise that resolves when import is complete
+ */
+export async function importDatabase(fileName: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      const filePath = path.join(IMPORTS_DIR, fileName);
+      
+      // Validate file exists and is within imports directory (avoid path traversal)
+      if (!fs.existsSync(filePath) || !filePath.startsWith(IMPORTS_DIR)) {
+        reject(new Error('File not found or invalid path'));
+        return;
       }
-    });
-
-    if (stderr && !stderr.includes('creating') && !stderr.includes('restoring')) {
-      console.error('Error during database import:', stderr);
-      throw new Error(`Database import error: ${stderr}`);
+      
+      // Use psql to import the database
+      const psql = spawn('psql', [
+        process.env.DATABASE_URL!,  // Connection string
+        '-f', filePath              // Import file
+      ]);
+      
+      let errorOutput = '';
+      
+      psql.stderr.on('data', (data) => {
+        const output = data.toString();
+        console.log('PSQL stderr:', output);
+        errorOutput += output;
+      });
+      
+      psql.stdout.on('data', (data) => {
+        console.log('PSQL stdout:', data.toString());
+      });
+      
+      psql.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`psql failed with code ${code}. Error: ${errorOutput}`));
+        }
+      });
+      
+      psql.on('error', (err) => {
+        reject(new Error(`Failed to start psql: ${err.message}`));
+      });
+      
+    } catch (err) {
+      reject(err);
     }
-
-    console.log('Database import completed successfully');
-  } catch (error) {
-    console.error('Failed to import database:', error);
-    throw error;
-  } finally {
-    // Reconnect to the database after import
-    await pool.connect();
-  }
+  });
 }
 
 /**
- * Upload an import file to the imports directory
- * @param fileData The file data buffer
- * @param fileName The original file name
- * @returns Promise that resolves to the path where the file was saved
+ * Get list of available database import files
+ * @returns Array of import file information
  */
-export async function uploadImportFile(fileData: Buffer, fileName: string): Promise<string> {
+export function getImportsList() {
   try {
-    // Validate that the file appears to be a PostgreSQL dump
-    if (!fileName.endsWith('.sql') && !fileName.endsWith('.dump')) {
-      throw new Error('Invalid file type. Only .sql or .dump files are supported.');
-    }
-
-    // Generate a unique filename
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const importFileName = `matchmaker_db_import_${timestamp}_${path.basename(fileName)}`;
-    const importFilePath = path.join(IMPORT_DIR, importFileName);
-
-    // Write file to disk
-    fs.writeFileSync(importFilePath, fileData);
-
-    console.log(`Import file uploaded: ${importFilePath}`);
-    return importFilePath;
-  } catch (error) {
-    console.error('Failed to upload import file:', error);
-    throw error;
-  }
-}
-
-/**
- * Get list of available import files
- */
-export function getAvailableImports(): { fileName: string, filePath: string, size: number, uploaded: Date }[] {
-  try {
-    if (!fs.existsSync(IMPORT_DIR)) {
+    if (!fs.existsSync(IMPORTS_DIR)) {
       return [];
     }
-
-    return fs.readdirSync(IMPORT_DIR)
-      .filter(file => file.startsWith('matchmaker_db_import_') && (file.endsWith('.sql') || file.endsWith('.dump')))
+    
+    const files = fs.readdirSync(IMPORTS_DIR)
+      .filter(file => file.endsWith('.sql') || file.endsWith('.dump'))
       .map(fileName => {
-        const filePath = path.join(IMPORT_DIR, fileName);
+        const filePath = path.join(IMPORTS_DIR, fileName);
         const stats = fs.statSync(filePath);
         
         return {
           fileName,
-          filePath,
           size: stats.size,
-          uploaded: stats.mtime
+          uploaded: stats.mtime.toISOString()
         };
       })
-      .sort((a, b) => b.uploaded.getTime() - a.uploaded.getTime()); // Sort by date, newest first
-  } catch (error) {
-    console.error('Failed to get available imports:', error);
+      .sort((a, b) => {
+        // Sort by uploaded date, newest first
+        return new Date(b.uploaded).getTime() - new Date(a.uploaded).getTime();
+      });
+    
+    return files;
+  } catch (err) {
+    console.error('Error getting imports list:', err);
     return [];
   }
 }
 
 /**
- * Delete an import file
+ * Delete a database import file
+ * @param fileName Name of the file to delete
+ * @returns True if deletion was successful, false otherwise
  */
-export function deleteImport(fileName: string): boolean {
+export function deleteImportFile(fileName: string): boolean {
   try {
-    const filePath = path.join(IMPORT_DIR, fileName);
+    const filePath = path.join(IMPORTS_DIR, fileName);
     
-    // Security check to ensure we're only deleting files in our import directory
-    if (!filePath.startsWith(IMPORT_DIR) || !fs.existsSync(filePath)) {
+    // Validate file exists and is within imports directory (avoid path traversal)
+    if (!fs.existsSync(filePath) || !filePath.startsWith(IMPORTS_DIR)) {
       return false;
     }
     
     fs.unlinkSync(filePath);
     return true;
-  } catch (error) {
-    console.error('Failed to delete import:', error);
+  } catch (err) {
+    console.error('Error deleting import file:', err);
     return false;
   }
 }

@@ -15,6 +15,7 @@ import PlayersPage from "@/pages/players";
 import LeaderboardsPage from "@/pages/leaderboards";
 import SeasonsPage from "@/pages/seasons";
 import LoginPage from "@/pages/login-page";
+import DatabaseManagementPage from "@/pages/database-management";
 
 function Router() {
   return (
@@ -77,6 +78,13 @@ function Router() {
       <Route path="/seasons">
         <ProtectedRoute>
           <SeasonsPage />
+        </ProtectedRoute>
+      </Route>
+      
+      {/* Database management route */}
+      <Route path="/database-management">
+        <ProtectedRoute>
+          <DatabaseManagementPage />
         </ProtectedRoute>
       </Route>
       

@@ -1,113 +1,121 @@
-import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { promisify } from 'util';
-import { db } from '../db';
+import { spawn } from 'child_process';
+import { format } from 'date-fns';
 
-const execAsync = promisify(exec);
+// Directory for storing database exports
+const EXPORTS_DIR = path.join(process.cwd(), 'exports');
 
-// Directory to save database exports
-const EXPORT_DIR = path.join(process.cwd(), 'exports');
-
-// Ensure export directory exists
-if (!fs.existsSync(EXPORT_DIR)) {
-  fs.mkdirSync(EXPORT_DIR, { recursive: true });
+// Ensure exports directory exists
+if (!fs.existsSync(EXPORTS_DIR)) {
+  fs.mkdirSync(EXPORTS_DIR, { recursive: true });
 }
 
 /**
- * Export database to a file
- * @returns Promise that resolves to the file path of the exported database
+ * Generate a filename for the database export
  */
-export async function exportDatabase(): Promise<{ filePath: string, fileName: string }> {
-  try {
-    // Ensure database is properly connected
-    await db.execute('SELECT 1');
-    
-    // Format timestamp for filename
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileName = `matchmaker_db_export_${timestamp}.sql`;
-    const filePath = path.join(EXPORT_DIR, fileName);
+function generateExportFilename(): string {
+  const date = format(new Date(), 'yyyyMMdd-HHmmss');
+  return `db-export-${date}.sql`;
+}
 
-    // Create pg_dump command with environment variables
-    const pgDumpCommand = `pg_dump -Fc \
-      --host=${process.env.PGHOST} \
-      --port=${process.env.PGPORT} \
-      --username=${process.env.PGUSER} \
-      --dbname=${process.env.PGDATABASE} \
-      --no-owner \
-      --no-acl \
-      --file=${filePath}`;
-
-    // Execute pg_dump command with password from env
-    const { stdout, stderr } = await execAsync(pgDumpCommand, {
-      env: {
-        ...process.env,
-        PGPASSWORD: process.env.PGPASSWORD
-      }
-    });
-
-    if (stderr && !stderr.includes('Dumping the contents of table')) {
-      console.error('Error during database export:', stderr);
-      throw new Error(`Database export error: ${stderr}`);
+/**
+ * Export the PostgreSQL database to a file
+ * @returns Promise that resolves to the export file path or rejects with an error
+ */
+export async function exportDatabase(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    try {
+      const exportFilename = generateExportFilename();
+      const exportPath = path.join(EXPORTS_DIR, exportFilename);
+      
+      // Use pg_dump to export the database
+      const pg_dump = spawn('pg_dump', [
+        '-c',                        // Clean (drop) database objects before recreating
+        '--if-exists',               // Use IF EXISTS when dropping objects
+        '-O',                        // Don't output ownership commands
+        '-x',                        // Don't dump privileges (grant/revoke)
+        '-f', exportPath,            // Output file
+        process.env.DATABASE_URL!    // Connection string
+      ]);
+      
+      let errorOutput = '';
+      
+      pg_dump.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+      
+      pg_dump.on('close', (code) => {
+        if (code === 0) {
+          resolve(exportPath);
+        } else {
+          reject(new Error(`pg_dump failed with code ${code}. Error: ${errorOutput}`));
+        }
+      });
+      
+      pg_dump.on('error', (err) => {
+        reject(new Error(`Failed to start pg_dump: ${err.message}`));
+      });
+      
+    } catch (err) {
+      reject(err);
     }
-
-    console.log(`Database export successful: ${filePath}`);
-    
-    return { 
-      filePath,
-      fileName 
-    };
-  } catch (error) {
-    console.error('Failed to export database:', error);
-    throw error;
-  }
+  });
 }
 
 /**
  * Get list of available database exports
+ * @returns Array of export file information
  */
-export function getAvailableExports(): { fileName: string, filePath: string, size: number, created: Date }[] {
+export function getExportsList() {
   try {
-    if (!fs.existsSync(EXPORT_DIR)) {
+    if (!fs.existsSync(EXPORTS_DIR)) {
       return [];
     }
-
-    return fs.readdirSync(EXPORT_DIR)
-      .filter(file => file.startsWith('matchmaker_db_export_') && file.endsWith('.sql'))
+    
+    const files = fs.readdirSync(EXPORTS_DIR)
+      .filter(file => file.endsWith('.sql') || file.endsWith('.dump'))
       .map(fileName => {
-        const filePath = path.join(EXPORT_DIR, fileName);
+        const filePath = path.join(EXPORTS_DIR, fileName);
         const stats = fs.statSync(filePath);
         
         return {
           fileName,
-          filePath,
           size: stats.size,
-          created: stats.mtime
+          created: stats.mtime.toISOString(),
+          downloadUrl: `/api/database/exports/download/${fileName}`
         };
       })
-      .sort((a, b) => b.created.getTime() - a.created.getTime()); // Sort by date, newest first
-  } catch (error) {
-    console.error('Failed to get available exports:', error);
+      .sort((a, b) => {
+        // Sort by created date, newest first
+        return new Date(b.created).getTime() - new Date(a.created).getTime();
+      });
+    
+    return files;
+  } catch (err) {
+    console.error('Error getting exports list:', err);
     return [];
   }
 }
 
 /**
  * Delete a database export file
+ * @param fileName Name of the file to delete
+ * @returns True if deletion was successful, false otherwise
  */
-export function deleteExport(fileName: string): boolean {
+export function deleteExportFile(fileName: string): boolean {
   try {
-    const filePath = path.join(EXPORT_DIR, fileName);
+    const filePath = path.join(EXPORTS_DIR, fileName);
     
-    // Security check to ensure we're only deleting files in our export directory
-    if (!filePath.startsWith(EXPORT_DIR) || !fs.existsSync(filePath)) {
+    // Validate file exists and is within exports directory (avoid path traversal)
+    if (!fs.existsSync(filePath) || !filePath.startsWith(EXPORTS_DIR)) {
       return false;
     }
     
     fs.unlinkSync(filePath);
     return true;
-  } catch (error) {
-    console.error('Failed to delete export:', error);
+  } catch (err) {
+    console.error('Error deleting export file:', err);
     return false;
   }
 }

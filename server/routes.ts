@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
@@ -15,7 +15,9 @@ import {
 } from "@shared/botConfig";
 import { players, Player } from "@shared/schema";
 import { getMatchService } from "./index.bot";
-import { registerDatabaseRoutes } from "./routes/database";
+import { authRouter } from "./routes/auth";
+import { databaseRouter } from "./routes/database";
+import session from "express-session";
 
 // Assuming this class exists and is correctly implemented.  Add it if it's missing.
 class MatchService {
@@ -46,10 +48,30 @@ class MatchService {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup session middleware
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'late-league-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { 
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000 // 1 day
+    }
+  }));
+
+  // Register auth routes
+  app.use('/api/auth', authRouter);
+  
+  // Register database routes
+  app.use('/api/database', databaseRouter);
+  
   // Admin middleware for protecting admin routes
   const adminMiddleware = (req: any, res: any, next: any) => {
-    // In a production app, we would check for admin authentication here
-    // For now, we'll allow all requests in this example
+    // Check if the user is authenticated
+    const session = req.session;
+    if (!session || !session.isAuthenticated) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
     next();
   };
 
