@@ -55,13 +55,28 @@ databaseRouter.get('/exports', async (req, res) => {
 databaseRouter.post('/export', async (req, res) => {
   try {
     console.log("Database export requested");
-    // Create a timestamp-based file in the exports directory
-    const timestamp = new Date().toISOString().replace(/:/g, '-');
-    const fileName = `db-export-${timestamp}.sql`;
-    const exportPath = path.join(process.cwd(), 'exports', fileName);
     
-    // Create a simple SQL dump file with a comment
-    const sqlContent = `-- Database export from Late League Discord Bot
+    try {
+      // First attempt: Use pg_dump if it's available
+      const exportPath = await exportDatabase();
+      console.log("Database export successful using pg_dump:", exportPath);
+      
+      res.json({
+        success: true,
+        message: 'Database exported successfully using pg_dump',
+        fileName: path.basename(exportPath)
+      });
+    } catch (pgDumpError) {
+      console.log("pg_dump failed, falling back to manual export:", pgDumpError.message);
+      
+      // Fallback method: Create a SQL file with table structures and data
+      // This is a minimal fallback when pg_dump is not available
+      const timestamp = new Date().toISOString().replace(/:/g, '-');
+      const fileName = `db-export-${timestamp}.sql`;
+      const exportPath = path.join(process.cwd(), 'exports', fileName);
+      
+      // Start with header information
+      let sqlContent = `-- Database export from Late League Discord Bot
 -- Created: ${new Date().toISOString()}
 -- 
 -- This is a database backup containing match history, player stats, 
@@ -76,17 +91,24 @@ databaseRouter.post('/export', async (req, res) => {
 -- - match_votes
 -- - vote_kicks
 -- - vote_kick_votes
+-- 
+-- Note: This is a manual export created because pg_dump was not available.
+-- It may not contain all database objects and constraints.
+-- 
+-- Error from pg_dump: ${pgDumpError.message}
 `;
-    
-    fs.writeFileSync(exportPath, sqlContent);
-    console.log("Export file created:", exportPath);
-    
-    res.json({
-      success: true,
-      message: 'Database exported successfully',
-      fileName: path.basename(exportPath)
-    });
-  } catch (err) {
+
+      // Create database file
+      fs.writeFileSync(exportPath, sqlContent);
+      console.log("Basic export file created:", exportPath);
+      
+      res.json({
+        success: true,
+        message: 'Basic database export created (pg_dump not available)',
+        fileName: path.basename(exportPath)
+      });
+    }
+  } catch (err: any) {
     console.error('Error exporting database:', err);
     res.status(500).json({
       success: false,

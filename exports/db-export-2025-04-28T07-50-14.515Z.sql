@@ -1,0 +1,15 @@
+-- Database export from Late League Discord Bot
+-- Created: 2025-04-28T07:50:14.515Z
+-- 
+-- This is a database backup containing match history, player stats, 
+-- and configuration data for the Late League Discord Bot.
+-- 
+-- Tables included:
+-- - players
+-- - teams
+-- - matches
+-- - queue
+-- - team_players
+-- - match_votes
+-- - vote_kicks
+-- - vote_kick_votes
