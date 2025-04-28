@@ -53,9 +53,18 @@ const DatabaseManagementPage = () => {
     setError(null);
     
     try {
+      console.log("Loading database files...");
+      
       // Load exports
-      const exportsResponse = await apiRequest('GET', '/api/database/exports');
+      console.log("Fetching exports...");
+      const exportsResponse = await fetch('/api/database/exports', {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      console.log("Exports response status:", exportsResponse.status);
       const exportsData = await exportsResponse.json();
+      console.log("Exports data:", exportsData);
       
       if (exportsResponse.ok && exportsData.success) {
         setExports(exportsData.data || []);
@@ -65,8 +74,15 @@ const DatabaseManagementPage = () => {
       }
       
       // Load imports
-      const importsResponse = await apiRequest('GET', '/api/database/imports');
+      console.log("Fetching imports...");
+      const importsResponse = await fetch('/api/database/imports', {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      console.log("Imports response status:", importsResponse.status);
       const importsData = await importsResponse.json();
+      console.log("Imports data:", importsData);
       
       if (importsResponse.ok && importsData.success) {
         setImports(importsData.data || []);
@@ -90,9 +106,20 @@ const DatabaseManagementPage = () => {
   const handleExport = async () => {
     setExportLoading(true);
     setError(null);
+    console.log("Data export requested");
     
     try {
-      const response = await apiRequest('POST', '/api/database/export');
+      // Show a console log before making the request
+      console.log("Making export API request");
+      const response = await fetch('/api/database/export', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log("Export response received:", response.status);
       const data = await response.json();
       
       if (response.ok && data.success) {
