@@ -7,7 +7,7 @@ import { TableRow, TableHeader, TableHead, TableBody, TableCell, Table } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, AlertCircle, FileDown, Database, FileUp, Trash2 } from 'lucide-react';
 import { formatFileSize, formatDate } from '@/lib/utils';
-import { useAuthContext } from '@/hooks/use-auth-context';
+import { useAuth } from '@/hooks/use-auth-context';
 import { useLocation } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -29,7 +29,7 @@ const DatabaseManagementPage = () => {
   const [activeTab, setActiveTab] = useState('export');
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const { isAuthenticated } = useAuthContext();
+  const { isAuthenticated } = useAuth();
   
   const [exports, setExports] = useState<ExportFile[]>([]);
   const [imports, setImports] = useState<ImportFile[]>([]);

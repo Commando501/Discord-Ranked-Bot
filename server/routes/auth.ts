@@ -1,4 +1,16 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+import { Session } from 'express-session';
+
+// Extend Session type to include our custom properties
+declare module 'express-session' {
+  interface Session {
+    isAuthenticated?: boolean;
+    user?: {
+      username: string;
+      isAdmin: boolean;
+    };
+  }
+}
 
 // Hardcoded admin credentials for simplicity, as per requirements
 const ADMIN_CREDENTIALS = [
@@ -10,8 +22,8 @@ const ADMIN_CREDENTIALS = [
 export const authRouter = Router();
 
 // Check authentication status
-authRouter.get('/status', (req, res) => {
-  if (req.session && req.session.user) {
+authRouter.get('/status', (req: Request, res: Response) => {
+  if (req.session && req.session.isAuthenticated && req.session.user) {
     res.json({
       isAuthenticated: true,
       username: req.session.user.username
@@ -24,7 +36,7 @@ authRouter.get('/status', (req, res) => {
 });
 
 // Login route
-authRouter.post('/login', (req, res) => {
+authRouter.post('/login', (req: Request, res: Response) => {
   const { username, password } = req.body;
   
   // Check if credentials are valid
@@ -34,6 +46,7 @@ authRouter.post('/login', (req, res) => {
   
   if (validUser) {
     // Store user in session
+    req.session.isAuthenticated = true;
     req.session.user = {
       username: validUser.username,
       isAdmin: true
@@ -52,9 +65,9 @@ authRouter.post('/login', (req, res) => {
 });
 
 // Logout route
-authRouter.post('/logout', (req, res) => {
+authRouter.post('/logout', (req: Request, res: Response) => {
   if (req.session) {
-    req.session.destroy(err => {
+    req.session.destroy((err: Error | null) => {
       if (err) {
         res.status(500).json({
           success: false,
@@ -74,8 +87,8 @@ authRouter.post('/logout', (req, res) => {
 });
 
 // Middleware to check if user is authenticated
-export const requireAuth = (req, res, next) => {
-  if (req.session && req.session.user) {
+export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+  if (req.session && req.session.isAuthenticated && req.session.user) {
     next();
   } else {
     res.status(401).json({
