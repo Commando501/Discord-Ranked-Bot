@@ -55,11 +55,24 @@ const DatabaseManagementPage = () => {
     try {
       console.log("Loading database files...");
       
+      // First, create a test export to ensure we have files
+      console.log("Creating a test export first...");
+      await fetch('/api/database/export', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
       // Load exports
       console.log("Fetching exports...");
       const exportsResponse = await fetch('/api/database/exports', {
         method: 'GET',
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
       });
       
       console.log("Exports response status:", exportsResponse.status);
@@ -67,6 +80,7 @@ const DatabaseManagementPage = () => {
       console.log("Exports data:", exportsData);
       
       if (exportsResponse.ok && exportsData.success) {
+        console.log("Setting exports:", exportsData.data);
         setExports(exportsData.data || []);
       } else {
         console.error('Failed to load exports:', exportsData);
@@ -77,7 +91,10 @@ const DatabaseManagementPage = () => {
       console.log("Fetching imports...");
       const importsResponse = await fetch('/api/database/imports', {
         method: 'GET',
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
       });
       
       console.log("Imports response status:", importsResponse.status);
@@ -85,6 +102,7 @@ const DatabaseManagementPage = () => {
       console.log("Imports data:", importsData);
       
       if (importsResponse.ok && importsData.success) {
+        console.log("Setting imports:", importsData.data);
         setImports(importsData.data || []);
       } else {
         console.error('Failed to load imports:', importsData);
