@@ -15,6 +15,7 @@ import {
 } from "@shared/botConfig";
 import { players, Player } from "@shared/schema";
 import { getMatchService } from "./index.bot";
+import { registerDatabaseRoutes } from "./routes/database";
 
 // Assuming this class exists and is correctly implemented.  Add it if it's missing.
 class MatchService {

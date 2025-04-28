@@ -13,10 +13,11 @@ const upload = multer({
   }
 });
 
-// Admin middleware function (placeholder - reuse your existing auth middleware)
+// Admin middleware function
 function adminMiddleware(req: Request, res: Response, next: express.NextFunction) {
   // Check if the user is authenticated and is an admin
-  if (!req.session || !req.session.isAuthenticated) {
+  const session = (req as any).session;
+  if (!session || !session.isAuthenticated) {
     return res.status(401).json({
       success: false,
       message: 'Unauthorized'
@@ -153,7 +154,8 @@ export function registerDatabaseRoutes(app: express.Express) {
    */
   app.post('/api/database/import', adminMiddleware, upload.single('file'), async (req: Request, res: Response) => {
     try {
-      if (!req.file) {
+      const multerReq = req as any;
+      if (!multerReq.file) {
         return res.status(400).json({
           success: false,
           message: 'No file uploaded'
@@ -161,7 +163,7 @@ export function registerDatabaseRoutes(app: express.Express) {
       }
 
       // Upload file to imports directory
-      const filePath = await uploadImportFile(req.file.buffer, req.file.originalname);
+      const filePath = await uploadImportFile(multerReq.file.buffer, multerReq.file.originalname);
 
       res.status(200).json({
         success: true,
