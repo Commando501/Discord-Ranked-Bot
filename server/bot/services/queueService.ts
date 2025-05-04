@@ -382,43 +382,6 @@ export class QueueService {
     /**
      * Create or update a player group
      * @param playerIds Array of player IDs
-
-  /**
-   * Generate a unique group ID for a set of players - this version is public
-   * to allow other services to use it
-   * @param playerIds Array of player IDs
-   * @returns String group ID
-   */
-  generateGroupId(playerIds: number[]): string {
-    return playerIds.sort().join('-');
-  }
-
-  /**
-   * Check if a player group exists
-   * @param groupId The group ID to check
-   * @returns True if the group exists
-   */
-  groupExists(groupId: string): boolean {
-    return this.playerGroups.has(groupId);
-  }
-
-  /**
-   * Record a win for a player in their group
-   * @param playerId The player ID
-   * @param groupId The group ID
-   */
-  recordPlayerWin(playerId: number, groupId: string): void {
-    if (!this.playerGroups.has(groupId)) {
-      logger.warn(`Tried to record win for player ${playerId} in non-existent group ${groupId}`);
-      return;
-    }
-
-    const playerLosses = this.playerGroups.get(groupId)!;
-    // Reset losses when player wins
-    playerLosses.set(playerId, 0);
-    logger.info(`Player ${playerId} win recorded, losses reset to 0 in group ${groupId}`);
-  }
-
      * @returns The group ID string
      */
     createPlayerGroup(playerIds: number[]): string {
