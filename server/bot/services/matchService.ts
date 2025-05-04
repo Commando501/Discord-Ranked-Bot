@@ -375,6 +375,18 @@ export class MatchService {
 
       if (match.status === "COMPLETING") {
         logger.info(`Match #${matchId} is already being completed by another process`);
+        
+        // Check if this vote is for the same team that is currently winning
+        // This makes the experience better when multiple players vote for the same team
+        if (match.pendingWinningTeam && 
+            (match.pendingWinningTeam === winningTeamName || 
+             match.pendingWinningTeam.toString().toLowerCase() === String(winningTeamName).toLowerCase())) {
+          return {
+            success: true,
+            message: `Your vote for team ${winningTeamName} has been recorded. Match is currently being completed.`,
+          };
+        }
+        
         return {
           success: false,
           message: `Match #${matchId} is already being completed by another process`,
@@ -389,7 +401,11 @@ export class MatchService {
       }
 
       // Update match status to prevent concurrent completion processes
-      await this.storage.updateMatch(matchId, { status: "COMPLETING" });
+      // Also store the pending winning team to support friendly responses for duplicate votes
+      await this.storage.updateMatch(matchId, { 
+        status: "COMPLETING",
+        pendingWinningTeam: winningTeamName
+      });
 
       // Get teams data for this match
       const teams = await this.storage.getMatchTeams(matchId);

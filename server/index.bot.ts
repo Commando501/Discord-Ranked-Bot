@@ -175,7 +175,11 @@ export async function initializeBot() {
           if (team1Votes >= requiredVotes) {
             try {
               // Immediately mark the match as in progress to prevent other votes from triggering completion
-              await storage.updateMatch(matchId, { status: "COMPLETING" });
+              // Store the pending winning team to support friendly responses for duplicate votes
+              await storage.updateMatch(matchId, { 
+                status: "COMPLETING", 
+                pendingWinningTeam: teams[0].name 
+              });
               
               // Team 1 wins - use the name string instead of ID to avoid type errors
               const winningTeamName = teams[0].name;
@@ -205,7 +209,11 @@ export async function initializeBot() {
           } else if (team2Votes >= requiredVotes) {
             try {
               // Immediately mark the match as in progress to prevent other votes from triggering completion
-              await storage.updateMatch(matchId, { status: "COMPLETING" });
+              // Store the pending winning team to support friendly responses for duplicate votes
+              await storage.updateMatch(matchId, { 
+                status: "COMPLETING", 
+                pendingWinningTeam: teams[1].name 
+              });
               
               // Team 2 wins - use the name string instead of ID to avoid type errors
               const winningTeamName = teams[1].name;
