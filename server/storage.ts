@@ -35,7 +35,7 @@ export interface IStorage {
   // Queue operations
   addPlayerToQueue(queueEntry: InsertQueue): Promise<Queue>;
   removePlayerFromQueue(playerId: number): Promise<boolean>;
-  getQueuePlayers(): Promise<Array<Queue & { player: Player }>>;
+  getQueuePlayers(tx?: typeof db, lock?: boolean): Promise<Array<Queue & { player: Player }>>;
   isPlayerInQueue(playerId: number): Promise<boolean>;
   clearQueue(): Promise<void>;
 
@@ -57,7 +57,7 @@ export interface IStorage {
   // Vote operations
   addMatchVote(vote: InsertMatchVote): Promise<MatchVote>;
   getMatchVotes(matchId: number): Promise<MatchVote[]>;
-  
+
   // Vote kick operations
   createVoteKick(voteKick: InsertVoteKick): Promise<VoteKick>;
   getVoteKick(id: number): Promise<VoteKick | undefined>;
@@ -65,7 +65,7 @@ export interface IStorage {
   addVoteKickVote(vote: InsertVoteKickVote): Promise<VoteKickVote>;
   getVoteKickVotes(voteKickId: number): Promise<VoteKickVote[]>;
   updateVoteKick(id: number, data: Partial<VoteKick>): Promise<VoteKick | undefined>;
-  
+
   // Bot configuration operations
   getBotConfig(): Promise<BotConfig>;
   updateBotConfig(config: BotConfig): Promise<BotConfig>;
@@ -114,7 +114,7 @@ function updateConfigSection(currentConfig: BotConfig, section: string, sectionC
     console.error(`[CONFIG] Unknown section: ${section}`);
     return currentConfig;
   }
-  
+
   return {
     ...currentConfig,
     [section]: sectionConfig
@@ -123,7 +123,7 @@ function updateConfigSection(currentConfig: BotConfig, section: string, sectionC
 
 export class DatabaseStorage implements IStorage {
   private botConfig: BotConfig;
-  
+
   constructor() {
     // Load bot config from file or initialize with defaults
     this.botConfig = loadConfigFromFile();
@@ -173,7 +173,7 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
   }
-  
+
   async deletePlayer(id: number): Promise<boolean> {
     try {
       // First, delete any references to this player in related tables
@@ -181,12 +181,12 @@ export class DatabaseStorage implements IStorage {
       await db
         .delete(matchVotes)
         .where(eq(matchVotes.playerId, id));
-        
+
       // Remove from voteKick votes
       await db
         .delete(voteKickVotes)
         .where(eq(voteKickVotes.playerId, id));
-        
+
       // Remove from voteKicks (as target and initiator)
       await db
         .delete(voteKicks)
@@ -196,22 +196,22 @@ export class DatabaseStorage implements IStorage {
             eq(voteKicks.initiatorPlayerId, id)
           )
         );
-        
+
       // Remove from team_players (team memberships)
       await db
         .delete(teamPlayers)
         .where(eq(teamPlayers.playerId, id));
-        
+
       // Remove from queue if they're in it
       await db
         .delete(queue)
         .where(eq(queue.playerId, id));
-        
+
       // Finally delete the player
       await db
         .delete(players)
         .where(eq(players.id, id));
-      
+
       return true;
     } catch (error) {
       console.error('Error in deletePlayer:', error);
@@ -255,16 +255,16 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(queue)
         .where(eq(queue.playerId, playerId));
-      
+
       if (!entry) {
         return false;
       }
-      
+
       // Delete the entry
       await dbClient
         .delete(queue)
         .where(eq(queue.playerId, playerId));
-      
+
       return true;
     } catch (error) {
       console.error('Error in removePlayerFromQueue:', error);
@@ -272,45 +272,38 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getQueuePlayers(tx?: typeof db): Promise<Array<Queue & { player: Player }>> {
+  async getQueuePlayers(tx: any = db, lock: boolean = false): Promise<Array<Queue & { player: Player }>> {
     try {
-      const dbClient = tx || db;
-      
-      // Use the query builder directly since the relations functionality isn't 
-      // directly available with the transaction object in the same way
-      if (tx) {
-        const queueEntries = await dbClient.select().from(queue).orderBy(queue.joinedAt);
-        // If we have queue entries, fetch the related players
-        if (queueEntries.length > 0) {
-          const playerIds = queueEntries.map(entry => entry.playerId);
-          const playersResult = await dbClient
-            .select()
-            .from(players)
-            .where(inArray(players.id, playerIds));
-          
-          // Create a map of player IDs to player objects
-          const playerMap = new Map();
-          playersResult.forEach(player => {
-            playerMap.set(player.id, player);
-          });
-          
-          // Join the players with their queue entries
-          return queueEntries.map(entry => ({
-            ...entry,
-            player: playerMap.get(entry.playerId)
-          }));
-        }
-        return [];
-      } else {
-        // Use the relation query if we're not in a transaction
-        const queueWithPlayers = await db.query.queue.findMany({
-          with: {
-            player: true
-          },
-          orderBy: (queue, { asc }) => [asc(queue.joinedAt)]
-        });
-        return queueWithPlayers;
+      let query = tx.select().from(queue).orderBy(queue.joinedAt);
+
+      // If lock is requested, add FOR UPDATE to prevent other transactions from modifying these rows
+      if (lock) {
+        query = query.for('update');
+        console.debug(`Getting queue players with FOR UPDATE lock`);
       }
+
+      const queueEntries = await query;
+      // If we have queue entries, fetch the related players
+      if (queueEntries.length > 0) {
+        const playerIds = queueEntries.map(entry => entry.playerId);
+        const playersResult = await tx
+          .select()
+          .from(players)
+          .where(inArray(players.id, playerIds));
+
+        // Create a map of player IDs to player objects
+        const playerMap = new Map();
+        playersResult.forEach(player => {
+          playerMap.set(player.id, player);
+        });
+
+        // Join the players with their queue entries
+        return queueEntries.map(entry => ({
+          ...entry,
+          player: playerMap.get(entry.playerId)
+        }));
+      }
+      return [];
     } catch (error) {
       console.error('Error in getQueuePlayers:', error);
       return [];
@@ -376,9 +369,9 @@ export class DatabaseStorage implements IStorage {
             eq(matches.status, 'ACTIVE')
           )
         );
-      
+
       const result: Array<Match & { teams: Array<Team & { players: Player[] }> }> = [];
-      
+
       for (const match of activeMatchesResult) {
         const matchTeams = await this.getMatchTeams(match.id);
         result.push({
@@ -386,7 +379,7 @@ export class DatabaseStorage implements IStorage {
           teams: matchTeams
         });
       }
-      
+
       return result;
     } catch (error) {
       console.error('Error in getActiveMatches:', error);
@@ -416,23 +409,23 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(teamPlayers)
         .where(eq(teamPlayers.playerId, playerId));
-      
+
       if (playerTeamResults.length === 0) {
         return [];
       }
-      
+
       const teamIds = playerTeamResults.map(tp => tp.teamId);
-      
+
       // Find all matches associated with these teams
       const teamResults = await db
         .select()
         .from(teams)
         .where(inArray(teams.id, teamIds));
-      
+
       if (teamResults.length === 0) {
         return [];
       }
-      
+
       // Create a map of teamId to team info for quick lookups
       const teamMap = new Map();
       teamResults.forEach(team => {
@@ -442,15 +435,15 @@ export class DatabaseStorage implements IStorage {
           matchId: team.matchId
         });
       });
-      
+
       // Create a map of playerId to teamId for quick lookups
       const playerTeamMap = new Map();
       playerTeamResults.forEach(tp => {
         playerTeamMap.set(tp.teamId, true);
       });
-      
+
       const matchIds = teamResults.map(t => t.matchId);
-      
+
       // Get match details
       const matchResults = await db
         .select()
@@ -458,40 +451,40 @@ export class DatabaseStorage implements IStorage {
         .where(inArray(matches.id, matchIds))
         .orderBy(desc(matches.createdAt))
         .limit(limit);
-      
+
       // Add team info to each match and calculate MMR changes more accurately
       return Promise.all(matchResults.map(async match => {
         // Find the team in this match that the player was in
         const playerTeam = teamResults.find(team => 
           team.matchId === match.id && playerTeamMap.has(team.id)
         );
-        
+
         // Variables to calculate MMR change
         let mmrChange;
-        
+
         // Only calculate MMR change for completed matches
         if (match.status === "COMPLETED" && match.winningTeamId) {
           try {
             // Use the already loaded botConfig instead of querying the database
             const kFactor = this.botConfig?.mmrSystem?.kFactor || 32; // Default to 32 if not configured
-            
+
             const didWin = playerTeam && playerTeam.id === match.winningTeamId;
-            
+
             // Get the player's data before and after the match to calculate exact MMR change
             // This is more accurate than estimating with a formula
-            
+
             // First try to find the actual player data
             const player = await this.getPlayer(playerId);
-            
+
             if (didWin) {
               // Winners gain MMR - use simplified calculation similar to matchService
               mmrChange = Math.round(kFactor * 0.75);
-              
+
               // Apply streak bonuses if we can determine them
               if (player && player.winStreak > 0) {
                 const streakThreshold = this.botConfig?.mmrSystem?.streakSettings?.threshold || 3;
                 const bonusPerWin = this.botConfig?.mmrSystem?.streakSettings?.bonusPerWin || 2;
-                
+
                 // Check if we're above the streak threshold (accounting for the fact this might not be the most recent match)
                 if (player.winStreak >= streakThreshold) {
                   const streakBonus = Math.min(
@@ -504,12 +497,12 @@ export class DatabaseStorage implements IStorage {
             } else if (match.winningTeamId) {
               // Losers lose MMR
               mmrChange = -Math.round(kFactor * 0.625);
-              
+
               // Apply streak penalties if we can determine them
               if (player && player.lossStreak > 0) {
                 const lossThreshold = this.botConfig?.mmrSystem?.streakSettings?.lossThreshold || 3;
                 const penaltyPerLoss = this.botConfig?.mmrSystem?.streakSettings?.penaltyPerLoss || 1;
-                
+
                 // Check if we're above the loss streak threshold
                 if (player.lossStreak >= lossThreshold) {
                   const streakPenalty = Math.min(
@@ -524,7 +517,7 @@ export class DatabaseStorage implements IStorage {
             console.error('Error calculating MMR change:', error);
           }
         }
-        
+
         if (playerTeam) {
           return {
             ...match,
@@ -533,7 +526,7 @@ export class DatabaseStorage implements IStorage {
             mmrChange: mmrChange
           };
         }
-        
+
         return match;
       }));
     } catch (error) {
@@ -550,21 +543,21 @@ export class DatabaseStorage implements IStorage {
         .where(eq(matches.status, 'COMPLETED'))
         .orderBy(desc(matches.createdAt))
         .limit(limit);
-      
+
       const result: Array<Match & { teams: Team[] }> = [];
-      
+
       for (const match of completedMatchesResult) {
         const teamResults = await db
           .select()
           .from(teams)
           .where(eq(teams.matchId, match.id));
-        
+
         result.push({
           ...match,
           teams: teamResults
         });
       }
-      
+
       return result;
     } catch (error) {
       console.error('Error in getMatchHistory:', error);
@@ -616,19 +609,19 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(teamPlayers)
         .where(eq(teamPlayers.teamId, teamId));
-      
+
       if (teamPlayerResults.length === 0) {
         return [];
       }
-      
+
       const playerIds = teamPlayerResults.map(tp => tp.playerId);
-      
+
       // Get player details
       const playerResults = await dbClient
         .select()
         .from(players)
         .where(inArray(players.id, playerIds));
-      
+
       return playerResults;
     } catch (error) {
       console.error('Error in getTeamPlayers:', error);
@@ -643,9 +636,9 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(teams)
         .where(eq(teams.matchId, matchId));
-      
+
       const result: Array<Team & { players: Player[] }> = [];
-      
+
       for (const team of teamResults) {
         const players = await this.getTeamPlayers(team.id, tx);
         result.push({
@@ -653,7 +646,7 @@ export class DatabaseStorage implements IStorage {
           players
         });
       }
-      
+
       return result;
     } catch (error) {
       console.error('Error in getMatchTeams:', error);
@@ -684,7 +677,7 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
   }
-  
+
   // Vote kick operations
   async createVoteKick(voteKick: InsertVoteKick): Promise<VoteKick> {
     try {
@@ -764,7 +757,7 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
   }
-  
+
   // Bot configuration operations
   async getRankTiers(): Promise<RankTier[]> {
     try {
@@ -777,7 +770,7 @@ export class DatabaseStorage implements IStorage {
       return defaultRankTiers;
     }
   }
-  
+
   async getPlayerRank(mmr: number, tiers: RankTier[]): Promise<RankTier> {
     // Import the getPlayerRank function from the rankSystem module
     const { getPlayerRank } = require('@shared/rankSystem');
@@ -787,13 +780,13 @@ export class DatabaseStorage implements IStorage {
   async getBotConfig(): Promise<BotConfig> {
     return this.botConfig;
   }
-  
+
   async updateBotConfig(config: BotConfig): Promise<BotConfig> {
     this.botConfig = config;
-    
+
     // Save to file
     saveConfigToFile(config);
-    
+
     return this.botConfig;
   }
 }

@@ -566,22 +566,56 @@ export class QueueService {
             return false;
         }
 
+        let matchPlayers: number[] = [];
+        
         try {
             // Set the lock
             this.matchCreationInProgress = true;
 
             // Import the transaction utility from the db module
             const { withTransaction } = await import('../../db');
+            const { db } = await import('../../db');
+            const { queue } = await import('@shared/schema');
+            const { sql, eq, inArray } = await import('drizzle-orm');
 
             // Perform the entire match creation process within a transaction
             return await withTransaction(async (tx) => {
                 try {
                     // Get a fresh list of queued players - using transaction to ensure consistency
-                    const queuedPlayers = await this.storage.getQueuePlayers(tx);
+                    // CRITICAL CHANGE: Add FOR UPDATE clause to lock these rows during selection
+                    // This prevents other transactions from selecting the same players simultaneously
+                    
+                    // First get count without locking to avoid unnecessary locks
+                    const countResult = await tx.select({ count: sql`count(*)` }).from(queue);
+                    const queueCount = Number(countResult[0]?.count || 0);
+                    
                     const botConfig = await this.storage.getBotConfig();
                     const minPlayersRequired =
                         botConfig.matchmaking.queueSizeLimits.min;
 
+                    if (queueCount < minPlayersRequired && !force) {
+                        logger.info(
+                            `Not enough players in queue to create a match: ${queueCount}/${minPlayersRequired}`,
+                        );
+                        return false;
+                    }
+                    
+                    // Now lock the rows we'll be operating on
+                    logger.info("Acquiring exclusive row locks on queue players for selection");
+                    
+                    // Get queue players WITH row lock to prevent concurrent selection
+                    const lockedQueueQuery = await tx.select().from(queue)
+                        .orderBy(queue.priority, queue.joinedAt)
+                        .for('update');
+                        
+                    const queuedPlayers = lockedQueueQuery.map(entry => ({
+                        playerId: entry.playerId,
+                        joinedAt: entry.joinedAt,
+                        priority: entry.priority
+                    }));
+                    
+                    logger.info(`Locked ${queuedPlayers.length} queue entries for exclusive access`);
+                    
                     if (queuedPlayers.length < minPlayersRequired && !force) {
                         logger.info(
                             `Not enough players in queue to create a match: ${queuedPlayers.length}/${minPlayersRequired}`,
@@ -590,6 +624,7 @@ export class QueueService {
                     }
 
                     // Filter out players that are already being processed in another concurrent match creation
+                    // This is now mostly a backup since we have row-level locking
                     const availablePlayers = queuedPlayers.filter(player => !this.playersBeingProcessed.has(player.playerId));
 
                     if (availablePlayers.length < minPlayersRequired && !force) {
@@ -598,8 +633,6 @@ export class QueueService {
                         );
                         return false;
                     }
-
-                    let matchPlayers: number[] = [];
 
                     // Check if we have an active group with all members in the queue
                     if (this.currentActiveGroup) {
@@ -659,15 +692,14 @@ export class QueueService {
 
                     // Immediately remove players from queue WITHIN the transaction - this ensures atomicity
                     // and prevents other concurrent queue checks from selecting the same players
-                    logger.info(`Batch removing ${matchPlayers.length} players from queue within transaction`);
+                    logger.info(`Batch removing ${matchPlayers.length} players from queue within transaction with exclusive locks`);
                     try {
-                        const batchRemoveResult = await batchRemovePlayersFromQueue(matchPlayers, tx);
-                        if (!batchRemoveResult.success) {
-                            logger.warn(`Failed to batch remove players from queue: ${batchRemoveResult.message}`);
-                            throw new Error(`Failed to batch remove players from queue: ${batchRemoveResult.message}`);
-                        }
+                        // Now that we have locks, directly delete without checking if players exist
+                        // This is safe because we have exclusive locks and we just selected them
+                        await tx.delete(queue).where(inArray(queue.playerId, matchPlayers));
+                        logger.info(`Successfully removed ${matchPlayers.length} players from queue with exclusive locks`);
                     } catch (error) {
-                        logger.error(`Error in batch player removal: ${error}`);
+                        logger.error(`Error in batch player removal despite locks: ${error}`);
                         throw error;
                     }
 
