@@ -164,8 +164,8 @@ export async function initializeBot() {
           const requiredVotes = Math.ceil(totalPlayers / 2);
 
           // Check if the match is already being completed by another vote
-          const match = await storage.getMatch(matchId);
-          if (match.status !== 'ACTIVE') {
+          const matchData = await storage.getMatch(matchId);
+          if (matchData.status !== 'ACTIVE') {
             return await interaction.reply({
               content: `This match is no longer active.`,
               ephemeral: true
