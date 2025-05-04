@@ -895,68 +895,100 @@ export class MatchService {
     voteKickId: number,
     guildId?: string,
   ): Promise<{ success: boolean; message: string }> {
-    try {
-      // Get the vote kick details
-      const voteKick = await this.storage.getVoteKick(voteKickId);
+    // Use transaction to ensure database operations are atomic
+    return await withTransaction(async (tx) => {
+      try {
+        // Get the vote kick details within transaction
+        const voteKick = await this.storage.getVoteKick(voteKickId, tx);
 
-      if (!voteKick) {
-        return { success: false, message: "Vote kick not found" };
-      }
+        if (!voteKick) {
+          return { success: false, message: "Vote kick not found" };
+        }
 
-      if (voteKick.status !== "PENDING") {
-        return { 
-          success: false, 
-          message: `Vote kick is already ${voteKick.status.toLowerCase()}` 
+        if (voteKick.status !== "PENDING") {
+          return { 
+            success: false, 
+            message: `Vote kick is already ${voteKick.status.toLowerCase()}` 
+          };
+        }
+
+        // Get player information
+        const kickedPlayer = await this.storage.getPlayer(voteKick.targetPlayerId, tx);
+
+        if (!kickedPlayer) {
+          return { success: false, message: "Kicked player not found" };
+        }
+
+        // Get match info to verify it's still active
+        const match = await this.storage.getMatch(voteKick.matchId, tx);
+        if (!match || match.status !== "ACTIVE") {
+          // Update vote kick status to prevent further processing
+          await this.storage.updateVoteKick(voteKickId, { 
+            status: "REJECTED",
+            finishedAt: new Date()
+          }, tx);
+          
+          return { 
+            success: false, 
+            message: `Cannot process votekick - match #${voteKick.matchId} is no longer active` 
+          };
+        }
+
+        // Update vote kick status within transaction
+        await this.storage.updateVoteKick(voteKickId, { 
+          status: "APPROVED",
+          finishedAt: new Date()
+        }, tx);
+        
+        // Mark match as being processed to prevent concurrent handling
+        await this.storage.updateMatch(voteKick.matchId, {
+          status: "COMPLETING"
+        }, tx);
+
+        // Commit transaction before proceeding with non-transactional operations
+        // This ensures database state is consistent before we start external operations
+        await tx.commit();
+
+        // Log the event (outside transaction)
+        await this.logEvent(
+          "Player Kicked",
+          `Player ${kickedPlayer.username} (ID: ${kickedPlayer.id}) has been kicked from match #${voteKick.matchId} by vote.`,
+          [
+            { name: "Match ID", value: voteKick.matchId.toString(), inline: true },
+            { name: "Kicked Player", value: kickedPlayer.username, inline: true },
+            { name: "Vote Kick ID", value: voteKickId.toString(), inline: true },
+          ]
+        );
+
+        // Use the existing match cancellation flow to handle the kicked player properly
+        // This will return other players to queue but not the kicked player
+        const result = await this.handleMatchCancellationWithExclusion(
+          voteKick.matchId,
+          kickedPlayer.id
+        );
+
+        if (!result.success) {
+          logger.error(`Failed to handle match cancellation after vote kick: ${result.message}`);
+          return {
+            success: false,
+            message: `Player was kicked but there was an error cancelling the match: ${result.message}`
+          };
+        }
+
+        return {
+          success: true,
+          message: `${kickedPlayer.username} has been kicked from match #${voteKick.matchId}. Match cancelled and other players returned to queue.`
         };
-      }
-
-      // Get player information
-      const kickedPlayer = await this.storage.getPlayer(voteKick.targetPlayerId);
-
-      if (!kickedPlayer) {
-        return { success: false, message: "Kicked player not found" };
-      }
-
-      // Update vote kick status
-      await this.storage.updateVoteKick(voteKickId, { status: "APPROVED" });
-
-      // Log the event
-      await this.logEvent(
-        "Player Kicked",
-        `Player ${kickedPlayer.username} (ID: ${kickedPlayer.id}) has been kicked from match #${voteKick.matchId} by vote.`,
-        [
-          { name: "Match ID", value: voteKick.matchId.toString(), inline: true },
-          { name: "Kicked Player", value: kickedPlayer.username, inline: true },
-          { name: "Vote Kick ID", value: voteKickId.toString(), inline: true },
-        ]
-      );
-
-      // Use the existing match cancellation flow to handle the kicked player properly
-      // This will return other players to queue but not the kicked player
-      const result = await this.handleMatchCancellationWithExclusion(
-        voteKick.matchId,
-        kickedPlayer.id
-      );
-
-      if (!result.success) {
-        logger.error(`Failed to handle match cancellation after vote kick: ${result.message}`);
+      } catch (error) {
+        // Rollback transaction on error
+        await tx.rollback();
+        logger.error(`Error handling successful vote kick: ${error}`);
         return {
           success: false,
-          message: `Player was kicked but there was an error cancelling the match: ${result.message}`
+          message: "Failed to process vote kick due to an error"
         };
       }
-
-      return {
-        success: true,
-        message: `${kickedPlayer.username} has been kicked from match #${voteKick.matchId}. Match cancelled and other players returned to queue.`
-      };
-    } catch (error) {
-      logger.error(`Error handling successful vote kick: ${error}`);
-      return {
-        success: false,
-        message: "Failed to process vote kick due to an error"
-      };
-    }
+    });
   }
 
   async handleMatchCancellation(

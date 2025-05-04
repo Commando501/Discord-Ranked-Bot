@@ -56,30 +56,90 @@ export async function initializeBot() {
           const activeVoteKick = await storage.getActiveVoteKick(matchId, player.id);
 
           if (!activeVoteKick) return;
+          
+          // Get player information to avoid duplicate votes
+          const existingVote = await storage.getPlayerVoteKickVote(activeVoteKick.id, player.id);
+          if (existingVote) {
+            logger.info(`Player ${player.id} already voted on votekick ${activeVoteKick.id}, ignoring duplicate vote`);
+            return message.reply(`You have already voted on this kick.`);
+          }
 
-          // Record the vote
-          const isApprove = message.content.toLowerCase() === 'yes';
-          await storage.addVoteKickVote({
-            voteKickId: activeVoteKick.id,
-            playerId: player.id,
-            approve: isApprove
+          // Process vote using transaction to prevent race conditions
+          await withTransaction(async (tx) => {
+            try {
+              // Verify the votekick is still active within transaction
+              const currentVoteKick = await storage.getVoteKick(activeVoteKick.id, tx);
+              if (!currentVoteKick || currentVoteKick.status !== 'PENDING') {
+                await tx.commit();
+                return message.reply(`This vote kick is no longer active.`);
+              }
+              
+              // Record the vote within transaction
+              const isApprove = message.content.toLowerCase() === 'yes';
+              await storage.addVoteKickVote({
+                voteKickId: activeVoteKick.id,
+                playerId: player.id,
+                approve: isApprove
+              }, tx);
+              
+              // Get all current votes within the same transaction
+              const votes = await storage.getVoteKickVotes(activeVoteKick.id, tx);
+              
+              // Get match details for accurate player counts
+              const matchDetails = await storage.getMatch(matchId, tx);
+              const teams = await storage.getMatchTeams(matchId, tx);
+              
+              // Calculate required votes based on updated config
+              const botConfig = await storage.getBotConfig(tx);
+              const voteSettings = botConfig.matchRules.voteSystemSettings;
+              
+              // Get all players in the match for cross-team voting
+              const allPlayers = teams.flatMap(team => team.players);
+              const requiredVotes = Math.max(
+                voteSettings.minVotesNeeded,
+                Math.ceil(allPlayers.length * (voteSettings.majorityPercent / 100))
+              );
+              
+              const approveVotes = votes.filter(v => v.approve).length;
+              
+              // Commit transaction regardless of outcome
+              await tx.commit();
+              
+              if (approveVotes >= requiredVotes) {
+                // Votekick passed - handle with matchService to avoid race conditions
+                const matchService = new MatchService(storage);
+                matchService.handleSuccessfulVoteKick(activeVoteKick.id)
+                  .then(result => {
+                    if (result.success) {
+                      message.channel.send(`Vote to kick <@${activeVoteKick.targetPlayerId}> has passed. They have been removed from the match.`);
+                    } else {
+                      message.channel.send(`Vote to kick passed but there was an error: ${result.message}`);
+                    }
+                  })
+                  .catch(err => {
+                    logger.error(`Error handling successful votekick: ${err}`);
+                    message.channel.send(`An error occurred while processing the successful votekick.`);
+                  });
+              } else {
+                // Vote recorded, not enough votes yet
+                message.reply(`Vote recorded. ${approveVotes}/${requiredVotes} votes to kick.`);
+                
+                // Check if all possible votes are in
+                if (votes.length >= allPlayers.length - 1) { // -1 for target player
+                  storage.updateVoteKick(activeVoteKick.id, {
+                    status: 'REJECTED',
+                    finishedAt: new Date()
+                  }).then(() => {
+                    message.channel.send(`Vote to kick failed. Not enough votes to remove the player.`);
+                  });
+                }
+              }
+            } catch (error) {
+              await tx.rollback();
+              logger.error(`Error processing vote: ${error}`);
+              message.reply('There was an error processing your vote. Please try again.');
+            }
           });
-
-          // Check if we have enough votes to complete the votekick
-          const votes = await storage.getVoteKickVotes(activeVoteKick.id);
-          const totalTeamSize = match.teams.find(t => 
-            t.players.some(p => p.id === activeVoteKick.targetPlayerId)
-          )?.players.length || 0;
-
-          const requiredVotes = Math.ceil(totalTeamSize / 2);
-          const approveVotes = votes.filter(v => v.approve).length;
-
-          if (approveVotes >= requiredVotes) {
-            // Votekick passed
-            await storage.updateVoteKick(activeVoteKick.id, {
-              status: 'APPROVED',
-              finishedAt: new Date()
-            });
 
             // Notify about the successful vote
             message.channel.send(`Vote to kick <@${player.discordId}> has passed. They have been removed from the match.`);
