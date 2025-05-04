@@ -530,12 +530,118 @@ export class MatchService {
         ]
       );
 
+      // Start the cleanup process for the match channel
+      try {
+        const client = getDiscordClient();
+        if (!client || !client.isReady()) {
+          logger.error("Discord client not ready for match cleanup");
+        } else {
+          const botConfig = await this.storage.getBotConfig();
+          const guildId = botConfig.general.guildId;
+          
+          let guild = guildId ? client.guilds.cache.get(guildId) : client.guilds.cache.first();
+          
+          if (guild) {
+            // Try to get the channel by stored ID first
+            let matchChannel = match.channelId ? guild.channels.cache.get(match.channelId) : null;
+            
+            // If not found by ID, try by name
+            if (!matchChannel) {
+              matchChannel = guild.channels.cache.find(
+                (channel) => channel.name === `match-${matchId}`
+              );
+            }
+            
+            if (matchChannel && matchChannel.isTextBased()) {
+              logger.info(`Beginning cleanup for completed match #${matchId} channel`);
+              
+              // Post countdown message
+              const countdownSeconds = 10;
+              let secondsLeft = countdownSeconds;
+              
+              try {
+                const countdownMessage = await matchChannel.send(
+                  `Match completed! Team ${winningTeamName} won! Channel will be deleted in ${countdownSeconds} seconds...`
+                );
+                
+                const interval = setInterval(async () => {
+                  try {
+                    secondsLeft--;
+                    if (secondsLeft > 0) {
+                      await countdownMessage.edit(
+                        `Match completed! Team ${winningTeamName} won! Channel will be deleted in ${secondsLeft} seconds...`
+                      );
+                    } else {
+                      clearInterval(interval);
+                      logger.info(`Match completion countdown finished for match #${matchId}`);
+                      
+                      // Delete the channel
+                      try {
+                        logger.info(`Deleting channel for completed match #${matchId}`);
+                        await matchChannel.delete();
+                        logger.info(`Successfully deleted channel for completed match #${matchId}`);
+                      } catch (deleteError) {
+                        logger.error(`Failed to delete channel for completed match: ${deleteError}`);
+                      }
+                    }
+                  } catch (intervalError) {
+                    logger.error(`Error in match completion countdown: ${intervalError}`);
+                    clearInterval(interval);
+                  }
+                }, 1000);
+              } catch (messageError) {
+                logger.error(`Failed to send match completion countdown message: ${messageError}`);
+              }
+              
+              // Re-queue players if configured to do so
+              try {
+                if (botConfig.matchmaking.autoRequeueAfterMatch) {
+                  logger.info(`Auto-requeuing players from match #${matchId}`);
+                  
+                  const queueService = QueueService.getInstance(this.storage);
+                  const allPlayers = [...winningTeam.players, ...losingTeam.players];
+                  
+                  for (const player of allPlayers) {
+                    try {
+                      queueService.markPlayerAsProcessing(player.id);
+                      const requeued = await queueService.addPlayerToQueue(player.id);
+                      if (requeued.success) {
+                        logger.info(`Auto-requeued player ${player.username} (${player.id}) after match completion`);
+                      } else {
+                        logger.warn(`Failed to auto-requeue player ${player.username} (${player.id}): ${requeued.message}`);
+                      }
+                    } catch (requeueError) {
+                      logger.error(`Error auto-requeuing player ${player.id}: ${requeueError}`);
+                      queueService.unmarkPlayerAsProcessing(player.id);
+                    }
+                  }
+                } else {
+                  logger.info(`Auto-requeue is disabled, not requeuing players from match #${matchId}`);
+                }
+              } catch (requeueError) {
+                logger.error(`Error during auto-requeue process: ${requeueError}`);
+              }
+            } else {
+              logger.warn(`Could not find match channel for match #${matchId} to clean up`);
+            }
+          } else {
+            logger.error("No guild available for match channel cleanup");
+          }
+        }
+      } catch (cleanupError) {
+        logger.error(`Error during match cleanup process: ${cleanupError}`);
+      }
+
       // Emit match ended event
       try {
-        const { MATCH_EVENTS } = require("../utils/eventEmitter");
-        const events = require("../utils/eventEmitter").EventEmitter.getInstance();
-        events.emit(MATCH_EVENTS.ENDED, matchId);
-        logger.info(`Emitted match ended event for match ${matchId}`);
+        // Use ES module import for EventEmitter to ensure proper loading
+        import('../utils/eventEmitter').then(({ EventEmitter, MATCH_EVENTS }) => {
+          const events = EventEmitter.getInstance();
+          events.emit(MATCH_EVENTS.ENDED, matchId);
+          logger.info(`Emitted match ended event for match ${matchId}`);
+        }).catch(err => {
+          logger.error(`Error importing event emitter: ${err}`);
+        });
       } catch (eventError) {
         logger.error(`Error emitting match ended event: ${eventError}`);
       }
