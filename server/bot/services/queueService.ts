@@ -74,6 +74,9 @@ export class QueueService {
                     `Queue check interval triggered. Current queue size: ${queueSize}`,
                 );
 
+                // Check for and clean up any stuck players
+                this.checkAndCleanupStuckPlayers();
+                
                 // Check for timed out players and remove them
                 await this.checkAndRemoveTimedOutPlayers();
 
@@ -449,6 +452,30 @@ export class QueueService {
      * Check for players who have been in the queue longer than the timeout period and remove them
      * This is called during each queue check interval
      */
+    /**
+     * Check for and clean up any players that have been stuck in 'processing' state for too long
+     * This protects against edge cases where players disconnect or errors occur during match creation
+     */
+    private checkAndCleanupStuckPlayers(): void {
+        try {
+            // If any players have been stuck in processing state for a while, unmark them
+            if (this.playersBeingProcessed.size > 0) {
+                logger.info(`Found ${this.playersBeingProcessed.size} players in processing state during cleanup check`);
+                
+                // Just clean them all up - in a production system we might want to add
+                // timestamps to track how long they've been processing
+                this.playersBeingProcessed.forEach(playerId => {
+                    logger.warn(`Cleaning up player ${playerId} who appears to be stuck in processing state`);
+                    this.unmarkPlayerAsProcessing(playerId);
+                });
+            }
+        } catch (error) {
+            logger.error(`Error checking for stuck players: ${error}`);
+            // As a last resort, clear the entire set
+            this.playersBeingProcessed.clear();
+        }
+    }
+
     private async checkAndRemoveTimedOutPlayers(): Promise<void> {
         try {
             // Get bot config to get the timeout period
@@ -692,8 +719,11 @@ export class QueueService {
                     throw error; // Re-throw to roll back the transaction
                 } finally {
                     // In case of error, ensure we unmark all players we tried to process
-                    for (const playerId of matchPlayers || []) {
-                        this.unmarkPlayerAsProcessing(playerId);
+                    // Make sure matchPlayers is defined before trying to iterate through it
+                    if (typeof matchPlayers !== 'undefined' && matchPlayers) {
+                        for (const playerId of matchPlayers) {
+                            this.unmarkPlayerAsProcessing(playerId);
+                        }
                     }
                 }
             }).catch(error => {
@@ -710,6 +740,16 @@ export class QueueService {
         } finally {
             // Always release the lock when done
             this.matchCreationInProgress = false;
+            
+            // Verify all players who were selected for the match have been properly unmarked
+            if (typeof matchPlayers !== 'undefined' && matchPlayers && matchPlayers.length > 0) {
+                for (const playerId of matchPlayers) {
+                    if (this.playersBeingProcessed.has(playerId)) {
+                        logger.warn(`Player ${playerId} was still marked as processing after match creation completed or failed, cleaning up`);
+                        this.unmarkPlayerAsProcessing(playerId);
+                    }
+                }
+            }
         }
     }
 }
