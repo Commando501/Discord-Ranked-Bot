@@ -412,11 +412,11 @@ export class MatchService {
       }
       
       // If not found by ID or if winning team parameter is a string, try to find by name
+      // Define winningTeamNameStr at this scope level so it's available throughout the function
+      const winningTeamNameStr = String(winningTeamName).toLowerCase();
+      logger.info(`Attempting to find winning team by name: ${winningTeamNameStr}`);
+      
       if (!winningTeam) {
-        // Ensure winningTeamName is a string for comparison
-        const winningTeamNameStr = String(winningTeamName).toLowerCase();
-        logger.info(`Attempting to find winning team by name: ${winningTeamNameStr}`);
-        
         winningTeam = teams.find(
           (t) => t.name.toLowerCase() === winningTeamNameStr,
         );
