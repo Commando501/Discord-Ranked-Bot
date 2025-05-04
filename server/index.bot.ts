@@ -163,14 +163,75 @@ export async function initializeBot() {
           const totalPlayers = teams.reduce((sum, team) => sum + team.players.length, 0);
           const requiredVotes = Math.ceil(totalPlayers / 2);
 
+          // Check if the match is already being completed by another vote
+          const match = await storage.getMatch(matchId);
+          if (match.status !== 'ACTIVE') {
+            return await interaction.reply({
+              content: `This match is no longer active.`,
+              ephemeral: true
+            });
+          }
+
           if (team1Votes >= requiredVotes) {
-            // Team 1 wins
-            await matchService.endMatch(matchId, teams[0].id);
-            await interaction.reply(`Team ${teams[0].name} has won the match! Match results have been recorded.`);
+            try {
+              // Immediately mark the match as in progress to prevent other votes from triggering completion
+              await storage.updateMatch(matchId, { status: "COMPLETING" });
+              
+              // Team 1 wins - use the name string instead of ID to avoid type errors
+              const winningTeamName = teams[0].name;
+              logger.info(`Match ${matchId} voted complete with winning team ${winningTeamName}`);
+              
+              const result = await matchService.endMatch(matchId, winningTeamName);
+              
+              if (result.success) {
+                await interaction.reply(`Team ${winningTeamName} has won the match! Match results have been recorded.`);
+              } else {
+                // If endMatch fails, revert the status to allow retrying
+                await storage.updateMatch(matchId, { status: "ACTIVE" });
+                await interaction.reply({
+                  content: `Error ending match: ${result.message}. Please try again or use admin commands.`,
+                  ephemeral: true
+                });
+              }
+            } catch (error) {
+              logger.error(`Error completing match ${matchId}: ${error}`);
+              // Attempt to revert status if there was an error
+              await storage.updateMatch(matchId, { status: "ACTIVE" });
+              await interaction.reply({
+                content: "An error occurred while completing the match. Please try again.",
+                ephemeral: true
+              });
+            }
           } else if (team2Votes >= requiredVotes) {
-            // Team 2 wins
-            await matchService.endMatch(matchId, teams[1].id);
-            await interaction.reply(`Team ${teams[1].name} has won the match! Match results have been recorded.`);
+            try {
+              // Immediately mark the match as in progress to prevent other votes from triggering completion
+              await storage.updateMatch(matchId, { status: "COMPLETING" });
+              
+              // Team 2 wins - use the name string instead of ID to avoid type errors
+              const winningTeamName = teams[1].name;
+              logger.info(`Match ${matchId} voted complete with winning team ${winningTeamName}`);
+              
+              const result = await matchService.endMatch(matchId, winningTeamName);
+              
+              if (result.success) {
+                await interaction.reply(`Team ${winningTeamName} has won the match! Match results have been recorded.`);
+              } else {
+                // If endMatch fails, revert the status to allow retrying
+                await storage.updateMatch(matchId, { status: "ACTIVE" });
+                await interaction.reply({
+                  content: `Error ending match: ${result.message}. Please try again or use admin commands.`,
+                  ephemeral: true
+                });
+              }
+            } catch (error) {
+              logger.error(`Error completing match ${matchId}: ${error}`);
+              // Attempt to revert status if there was an error
+              await storage.updateMatch(matchId, { status: "ACTIVE" });
+              await interaction.reply({
+                content: "An error occurred while completing the match. Please try again.",
+                ephemeral: true
+              });
+            }
           } else {
             // Still waiting for more votes
             await interaction.reply({

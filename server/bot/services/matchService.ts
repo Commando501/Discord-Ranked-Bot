@@ -363,7 +363,7 @@ export class MatchService {
 
   async endMatch(
     matchId: number,
-    winningTeamName: string,
+    winningTeamName: string | number,
   ): Promise<{ success: boolean; message: string }> {
     try {
       // Get the match details
@@ -373,6 +373,14 @@ export class MatchService {
         return { success: false, message: `Match #${matchId} not found` };
       }
 
+      if (match.status === "COMPLETING") {
+        logger.info(`Match #${matchId} is already being completed by another process`);
+        return {
+          success: false,
+          message: `Match #${matchId} is already being completed by another process`,
+        };
+      }
+
       if (match.status !== "ACTIVE" && match.status !== "WAITING") {
         return {
           success: false,
@@ -380,25 +388,47 @@ export class MatchService {
         };
       }
 
+      // Update match status to prevent concurrent completion processes
+      await this.storage.updateMatch(matchId, { status: "COMPLETING" });
+
       // Get teams data for this match
       const teams = await this.storage.getMatchTeams(matchId);
       if (!teams || teams.length < 2) {
+        // Revert status
+        await this.storage.updateMatch(matchId, { status: "ACTIVE" });
         return {
           success: false,
           message: `Teams not found for match #${matchId}`,
         };
       }
 
-      // Ensure winningTeamName is a string for comparison
-      const winningTeamNameStr = String(winningTeamName).toLowerCase();
-
-      // Find the winning team
-      const winningTeam = teams.find(
-        (t) => t.name.toLowerCase() === winningTeamNameStr,
-      );
+      // First try to find the team by ID if the winning team parameter is a number
+      let winningTeam = null;
+      
+      if (typeof winningTeamName === 'number') {
+        // If number, try to find by team ID
+        winningTeam = teams.find(t => t.id === winningTeamName);
+        logger.info(`Attempting to find winning team by ID: ${winningTeamName}`);
+      }
+      
+      // If not found by ID or if winning team parameter is a string, try to find by name
+      if (!winningTeam) {
+        // Ensure winningTeamName is a string for comparison
+        const winningTeamNameStr = String(winningTeamName).toLowerCase();
+        logger.info(`Attempting to find winning team by name: ${winningTeamNameStr}`);
+        
+        winningTeam = teams.find(
+          (t) => t.name.toLowerCase() === winningTeamNameStr,
+        );
+      }
+      
       if (!winningTeam) {
         // Log available teams to help debugging
-        logger.warn(`Available teams for match #${matchId}: ${teams.map(t => t.name).join(', ')}`);
+        logger.warn(`Available teams for match #${matchId}: ${teams.map(t => `${t.name} (ID: ${t.id})`).join(', ')}`);
+        
+        // Revert status
+        await this.storage.updateMatch(matchId, { status: "ACTIVE" });
+        
         return {
           success: false,
           message: `Team "${winningTeamName}" not found in match #${matchId}`,
