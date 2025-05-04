@@ -1,3 +1,4 @@
+
 import { Client, GatewayIntentBits, Events, TextChannel } from 'discord.js';
 import { setupCommandHandlers } from './bot/commands';
 import { logger } from './bot/utils/logger';
@@ -25,7 +26,7 @@ export async function initializeBot() {
       return null;
     }
 
-      // Handle message events specifically for vote processing
+    // Handle message events specifically for vote processing
     client.on(Events.MessageCreate, async (message) => {
       if (message.author.bot) return;
 
@@ -140,11 +141,6 @@ export async function initializeBot() {
               message.reply('There was an error processing your vote. Please try again.');
             }
           });
-        } catch (error: any) {
-          logger.error(`Error processing vote: ${error.message}`);
-        }
-      }
-    });
         } catch (error: any) {
           logger.error(`Error processing vote: ${error.message}`);
         }
