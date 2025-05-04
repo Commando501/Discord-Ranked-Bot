@@ -140,6 +140,25 @@ export default function MatchesPage() {
     }
   };
 
+  const handleCompleteMatch = async (matchId: number, winningTeam: string) => {
+    try {
+      await apiRequest('POST', `/api/matches/${matchId}/complete`, {
+        winningTeam
+      });
+      toast({
+        title: "Match completed",
+        description: `Team ${winningTeam} has been set as the winner.`,
+      });
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to complete the match. Try using Discord commands instead.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <AppLayout>
       <div className="p-6">
@@ -270,6 +289,25 @@ export default function MatchesPage() {
                       >
                         Cancel
                       </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Complete Match Controls */}
+                  <div className="mt-3 pt-3 border-t border-black/20">
+                    <p className="text-xs text-[#B9BBBE] mb-2">Complete match:</p>
+                    <div className="flex space-x-2">
+                      {match.teams.map((team) => (
+                        <Button 
+                          key={team.id}
+                          variant="outline" 
+                          size="sm"
+                          className={`text-xs flex-1 ${team.name === 'Eagle' ? 'border-blue-500/20 text-blue-500 hover:bg-blue-500/10' : 'border-amber-500/20 text-amber-500 hover:bg-amber-500/10'}`}
+                          onClick={() => handleCompleteMatch(match.id, team.name)}
+                        >
+                          <Award className="h-3 w-3 mr-1" />
+                          Team {team.name} Won
+                        </Button>
+                      ))}
                     </div>
                   </div>
                 </div>

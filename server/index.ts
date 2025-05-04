@@ -66,7 +66,7 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
-    
+
     // Initialize the Discord bot after the server is started
     if (process.env.DISCORD_TOKEN) {
       initializeBot().catch(err => {

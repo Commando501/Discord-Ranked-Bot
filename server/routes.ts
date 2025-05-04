@@ -113,6 +113,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/matches/:matchId/complete", async (req, res) => {
+    try {
+      const matchId = parseInt(req.params.matchId);
+      const { winningTeam } = req.body;
+      
+      if (!matchId || !winningTeam) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Match ID and winning team are required" 
+        });
+      }
+
+      // Use the matchService to end the match with the specified winning team
+      const matchService = new MatchService(storage);
+      const result = await matchService.endMatch(matchId, winningTeam);
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error completing match:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to complete match" 
+      });
+    }
+  });
+
   app.get("/api/matches/history", async (req, res) => {
     try {
       const count = req.query.count ? parseInt(req.query.count as string) : 10;
