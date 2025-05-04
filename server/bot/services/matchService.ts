@@ -477,19 +477,28 @@ export class MatchService {
         
         // Attempt to find the current active group for these players
         const playerIds = allMatchPlayers.map(p => p.id);
-        const groupId = queueService.generateGroupId(playerIds);
         
-        if (queueService.groupExists(groupId)) {
-          // Record wins/losses in the player group
-          for (const player of winningTeam.players) {
-            queueService.recordPlayerWin(player.id, groupId);
-          }
+        // Check if the generateGroupId method exists before calling it
+        if (typeof queueService.generateGroupId === 'function') {
+          const groupId = queueService.generateGroupId(playerIds);
           
-          for (const player of losingTeam.players) {
-            queueService.recordPlayerLoss(player.id, groupId);
+          // Check if the groupExists method exists before calling it
+          if (typeof queueService.groupExists === 'function' && queueService.groupExists(groupId)) {
+            // Record wins/losses in the player group
+            if (typeof queueService.recordPlayerWin === 'function') {
+              for (const player of winningTeam.players) {
+                queueService.recordPlayerWin(player.id, groupId);
+              }
+            }
+            
+            if (typeof queueService.recordPlayerLoss === 'function') {
+              for (const player of losingTeam.players) {
+                queueService.recordPlayerLoss(player.id, groupId);
+              }
+            }
+            
+            logger.info(`Updated consecutive win/loss tracking for group ${groupId}`);
           }
-          
-          logger.info(`Updated consecutive win/loss tracking for group ${groupId}`);
         }
       } catch (error) {
         logger.error(`Error updating consecutive win/loss tracking: ${error}`);
@@ -530,10 +539,76 @@ export class MatchService {
         ]
       );
 
+      // Add channel cleanup process here
+      try {
+        // Get the Discord client
+        const client = await import("../../discord/bot").then(module => module.getDiscordClient());
+        
+        if (!client || !client.isReady()) {
+          logger.warn("Discord client not ready for channel cleanup");
+          return {
+            success: true,
+            message: `Match #${matchId} has been completed, but channel cleanup was skipped.`,
+          };
+        }
+        
+        // Get match channel information
+        if (match.channelId) {
+          const matchChannel = await client.channels.fetch(match.channelId).catch(err => {
+            logger.error(`Failed to fetch match channel: ${err}`);
+            return null;
+          });
+          
+          if (matchChannel && matchChannel.isTextBased()) {
+            // Start countdown for channel deletion
+            const countdownSeconds = 10;
+            let secondsLeft = countdownSeconds;
+            
+            logger.info(`Starting match completion countdown for match #${matchId}`);
+            
+            const countdownMessage = await matchChannel.send(
+              `Match completed! Team ${winningTeamName} won! Channel will be deleted in ${countdownSeconds} seconds...`
+            );
+            
+            const interval = setInterval(async () => {
+              try {
+                secondsLeft--;
+                if (secondsLeft > 0) {
+                  await countdownMessage.edit(
+                    `Match completed! Team ${winningTeamName} won! Channel will be deleted in ${secondsLeft} seconds...`
+                  );
+                } else {
+                  clearInterval(interval);
+                  logger.info(`Deleting channel for completed match #${matchId}`);
+                  
+                  // Delete the channel
+                  await matchChannel.delete()
+                    .then(() => {
+                      logger.info(`Successfully deleted channel for match #${matchId}`);
+                    })
+                    .catch(error => {
+                      logger.error(`Failed to delete channel for match #${matchId}: ${error}`);
+                    });
+                }
+              } catch (error) {
+                logger.error(`Error in match completion countdown: ${error}`);
+                clearInterval(interval);
+              }
+            }, 1000);
+          } else {
+            logger.warn(`Match channel for match #${matchId} not found or not a text channel`);
+          }
+        }
+      } catch (error) {
+        logger.error(`Error during match channel cleanup: ${error}`);
+      }
+            
       // Emit match ended event
       try {
-        const { MATCH_EVENTS } = require("../utils/eventEmitter");
-        const events = require("../utils/eventEmitter").EventEmitter.getInstance();
+        // Use dynamic import instead of require
+        const eventEmitterModule = await import("../utils/eventEmitter");
+        const { MATCH_EVENTS, EventEmitter } = eventEmitterModule;
+        const events = EventEmitter.getInstance();
         events.emit(MATCH_EVENTS.ENDED, matchId);
         logger.info(`Emitted match ended event for match ${matchId}`);
       } catch (eventError) {
