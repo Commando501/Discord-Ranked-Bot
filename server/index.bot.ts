@@ -140,21 +140,11 @@ export async function initializeBot() {
               message.reply('There was an error processing your vote. Please try again.');
             }
           });
-
-            // Notify about the successful vote
-            message.channel.send(`Vote to kick <@${player.discordId}> has passed. They have been removed from the match.`);
-          } else if (votes.length >= totalTeamSize) {
-            // All votes are in but not enough to kick
-            await storage.updateVoteKick(activeVoteKick.id, {
-              status: 'REJECTED',
-              finishedAt: new Date()
-            });
-
-            message.channel.send(`Vote to kick failed. Not enough votes to remove the player.`);
-          } else {
-            // Still waiting for more votes
-            message.reply(`Vote recorded. ${approveVotes}/${requiredVotes} votes to kick.`);
-          }
+        } catch (error: any) {
+          logger.error(`Error processing vote: ${error.message}`);
+        }
+      }
+    });
         } catch (error: any) {
           logger.error(`Error processing vote: ${error.message}`);
         }
