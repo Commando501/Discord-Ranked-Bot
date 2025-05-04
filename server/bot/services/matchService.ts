@@ -372,6 +372,9 @@ export class MatchService {
       if (!match) {
         return { success: false, message: `Match #${matchId} not found` };
       }
+      
+      // Log the match ending attempt for debugging purposes
+      logger.info(`Attempting to end match #${matchId} with winning team "${winningTeamName}" (type: ${typeof winningTeamName})`);
 
       if (match.status === "COMPLETING") {
         logger.info(`Match #${matchId} is already being completed by another process`);

@@ -4,6 +4,7 @@ import { setupCommandHandlers } from './bot/commands';
 import { logger } from './bot/utils/logger';
 import { config } from './bot/config';
 import { storage } from './storage';
+import { withTransaction } from './db';
 import { QueueService } from './bot/services/queueService';
 import { PlayerService } from './bot/services/playerService';
 import { MatchService } from './bot/services/matchService';
