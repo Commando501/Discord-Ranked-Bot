@@ -380,11 +380,25 @@ export class MatchService {
         };
       }
 
+      // Get teams data for this match
+      const teams = await this.storage.getMatchTeams(matchId);
+      if (!teams || teams.length < 2) {
+        return {
+          success: false,
+          message: `Teams not found for match #${matchId}`,
+        };
+      }
+
+      // Ensure winningTeamName is a string for comparison
+      const winningTeamNameStr = String(winningTeamName).toLowerCase();
+
       // Find the winning team
-      const winningTeam = match.teams.find(
-        (t) => t.name.toLowerCase() === winningTeamName.toLowerCase(),
+      const winningTeam = teams.find(
+        (t) => t.name.toLowerCase() === winningTeamNameStr,
       );
       if (!winningTeam) {
+        // Log available teams to help debugging
+        logger.warn(`Available teams for match #${matchId}: ${teams.map(t => t.name).join(', ')}`);
         return {
           success: false,
           message: `Team "${winningTeamName}" not found in match #${matchId}`,
@@ -392,8 +406,8 @@ export class MatchService {
       }
 
       // Find the losing team
-      const losingTeam = match.teams.find(
-        (t) => t.name.toLowerCase() !== winningTeamName.toLowerCase(),
+      const losingTeam = teams.find(
+        (t) => t.name.toLowerCase() !== winningTeamNameStr,
       );
       if (!losingTeam) {
         return {
