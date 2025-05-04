@@ -4,7 +4,8 @@ This file serves as an index to all patch logs, organized by time period.
 
 
 ## Patch Log Archives
-- [2025 Q2 (Apr-Jun)](./patch_logs/2025-Q2.md) - Latest: Added authentication system to protect admin dashboard (2025-04-20)
+- [2025 Q2 (Apr-Jun)](./patch_logs/2025-Q2_5.md)
+- [2025 Q2 (Apr-Jun)](./patch_logs/2025-Q2.md)
 - [2025 Q1 (Jan-Mar)](./patch_logs/2025-Q1.md)
 - [2024 Q4 (Oct-Dec)](./patch_logs/2024-Q4.md)
 - [2024 Q3 (Jul-Sep)](./patch_logs/2024-Q3.md)
