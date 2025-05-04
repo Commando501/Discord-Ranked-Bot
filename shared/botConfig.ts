@@ -78,7 +78,7 @@ export const seasonConfigSchema = z.object({
 export const matchRulesConfigSchema = z.object({
   voteSystemSettings: z.object({
     majorityPercent: z.number().min(50).max(100).default(75),
-    minVotesNeeded: z.number().int().min(1).default(3),
+    minVotesNeeded: z.number().int().min(1).default(5),
   }),
   matchTimeLimitHours: z.number().min(0.5).max(48).default(2),
   enableForfeit: z.boolean().default(true),
@@ -206,7 +206,7 @@ export const defaultBotConfig: BotConfig = {
   matchRules: {
     voteSystemSettings: {
       majorityPercent: 75,
-      minVotesNeeded: 3,
+      minVotesNeeded: 5,
     },
     matchTimeLimitHours: 2,
     enableForfeit: true,

@@ -83,12 +83,13 @@ export default function MatchRulesConfigPanel({ config, onChange }: MatchRulesCo
                         <Input 
                           type="number" 
                           min={1} 
+                          defaultValue={5}
                           {...field} 
                           onChange={(e) => field.onChange(parseInt(e.target.value))}
                         />
                       </FormControl>
                       <FormDescription>
-                        Minimum number of votes needed regardless of percentage
+                        Minimum number of votes needed regardless of percentage (5 for 8-player matches)
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
