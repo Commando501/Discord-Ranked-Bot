@@ -39,7 +39,9 @@ export const logger = createLogger({
       format: format.combine(
         format.colorize(),
         customFormat
-      )
+      ),
+      // Console filter to reduce noise from routine operations
+      level: process.env.CONSOLE_LOG_LEVEL || loggingLevel
     }),
     new transports.File({ 
       filename: 'error.log', 

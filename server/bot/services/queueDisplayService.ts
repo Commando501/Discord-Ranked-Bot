@@ -46,7 +46,7 @@ export class QueueDisplayService {
   private async initialize(): Promise<void> {
     try {
       logger.info("Starting QueueDisplayService initialization");
-      
+
       // First, clean up any existing duplicate messages in the channel
       // We'll do this immediately on initialization to ensure a clean state
       const existingMessage = await this.cleanupDuplicateMessages();
@@ -127,7 +127,7 @@ export class QueueDisplayService {
   public async forceMessageRecreation(): Promise<void> {
     try {
       logger.info("Starting forced recreation of queue display");
-      
+
       const client = getDiscordClient();
       if (!client) {
         logger.warn("Cannot recreate message: Discord client not available");
@@ -143,16 +143,16 @@ export class QueueDisplayService {
       // Use our enhanced cleanup method to handle existing messages
       logger.info("Cleaning up any existing messages before force recreation");
       await this.cleanupDuplicateMessages();
-      
+
       // Clear the existing message reference
       this.displayMessage = null;
 
       // Short delay to ensure cleanup is complete
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Get fresh queue and match data for the new message
       const [queueEmbed, ...matchEmbeds] = await this.createQueueEmbeds();
-      
+
       // Create button row
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
@@ -166,28 +166,28 @@ export class QueueDisplayService {
           .setStyle(ButtonStyle.Danger)
           .setEmoji("❌"),
       );
-      
+
       // Create a fresh message
       const newMessage = await channel.send({
         embeds: [queueEmbed, ...matchEmbeds],
         components: [row],
       });
-      
+
       this.displayMessage = newMessage;
-      
+
       // Set up fresh collectors
       this.setupButtonCollector(newMessage);
-      
+
       logger.info(`Force recreation completed successfully: new message ID ${newMessage.id}`);
-      
+
       // One final verification to check for any duplicates that might have slipped through
       setTimeout(async () => {
         await this.cleanupDuplicateMessages();
       }, 2000);
-      
+
     } catch (error) {
       logger.error(`Error during force recreation of queue display: ${error}`);
-      
+
       // If there was an error, still try to ensure we don't have duplicates
       setTimeout(async () => {
         try {
@@ -221,7 +221,7 @@ export class QueueDisplayService {
       // Fetch a larger number of messages to ensure we catch all duplicates
       // This is more thorough than the previous approach that only fetched 10-20 messages
       const allMessages = await channel.messages.fetch({ limit: 50 });
-      
+
       // Find all queue messages by our bot
       const queueMessages = allMessages.filter(
         (msg) =>
@@ -237,16 +237,16 @@ export class QueueDisplayService {
 
       if (queueMessages.size > 1) {
         logger.warn(`Found ${queueMessages.size} queue messages during cleanup - removing duplicates`);
-        
+
         // Sort messages by creation timestamp (newest first)
         const sortedMessages = [...queueMessages.values()].sort(
           (a, b) => b.createdTimestamp - a.createdTimestamp
         );
-        
+
         // Keep the most recent message
         const mostRecentMessage = sortedMessages[0];
         logger.info(`Keeping most recent queue message with ID: ${mostRecentMessage.id}`);
-        
+
         // Delete all other queue messages
         for (let i = 1; i < sortedMessages.length; i++) {
           try {
@@ -255,16 +255,16 @@ export class QueueDisplayService {
           } catch (deleteError) {
             logger.error(`Failed to delete duplicate message: ${deleteError}`);
           }
-          
+
           // Add a small delay between deletions to avoid rate limits
           await new Promise(resolve => setTimeout(resolve, 200));
         }
-        
+
         return mostRecentMessage;
       } else {
         // Only one message found
         const singleMessage = queueMessages.first()!;
-        logger.info(`Found single queue message with ID: ${singleMessage.id}`);
+        logger.debug(`Found single queue message with ID: ${singleMessage.id}`);
         return singleMessage;
       }
     } catch (error) {
@@ -380,7 +380,7 @@ export class QueueDisplayService {
       } else {
         // No message reference in memory, but run cleanup again to be certain
         await this.cleanupDuplicateMessages();
-        
+
         // Create a fresh message
         const sentMessage = await channel.send({
           embeds: [queueEmbed, ...matchEmbeds],

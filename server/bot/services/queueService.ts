@@ -55,24 +55,38 @@ export class QueueService {
             config.matchmaking.matchCreationIntervalSeconds * 1000;
 
         logger.info(`Starting queue check interval: ${intervalMs}ms`);
+        
+        // Track queue state to reduce redundant logging
+        let lastQueueSize = 0;
+        let checkCounter = 0;
+        const logFrequency = 10; // Log detailed info every 10 checks
 
         // Start new interval
         this.queueCheckInterval = setInterval(async () => {
             // If a check is already in progress, skip this iteration
             if (this.queueCheckInProgress) {
-                logger.info("Queue check already in progress, skipping this interval");
+                logger.debug("Queue check already in progress, skipping this interval");
                 return;
             }
 
             // Set the check in progress flag
             this.queueCheckInProgress = true;
+            checkCounter++;
 
             try {
                 // Get queue size for logging/debugging
                 const queueSize = await this.getQueueSize();
-                logger.info(
-                    `Queue check interval triggered. Current queue size: ${queueSize}`,
-                );
+                
+                // Only log on changes or periodically to reduce spam
+                const shouldLogDetailed = queueSize !== lastQueueSize || checkCounter % logFrequency === 0;
+                
+                if (shouldLogDetailed) {
+                    logger.info(`Queue status: ${queueSize} players in queue (check #${checkCounter})`);
+                } else {
+                    logger.debug(`Queue check #${checkCounter}: ${queueSize} players`);
+                }
+                
+                lastQueueSize = queueSize;
 
                 // Check for and clean up any stuck players
                 this.checkAndCleanupStuckPlayers();
@@ -84,11 +98,9 @@ export class QueueService {
                 const guild = bot?.guilds.cache.first();
 
                 if (guild) {
-                    logger.info(
-                        "Queue check: Found guild, checking for potential matches",
-                    );
+                    logger.debug("Queue check: Found guild, checking for potential matches");
 
-                    // Get config for logging
+                    // Get config for player requirements
                     const botConfig = await this.storage.getBotConfig();
                     const minPlayersRequired =
                         botConfig.matchmaking.queueSizeLimits.min;
@@ -109,7 +121,8 @@ export class QueueService {
                             );
                         }
                     } else {
-                        logger.info(
+                        // Use debug for routine "not enough players" messages to reduce spam
+                        logger.debug(
                             `Not enough players in queue yet (${queueSize}/${minPlayersRequired})`,
                         );
                     }
