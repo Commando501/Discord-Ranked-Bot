@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { RefreshCcwIcon, XIcon } from "lucide-react";
+import { RefreshCcwIcon, XIcon, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface QueuePlayer {
   player: {
@@ -21,10 +22,46 @@ interface QueuePlayer {
 export default function QueuePanel() {
   const { toast } = useToast();
   const [showAll, setShowAll] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   
-  const { data: queuePlayers, isLoading, refetch } = useQuery<QueuePlayer[]>({
+  const { 
+    data: queuePlayers, 
+    isLoading, 
+    refetch,
+    isRefetching
+  } = useQuery<QueuePlayer[]>({
     queryKey: ['/api/queue'],
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    staleTime: 5000, // Consider data stale after 5 seconds
   });
+  
+  const { data: botConfig } = useQuery<{
+    matchmaking?: {
+      minimumQueueSize?: number
+    }
+  }>({
+    queryKey: ['/api/config'],
+  });
+  
+  const requiredPlayers = botConfig?.matchmaking?.minimumQueueSize || 10;
+  
+  // Update the last updated timestamp whenever queue data is refreshed
+  useEffect(() => {
+    if (!isLoading && !isRefetching) {
+      setLastUpdated(new Date());
+    }
+  }, [queuePlayers, isLoading, isRefetching]);
+
+  // Set up a timer to update waiting times independently of the data refresh
+  useEffect(() => {
+    // Update waiting times every second
+    const timer = setInterval(() => {
+      // This doesn't trigger a data refetch, just forces a re-render to update the waiting times
+      setLastUpdated(new Date());
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, []);
   
   const handleRefresh = async () => {
     await refetch();
@@ -34,19 +71,26 @@ export default function QueuePanel() {
     });
   };
   
-  const handleForceMatch = () => {
-    toast({
-      title: "Force match",
-      description: "This functionality is only available in Discord.",
-      variant: "destructive"
-    });
+  const handleForceMatch = async () => {
+    try {
+      await apiRequest('/api/queue/force-match', 'POST');
+      toast({
+        title: "Match created",
+        description: "A match has been forcibly created from the current queue.",
+      });
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create match. Try using Discord commands instead.",
+        variant: "destructive"
+      });
+    }
   };
   
   const handleResetQueue = async () => {
     try {
-      await fetch('/api/queue/reset', {
-        method: 'POST',
-      });
+      await apiRequest('/api/queue/reset', 'POST');
       
       await refetch();
       toast({
@@ -63,12 +107,21 @@ export default function QueuePanel() {
     }
   };
   
-  const handleRemovePlayer = (playerId: number) => {
-    toast({
-      title: "Remove player",
-      description: "This functionality is only available in Discord.",
-      variant: "destructive"
-    });
+  const handleRemovePlayer = async (playerId: number) => {
+    try {
+      await apiRequest(`/api/queue/remove/${playerId}`, 'POST');
+      toast({
+        title: "Player removed",
+        description: "Player has been removed from the queue.",
+      });
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to remove player. Try using Discord commands instead.",
+        variant: "destructive"
+      });
+    }
   };
   
   const getWaitingTime = (joinedAt: string) => {
@@ -80,7 +133,7 @@ export default function QueuePanel() {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     
-    return `${minutes}m ${remainingSeconds}s`;
+    return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
   };
   
   const getInitials = (username: string) => {
@@ -91,20 +144,31 @@ export default function QueuePanel() {
     ? queuePlayers 
     : queuePlayers?.slice(0, 3);
     
-  const requiredPlayers = 10; // This would come from the API in a full implementation
+  const getLastUpdatedText = () => {
+    const seconds = Math.floor((new Date().getTime() - lastUpdated.getTime()) / 1000);
+    if (seconds < 5) return "just now";
+    if (seconds < 60) return `${seconds} seconds ago`;
+    return `${Math.floor(seconds / 60)} minute${Math.floor(seconds / 60) === 1 ? '' : 's'} ago`;
+  };
 
   return (
     <div className="bg-[#2F3136] rounded-lg shadow-sm">
       <div className="border-b border-black/20 p-4 flex justify-between items-center">
-        <h2 className="text-white font-semibold">Current Queue</h2>
+        <div>
+          <h2 className="text-white font-semibold">Current Queue</h2>
+          <div className="flex items-center text-xs text-[#B9BBBE] mt-1">
+            <Clock className="h-3 w-3 mr-1 opacity-70" />
+            <span>Updated {getLastUpdatedText()}</span>
+          </div>
+        </div>
         <div>
           <Button 
             variant="secondary"
             size="sm"
             onClick={handleRefresh}
-            disabled={isLoading}
+            disabled={isLoading || isRefetching}
           >
-            <RefreshCcwIcon className="h-4 w-4 mr-1" />
+            <RefreshCcwIcon className={`h-4 w-4 mr-1 ${isRefetching ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -124,7 +188,10 @@ export default function QueuePanel() {
         
         <div className="space-y-2">
           {isLoading ? (
-            <div className="text-center py-4 text-[#B9BBBE]">Loading queue...</div>
+            <div className="text-center py-4 text-[#B9BBBE]">
+              <RefreshCcwIcon className="animate-spin h-4 w-4 mx-auto mb-2" />
+              Loading queue...
+            </div>
           ) : queuePlayers?.length === 0 ? (
             <div className="text-center py-4 text-[#B9BBBE]">Queue is empty</div>
           ) : (
@@ -158,8 +225,9 @@ export default function QueuePanel() {
                 </div>
                 <div>
                   <button 
-                    className="text-[#ED4245] hover:text-opacity-80 transition-colors"
+                    className="text-[#ED4245] hover:bg-[#ED4245]/10 p-1 rounded transition-colors"
                     onClick={() => handleRemovePlayer(entry.player.id)}
+                    aria-label="Remove player"
                   >
                     <XIcon className="h-4 w-4" />
                   </button>

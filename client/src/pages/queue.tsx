@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { RefreshCcw, X } from "lucide-react";
+import { RefreshCcw, X, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AppLayout from "@/components/layout/app-layout";
 import { apiRequest } from "@/lib/queryClient";
@@ -23,9 +23,19 @@ interface QueuePlayer {
 export default function QueuePage() {
   const { toast } = useToast();
   const [showAll, setShowAll] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const refreshInterval = useRef<NodeJS.Timeout | null>(null);
   
-  const { data: queuePlayers, isLoading, refetch } = useQuery<QueuePlayer[]>({
+  const { 
+    data: queuePlayers, 
+    isLoading, 
+    refetch,
+    isRefetching
+  } = useQuery<QueuePlayer[]>({
     queryKey: ['/api/queue'],
+    refetchInterval: autoRefresh ? 10000 : false, // Auto-refresh every 10 seconds if enabled
+    staleTime: 5000, // Consider data stale after 5 seconds
   });
 
   const { data: botConfig } = useQuery<{
@@ -37,6 +47,24 @@ export default function QueuePage() {
   });
   
   const requiredPlayers = botConfig?.matchmaking?.minimumQueueSize || 10;
+  
+  // Update the last updated timestamp whenever queue data is refreshed
+  useEffect(() => {
+    if (!isLoading && !isRefetching) {
+      setLastUpdated(new Date());
+    }
+  }, [queuePlayers, isLoading, isRefetching]);
+
+  // Set up a timer to update waiting times independently of the data refresh
+  useEffect(() => {
+    // Update waiting times every second
+    const timer = setInterval(() => {
+      // Force a re-render to update the waiting times
+      setLastUpdated(new Date());
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, []);
   
   const handleRefresh = async () => {
     await refetch();
@@ -106,11 +134,34 @@ export default function QueuePage() {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     
-    return `${minutes}m ${remainingSeconds}s`;
+    return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
   };
   
   const getInitials = (username: string) => {
     return username.substring(0, 2).toUpperCase();
+  };
+  
+  const toggleAutoRefresh = () => {
+    setAutoRefresh(!autoRefresh);
+    
+    if (!autoRefresh) {
+      toast({
+        title: "Auto-refresh enabled",
+        description: "Queue will now update automatically every 10 seconds.",
+      });
+    } else {
+      toast({
+        title: "Auto-refresh disabled",
+        description: "Queue will only update when manually refreshed.",
+      });
+    }
+  };
+  
+  const getLastUpdatedText = () => {
+    const seconds = Math.floor((new Date().getTime() - lastUpdated.getTime()) / 1000);
+    if (seconds < 5) return "just now";
+    if (seconds < 60) return `${seconds} seconds ago`;
+    return `${Math.floor(seconds / 60)} minute${Math.floor(seconds / 60) === 1 ? '' : 's'} ago`;
   };
   
   const displayedPlayers = showAll 
@@ -129,18 +180,29 @@ export default function QueuePage() {
           <div className="border-b border-black/20 p-4 flex justify-between items-center">
             <div>
               <h2 className="text-white font-semibold">Queue Status</h2>
-              <p className="text-sm text-[#B9BBBE]">
-                {queuePlayers?.length || 0} players in queue ({requiredPlayers} required)
-              </p>
+              <div className="flex items-center text-sm text-[#B9BBBE]">
+                <p>{queuePlayers?.length || 0} players in queue ({requiredPlayers} required)</p>
+                <div className="flex items-center ml-3 text-xs">
+                  <Clock className="h-3 w-3 mr-1 opacity-70" />
+                  <span>Updated {getLastUpdatedText()}</span>
+                </div>
+              </div>
             </div>
-            <div>
+            <div className="flex space-x-2">
+              <Button 
+                variant={autoRefresh ? "default" : "outline"}
+                size="sm"
+                onClick={toggleAutoRefresh}
+              >
+                {autoRefresh ? "Auto-Refresh: On" : "Auto-Refresh: Off"}
+              </Button>
               <Button 
                 variant="secondary"
                 size="sm"
                 onClick={handleRefresh}
-                disabled={isLoading}
+                disabled={isLoading || isRefetching}
               >
-                <RefreshCcw className="h-4 w-4 mr-1" />
+                <RefreshCcw className={`h-4 w-4 mr-1 ${isRefetching ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
             </div>
