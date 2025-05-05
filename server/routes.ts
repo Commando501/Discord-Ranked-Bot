@@ -841,6 +841,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to clear queue" });
     }
   });
+  
+  // Remove player from queue endpoint for web dashboard
+  app.post("/api/queue/remove/:playerId", async (req, res) => {
+    try {
+      const playerId = parseInt(req.params.playerId);
+      
+      if (isNaN(playerId)) {
+        return res.status(400).json({ message: "Invalid player ID" });
+      }
+      
+      const success = await storage.removePlayerFromQueue(playerId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Player not found in queue" });
+      }
+      
+      // Emit queue updated event using ES modules
+      try {
+        const { EventEmitter, QUEUE_EVENTS } = await import('./bot/utils/eventEmitter');
+        const events = EventEmitter.getInstance();
+        events.emit(QUEUE_EVENTS.UPDATED);
+        events.emit(QUEUE_EVENTS.PLAYER_LEFT, playerId);
+      } catch (eventError) {
+        console.error(`Error emitting queue event: ${eventError}`);
+      }
+      
+      res.json({ success: true, message: "Player removed from queue" });
+    } catch (error) {
+      console.error("Error removing player from queue:", error);
+      res.status(500).json({ message: "Failed to remove player from queue" });
+    }
+  });
+  
+  // Force match creation endpoint for web dashboard
+  app.post("/api/queue/force-match", async (req, res) => {
+    try {
+      // Get the bot and guild
+      const bot = await import('./index.bot').then(m => m.getBot());
+      if (!bot) {
+        return res.status(500).json({
+          success: false,
+          message: "Bot instance not available"
+        });
+      }
+      
+      const guild = bot.guilds.cache.first();
+      if (!guild) {
+        return res.status(500).json({
+          success: false,
+          message: "Discord guild not available"
+        });
+      }
+      
+      // Import QueueService
+      const { QueueService } = await import('./bot/services/queueService');
+      const queueService = QueueService.getInstance(storage);
+      
+      // Try to create a match, forcing it even if minimum player count isn't met
+      const matchCreated = await queueService.checkAndCreateMatch(guild, true);
+      
+      if (matchCreated) {
+        return res.json({
+          success: true,
+          message: "Match successfully created from queue"
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Failed to create match. Queue may be empty or players may be in processing state."
+        });
+      }
+    } catch (error) {
+      console.error("Error forcing match creation:", error);
+      res.status(500).json({
+        success: false,
+        message: "Server error while trying to create match"
+      });
+    }
+  });
 
   // Start a new season
   app.post("/api/admin/seasons/new", adminMiddleware, async (req, res) => {
