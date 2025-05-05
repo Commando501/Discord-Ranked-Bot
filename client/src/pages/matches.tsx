@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Clock, Award, Users, RefreshCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ interface Match {
 
 export default function MatchesPage() {
   const { toast } = useToast();
+  const [expandedMatch, setExpandedMatch] = useState<number | null>(null);
   
   const { data: matches, isLoading, refetch } = useQuery<Match[]>({
     queryKey: ['/api/matches/active'],
@@ -250,7 +252,7 @@ export default function MatchesPage() {
                                   } 
                                   alt={player.username} 
                                 />
-                                <AvatarFallback className="bg-[#5865F2] text-[9px]">
+                                <AvatarFallback className="bg-[#5865F2] text-[9px] flex items-center justify-center">
                                   {getInitials(player.username)}
                                 </AvatarFallback>
                               </Avatar>
@@ -268,9 +270,10 @@ export default function MatchesPage() {
                       variant="secondary" 
                       size="sm"
                       className="text-xs"
+                      onClick={() => setExpandedMatch(expandedMatch === match.id ? null : match.id)}
                     >
                       <Users className="h-3 w-3 mr-1" />
-                      View Details
+                      {expandedMatch === match.id ? "Hide Details" : "View Details"}
                     </Button>
                     <div className="flex space-x-2">
                       <Button 
@@ -291,6 +294,20 @@ export default function MatchesPage() {
                       </Button>
                     </div>
                   </div>
+                  
+                  {/* Expanded Match Details */}
+                  {expandedMatch === match.id && (
+                    <div className="mt-3 pt-3 border-t border-black/20">
+                      <div className="bg-[#36393F] rounded-md p-3 text-sm">
+                        <h4 className="font-medium text-white mb-2">Match Details</h4>
+                        <p className="text-[#B9BBBE] mb-1">Match ID: <span className="text-white">{match.id}</span></p>
+                        <p className="text-[#B9BBBE] mb-1">Created: <span className="text-white">{new Date(match.createdAt).toLocaleString()}</span></p>
+                        <p className="text-[#B9BBBE] mb-1">Status: <span className="text-white">{match.status}</span></p>
+                        {match.map && <p className="text-[#B9BBBE] mb-1">Map: <span className="text-white">{match.map}</span></p>}
+                        {match.server && <p className="text-[#B9BBBE] mb-1">Server: <span className="text-white">{match.server}</span></p>}
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Complete Match Controls */}
                   <div className="mt-3 pt-3 border-t border-black/20">
