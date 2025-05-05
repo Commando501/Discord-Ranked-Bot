@@ -74,8 +74,12 @@ export default function QueuePage() {
     });
   };
   
+  const [isMatchCreating, setIsMatchCreating] = useState(false);
+  const [isQueueResetting, setIsQueueResetting] = useState(false);
+  
   const handleForceMatch = async () => {
     try {
+      setIsMatchCreating(true);
       await apiRequest('/api/queue/force-match', 'POST');
       toast({
         title: "Match created",
@@ -88,11 +92,14 @@ export default function QueuePage() {
         description: "Failed to create match. Try using Discord commands instead.",
         variant: "destructive"
       });
+    } finally {
+      setIsMatchCreating(false);
     }
   };
   
   const handleResetQueue = async () => {
     try {
+      setIsQueueResetting(true);
       await apiRequest('/api/queue/reset', 'POST');
       toast({
         title: "Queue reset",
@@ -105,6 +112,8 @@ export default function QueuePage() {
         description: "Failed to reset queue. Try using Discord commands instead.",
         variant: "destructive"
       });
+    } finally {
+      setIsQueueResetting(false);
     }
   };
   
@@ -293,16 +302,26 @@ export default function QueuePage() {
               <Button 
                 onClick={handleForceMatch} 
                 className="flex-1"
-                disabled={queuePlayers?.length === 0}
+                disabled={queuePlayers?.length === 0 || isMatchCreating}
               >
-                Force Match Creation
+                {isMatchCreating ? (
+                  <>
+                    <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
+                    Creating Match...
+                  </>
+                ) : "Force Match Creation"}
               </Button>
               <Button 
                 variant="destructive" 
                 onClick={handleResetQueue}
-                disabled={queuePlayers?.length === 0}
+                disabled={queuePlayers?.length === 0 || isQueueResetting}
               >
-                Clear Queue
+                {isQueueResetting ? (
+                  <>
+                    <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
+                    Clearing...
+                  </>
+                ) : "Clear Queue"}
               </Button>
             </div>
           </div>
