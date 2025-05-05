@@ -6,7 +6,6 @@ import { AuthProvider } from "@/hooks/use-auth-context";
 import { ProtectedRoute } from "@/components/protected-route";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
-import AdminPage from "@/pages/admin";
 import ConfigPage from "@/pages/config";
 import QueuePage from "@/pages/queue";
 import MatchesPage from "@/pages/matches";
@@ -30,11 +29,7 @@ function Router() {
         </ProtectedRoute>
       </Route>
       
-      <Route path="/admin">
-        <ProtectedRoute>
-          <AdminPage />
-        </ProtectedRoute>
-      </Route>
+      
       
       <Route path="/config">
         <ProtectedRoute>

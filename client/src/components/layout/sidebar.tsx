@@ -24,10 +24,7 @@ export default function Sidebar() {
             <i className="ri-dashboard-line mr-2"></i>
             <span>Dashboard</span>
           </Link>
-          <Link href="/admin" className={getNavItemClasses("/admin")}>
-            <i className="ri-user-settings-line mr-2"></i>
-            <span>Admin Settings</span>
-          </Link>
+          
           <Link href="/config" className={getNavItemClasses("/config")}>
             <i className="ri-settings-3-line mr-2"></i>
             <span>Bot Configuration</span>
