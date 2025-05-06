@@ -52,9 +52,18 @@ if [ ! -d "exports" ]; then
     echo "Created exports directory for database backups"
 fi
 
-# Create a database backup
-echo "Creating database backup..."
+# Create database backups
+echo "Creating database backups..."
+echo "Creating JSON backup..."
 npx tsx server/utils/export-db-script.ts
+
+# Create SQL backup if pg_dump is available
+if command -v pg_dump &> /dev/null; then
+    echo "Creating SQL backup..."
+    npx tsx server/utils/db-export.ts
+else
+    echo "pg_dump not found, skipping SQL backup"
+fi
 
 echo "Deployment completed successfully!"
 echo "Start the application with: npm start"
