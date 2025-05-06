@@ -85,12 +85,53 @@ The web dashboard runs on port 5000 by default. Make sure this port is accessibl
 - **Database Connection Errors**: Verify your `DATABASE_URL` and ensure PostgreSQL is running
 - **Missing Discord Interactions**: Make sure to re-register slash commands with `/register` after migrating
 
+## Exporting and Importing Database
+
+### Exporting Data
+
+The system provides two methods for exporting your database:
+
+1. **SQL Export** (recommended for full database structure):
+   ```bash
+   npx tsx server/utils/db-export.ts
+   ```
+   This creates a complete SQL dump with table structures and data.
+
+2. **JSON Export** (for data-only migration):
+   ```bash
+   npx tsx server/utils/export-db-script.ts
+   ```
+   This exports just the data in JSON format.
+
+### Importing Data
+
+1. **Import SQL File**:
+   - If you have direct database access:
+     ```bash
+     psql $DATABASE_URL -f ./exports/your-export-file.sql
+     ```
+   
+2. **Import JSON File**:
+   ```bash
+   npx tsx server/utils/import-db-script.ts ./exports/your-export-file.json
+   ```
+
+3. **Convert SQL to JSON** (if you need to use a SQL export with the JSON import tool):
+   ```bash
+   npx tsx server/utils/convert-sql-script.ts ./exports/your-export-file.sql
+   npx tsx server/utils/import-db-script.ts ./exports/your-export-file.json
+   ```
+
 ## Regular Backups
 
-Set up a scheduled task to run the export script regularly:
+Set up a scheduled task to run the export scripts regularly:
 
 ```bash
+# For SQL export
+npx tsx server/utils/db-export.ts
+
+# For JSON export
 npx tsx server/utils/export-db-script.ts
 ```
 
-This ensures you have recent backups of your data.
+This ensures you have recent backups of your data in multiple formats.
