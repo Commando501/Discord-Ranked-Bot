@@ -1,4 +1,4 @@
-# MatchMaker - Discord Competitive Gaming Bot
+# Late League Discord Bot
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
