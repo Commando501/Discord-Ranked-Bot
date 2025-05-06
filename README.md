@@ -1,39 +1,8 @@
-# Late League Discord Bot
+# Matchmaker Discord Bot
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+A Discord bot for organizing competitive matches through a matchmaking system.
 
-A sophisticated Discord bot platform revolutionizing competitive gaming management through intelligent matchmaking and user-centric features.
-
-![MatchMaker Demo](docs/images/matchmaker-demo.png)
-
-## 🎮 Overview
-
-MatchMaker is a powerful Discord bot designed to facilitate competitive matchmaking for gaming communities. It allows users to queue for matches, tracks player rankings through an MMR (Matchmaking Rating) system, and provides various commands for match management, player statistics, and administrative functions.
-
-### Key Features
-
-- **Intelligent Matchmaking**: Balanced team creation based on player MMR
-- **Real-time Queue Management**: Join/leave queue with Discord slash commands
-- **Player Statistics Tracking**: Win rates, MMR, and performance metrics
-- **Match History**: Detailed records of past matches and outcomes
-- **Vote System**: In-match voting for results and player kicks
-- **Configurable Settings**: Highly customizable bot behavior
-- **Season Management**: Support for competitive seasons and rankings
-
-## 📋 Table of Contents
-
-- [Installation](#installation)
-  - [Prerequisites](#prerequisites)
-  - [Setup](#setup)
-  - [Configuration](#configuration)
-- [Usage](#usage)
-  - [Player Commands](#player-commands)
-  - [Admin Commands](#admin-commands)
-- [Architecture](#architecture)
-- [Contributing](#contributing)
-- [License](#license)
-
-## 🔧 Installation
+## Installation
 
 ### Prerequisites
 
@@ -73,7 +42,7 @@ MatchMaker is a powerful Discord bot designed to facilitate competitive matchmak
    ```
    # Discord Bot Configuration
    DISCORD_TOKEN=your_discord_bot_token
-   
+
    # Database Configuration
    DATABASE_URL=postgresql://username:password@localhost:5432/matchmaker
    ```
@@ -87,40 +56,17 @@ MatchMaker is a powerful Discord bot designed to facilitate competitive matchmak
    ```bash
    # Development mode with hot reloading
    npm run dev
-   
+
    # Production mode
    npm run build
    npm start
    ```
 
-### Database Setup
+### Database Management
 
-#### Local PostgreSQL
-
-1. Install PostgreSQL on your system
-2. Create a new database and user:
-   ```sql
-   CREATE DATABASE matchmaker;
-   CREATE USER matchmakeruser WITH ENCRYPTED PASSWORD 'your_password';
-   GRANT ALL PRIVILEGES ON DATABASE matchmaker TO matchmakeruser;
-   ```
-
-3. Update your `.env` file with the connection string:
-   ```
-   DATABASE_URL=postgresql://matchmakeruser:your_password@localhost:5432/matchmaker
-   ```
-
-#### Cloud Database Option
-
-You can also use a cloud PostgreSQL provider like [Neon](https://neon.tech/):
-
-1. Create an account and a new project
-2. Get the connection string and update your `.env` file
-
-For more detailed installation instructions, see the complete installation guide in `docs/installation.md`.
+The application includes tools for managing database backups and restores.
 
 ### Configuration
-
 The bot is highly configurable through the `discordbot-config.json` file. You can adjust the following settings:
 
 #### General Settings
@@ -178,7 +124,6 @@ The default rank tiers are:
 For more comprehensive configuration options, see the `docs/configuration.md` file.
 
 ## 💻 Usage
-
 MatchMaker uses Discord's slash commands for all interactions. Start typing `/` in any channel where the bot has permissions to see the available commands.
 
 ### Player Commands
@@ -251,6 +196,7 @@ The interface layer handles user interactions via Discord, including:
 - User feedback providers
 
 **Key Files:**
+
 - `server/discord/bot.ts` - Main Discord client setup
 - `server/discord/commands/*.ts` - Command handlers
 - `server/index.bot.ts` - Bot initialization
@@ -260,6 +206,7 @@ The interface layer handles user interactions via Discord, including:
 The service layer implements the core business logic of the application:
 
 **Key Services:**
+
 - `QueueService` - Manages player queue and matchmaking
 - `PlayerService` - Handles player data and statistics
 - `MatchService` - Manages match creation and results
@@ -270,6 +217,7 @@ The service layer implements the core business logic of the application:
 The data layer handles persistence and data operations:
 
 **Key Components:**
+
 - `server/db.ts` - Database connection and transactions
 - `shared/schema.ts` - Database schema definitions
 - `server/storage.ts` - Repository pattern implementation
